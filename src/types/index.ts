@@ -137,3 +137,26 @@ export interface NodeTag {
 export interface NodeTreeItem extends Omit<Node, 'deletedAt'> {
   children: NodeTreeItem[];
 }
+
+/**
+ * Local credential for a user's password.
+ */
+export interface UserCredential {
+  id: string;
+  userId: string;
+  passwordHash: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Session record for an authenticated user.
+ */
+export interface Session {
+  id: string;
+  userId: string;
+  sessionToken: string;
+  expiresAt: Date;
+  createdAt: Date;
+}
+

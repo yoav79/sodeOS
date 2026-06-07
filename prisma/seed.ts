@@ -1,6 +1,7 @@
 import { PrismaClient, BrainVisibility, BrainRole, NodeStatus, TemplateType } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import bcrypt from 'bcryptjs';
 
 const prismaClientSingleton = () => {
   const connectionString = process.env.DATABASE_URL;
@@ -32,6 +33,20 @@ async function main() {
     },
   });
   console.log(`Mock user seeded: ${user.name}`);
+
+  // Seed User Credential for Local Auth
+  const passwordHash = await bcrypt.hash("DemoPassword123!", 10);
+  await prisma.userCredential.upsert({
+    where: { userId: mockUserId },
+    update: {
+      passwordHash,
+    },
+    create: {
+      userId: mockUserId,
+      passwordHash,
+    },
+  });
+  console.log("Mock user credentials seeded with local password hash");
 
   // 2. Seed Brain Workspace
   const demoBrainId = "00000000-0000-0000-0000-000000000002";
