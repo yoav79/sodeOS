@@ -417,4 +417,77 @@ export async function createNode(
   });
 }
 
+export async function archiveNodeTree(
+  nodeId: string,
+  userId: string
+): Promise<{ success: boolean; count: number } | null> {
+  const rootNode = await db.node.findFirst({
+    where: {
+      id: nodeId,
+      deletedAt: null,
+    },
+  });
+
+  if (!rootNode) {
+    return null;
+  }
+
+  const siblingAndDescendantNodes = await db.node.findMany({
+    where: {
+      brainId: rootNode.brainId,
+      deletedAt: null,
+      id: { not: nodeId },
+    },
+    select: {
+      id: true,
+      parentId: true,
+    },
+  });
+
+  const parentToChildren = new Map<string, string[]>();
+  for (const n of siblingAndDescendantNodes) {
+    if (n.parentId) {
+      const list = parentToChildren.get(n.parentId) || [];
+      list.push(n.id);
+      parentToChildren.set(n.parentId, list);
+    }
+  }
+
+  const descendantIds: string[] = [];
+  const queue = [nodeId];
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    const children = parentToChildren.get(currentId);
+    if (children) {
+      for (const childId of children) {
+        descendantIds.push(childId);
+        queue.push(childId);
+      }
+    }
+  }
+
+  return await db.$transaction(async (tx) => {
+    const targetIds = [nodeId, ...descendantIds];
+    const now = new Date();
+
+    const updateResult = await tx.node.updateMany({
+      where: {
+        id: { in: targetIds },
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: now,
+        updatedBy: userId,
+        updatedAt: now,
+      },
+    });
+
+    return {
+      success: true,
+      count: updateResult.count,
+    };
+  });
+}
+
+
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getNodeDetail, updateNodeContent } from '@/services/nodeService';
+import { getNodeDetail, updateNodeContent, archiveNodeTree } from '@/services/nodeService';
 import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 
 export async function GET(
@@ -135,6 +135,58 @@ export async function PATCH(
     );
   } catch (error: unknown) {
     console.error('Error updating node:', error);
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json(
+      { error: message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ nodeId: string }> }
+) {
+  try {
+    const { nodeId } = await params;
+
+    if (!nodeId) {
+      return NextResponse.json({ error: 'El ID del nodo es requerido.' }, { status: 400 });
+    }
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
+    }
+
+    const node = await getNodeDetail(nodeId);
+    if (!node) {
+      return NextResponse.json({ error: 'Nodo no encontrado o eliminado.' }, { status: 404 });
+    }
+
+    try {
+      await verifyBrainAccess(currentUser.id, node.brainId, 'editor');
+    } catch (err: unknown) {
+      if (err instanceof AuthError) {
+        return NextResponse.json(
+          { error: err.message },
+          { status: err.status }
+        );
+      }
+      return NextResponse.json(
+        { error: 'No autorizado.' },
+        { status: 403 }
+      );
+    }
+
+    const result = await archiveNodeTree(nodeId, currentUser.id);
+    if (!result) {
+      return NextResponse.json({ error: 'Nodo no encontrado o eliminado.' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, count: result.count }, { status: 200 });
+  } catch (error: unknown) {
+    console.error('Error deleting node:', error);
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json(
       { error: message },

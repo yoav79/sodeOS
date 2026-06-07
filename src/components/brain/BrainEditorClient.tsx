@@ -122,6 +122,75 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     }
   };
 
+  // Archiving States
+  const [isArchiving, setIsArchiving] = useState<boolean>(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
+  const handleArchiveNode = async () => {
+    if (!nodeDetail) return;
+
+    const findNodeInTree = (nodes: NodeTreeItem[], targetId: string): NodeTreeItem | null => {
+      for (const n of nodes) {
+        if (n.id === targetId) return n;
+        if (n.children && n.children.length > 0) {
+          const found = findNodeInTree(n.children, targetId);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const treeItem = findNodeInTree(tree, nodeDetail.id);
+    const hasChildren = treeItem ? treeItem.children.length > 0 : false;
+
+    const confirmMsg = hasChildren
+      ? 'Este nodo tiene subpáginas. Si lo archivas, todas sus subpáginas serán archivadas también de forma recursiva. ¿Estás seguro de que deseas continuar?'
+      : '¿Estás seguro de que deseas archivar este nodo?';
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      setIsArchiving(true);
+      setArchiveError(null);
+
+      const res = await fetch(`/api/nodes/${nodeDetail.id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 403) {
+          setArchiveError('Permisos insuficientes para archivar este nodo.');
+          return;
+        }
+        if (res.status === 404) {
+          setSelectedNodeId(null);
+          setNodeDetail(null);
+          setRefreshTrigger((prev) => prev + 1);
+          return;
+        }
+        throw new Error(data.error || 'Error al archivar el nodo.');
+      }
+
+      setSelectedNodeId(null);
+      setNodeDetail(null);
+      setRefreshTrigger((prev) => prev + 1);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al archivar el nodo.';
+      setArchiveError(message);
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       const res = await fetch('/api/auth/logout', {
@@ -560,6 +629,12 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
               ) : (
                 /* READ-ONLY VIEW */
                 <div className="flex flex-col gap-6">
+                  {archiveError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center justify-between gap-2">
+                      <span>⚠️ {archiveError}</span>
+                      <button onClick={() => setArchiveError(null)} className="text-red-500 hover:text-red-700 font-bold">✕</button>
+                    </div>
+                  )}
                   {/* Node Breadcrumbs / Meta */}
                   <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
                     <span>Cerebros</span>
@@ -595,6 +670,25 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                         Editar
+                      </button>
+                      <button
+                        onClick={handleArchiveNode}
+                        disabled={isArchiving}
+                        className="px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-sm font-semibold text-red-600 border border-red-200 transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
+                      >
+                        {isArchiving ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                            Archivando...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Archivar
+                          </>
+                        )}
                       </button>
                       <div className="flex flex-col items-end gap-1">
                         <span className="text-[10px] text-slate-400 font-mono uppercase font-bold">Status</span>
