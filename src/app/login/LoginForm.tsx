@@ -42,28 +42,28 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md p-8 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl space-y-6">
+    <div className="w-full max-w-md p-8 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-100 space-y-6 relative z-10">
       <div className="text-center space-y-2">
-        <div className="inline-flex p-3 bg-blue-950/50 text-blue-400 border border-blue-900/30 rounded-xl mb-2">
+        <div className="lg:hidden inline-flex p-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl mb-2">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold tracking-tight text-white">Cerebro Empresarial</h2>
-        <p className="text-sm text-zinc-400 max-w-xs mx-auto">
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900">Iniciar Sesión</h2>
+        <p className="text-sm text-slate-500 max-w-xs mx-auto">
           El conocimiento de tu empresa, organizado, vivo y accesible
         </p>
       </div>
 
       {error && (
-        <div className="p-4 bg-red-950/40 border border-red-900/30 text-red-400 rounded-xl text-sm text-center">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm text-center font-medium">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+          <label htmlFor="email" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
             Correo Electrónico
           </label>
           <input
@@ -74,17 +74,17 @@ export default function LoginForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="demo@cerebroempresarial.com"
             disabled={loading}
-            className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-white placeholder-zinc-600 outline-none transition-colors"
+            className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-colors"
           />
         </div>
 
         <div>
           <div className="flex justify-between items-center mb-2">
-            <label htmlFor="password" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+            <label htmlFor="password" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Contraseña
             </label>
             <span
-              className="text-xs text-zinc-500 cursor-not-allowed hover:text-zinc-400 transition-colors"
+              className="text-xs text-slate-400 cursor-not-allowed hover:text-slate-500 transition-colors"
               title="No disponible en el MVP"
             >
               ¿Olvidaste tu contraseña?
@@ -98,7 +98,7 @@ export default function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             disabled={loading}
-            className="w-full px-4 py-3 bg-zinc-950 border border-zinc-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-white placeholder-zinc-600 outline-none transition-colors"
+            className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-colors"
           />
         </div>
 
@@ -109,9 +109,9 @@ export default function LoginForm() {
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
             disabled={loading}
-            className="h-4 w-4 bg-zinc-950 border-zinc-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-zinc-900 rounded cursor-pointer"
+            className="h-4 w-4 bg-white border-slate-200 text-blue-600 focus:ring-blue-500 rounded cursor-pointer"
           />
-          <label htmlFor="remember-me" className="ml-2 block text-sm text-zinc-400 select-none cursor-pointer">
+          <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 select-none cursor-pointer">
             Recordarme
           </label>
         </div>
@@ -119,7 +119,7 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all shadow-lg hover:shadow-blue-500/10 flex items-center justify-center gap-2"
+          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -131,9 +131,9 @@ export default function LoginForm() {
 
       <div className="relative flex items-center justify-center my-4">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-zinc-800"></div>
+          <div className="w-full border-t border-slate-200"></div>
         </div>
-        <span className="relative px-3 bg-zinc-900 text-xs text-zinc-500 uppercase tracking-wider">
+        <span className="relative px-3 bg-white text-xs text-slate-400 uppercase tracking-wider">
           O continuar con
         </span>
       </div>
@@ -141,7 +141,7 @@ export default function LoginForm() {
       <button
         type="button"
         disabled
-        className="w-full py-3 bg-zinc-950 text-zinc-500 border border-zinc-800 rounded-xl font-medium cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full py-3 bg-slate-50 text-slate-400 border border-slate-200 rounded-xl font-medium cursor-not-allowed flex items-center justify-center gap-2"
         title="Inicio de sesión SSO deshabilitado en el MVP"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -151,8 +151,8 @@ export default function LoginForm() {
       </button>
 
       <div className="text-center pt-2">
-        <p className="text-xs text-zinc-500">
-          ¿No tienes cuenta? <span className="text-zinc-400 font-semibold">Contacta al administrador</span>
+        <p className="text-xs text-slate-500">
+          ¿No tienes cuenta? <span className="text-slate-700 font-semibold">Contacta al administrador</span>
         </p>
       </div>
     </div>

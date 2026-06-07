@@ -53,15 +53,15 @@ function NodeTreeRow({
   const getStatusColor = (status: NodeStatus) => {
     switch (status) {
       case 'active':
-        return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'draft':
-        return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+        return 'bg-sky-50 text-sky-700 border-sky-200';
       case 'needs_review':
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+        return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'archived':
-        return 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20';
+        return 'bg-slate-100 text-slate-600 border-slate-200';
       default:
-        return 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20';
+        return 'bg-slate-100 text-slate-600 border-slate-200';
     }
   };
 
@@ -85,8 +85,8 @@ function NodeTreeRow({
       <div
         className={`group flex items-center justify-between py-1.5 px-2 rounded-lg transition-all duration-200 cursor-pointer ${
           isSelected
-            ? 'bg-blue-500/10 border-l-2 border-blue-500 text-blue-400 font-medium'
-            : 'hover:bg-zinc-800/50 text-zinc-300 hover:text-zinc-100 border-l-2 border-transparent'
+            ? 'bg-blue-50 border-l-2 border-blue-600 text-blue-700 font-semibold'
+            : 'hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-l-2 border-transparent'
         }`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => onSelectNode(item)}
@@ -99,12 +99,12 @@ function NodeTreeRow({
               setIsExpanded(!isExpanded);
             }}
             disabled={!hasChildren}
-            className={`p-1 rounded hover:bg-zinc-700/50 transition-transform duration-200 ${
+            className={`p-1 rounded hover:bg-slate-200 transition-transform duration-200 ${
               !hasChildren ? 'opacity-0 cursor-default' : 'opacity-70 hover:opacity-100'
             } ${isExpanded && hasChildren ? 'rotate-90' : ''}`}
           >
             <svg
-              className="w-3 h-3 fill-current text-zinc-400"
+              className="w-3 h-3 fill-current text-slate-400 group-hover:text-slate-600"
               viewBox="0 0 24 24"
             >
               <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
@@ -114,7 +114,7 @@ function NodeTreeRow({
           {/* Node Icon */}
           <svg
             className={`w-4 h-4 shrink-0 ${
-              isSelected ? 'text-blue-400' : 'text-zinc-500 group-hover:text-zinc-400'
+              isSelected ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-500'
             }`}
             fill="none"
             viewBox="0 0 24 24"
@@ -134,7 +134,7 @@ function NodeTreeRow({
 
         {/* Status Badge */}
         <span
-          className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold tracking-wider shrink-0 transition-opacity duration-200 opacity-80 group-hover:opacity-100 ${getStatusColor(
+          className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold shrink-0 transition-opacity duration-200 ${getStatusColor(
             item.status
           )}`}
         >
