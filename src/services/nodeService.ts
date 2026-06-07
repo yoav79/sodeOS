@@ -668,6 +668,125 @@ export async function moveNode(
   });
 }
 
+export async function applyTemplateToNode(
+  nodeId: string,
+  templateId: string,
+  userId: string
+): Promise<Node> {
+  return await db.$transaction(async (tx) => {
+    // 1. Fetch node and check if exists and is active
+    const node = await tx.node.findUnique({
+      where: { id: nodeId },
+    });
+
+    if (!node || node.deletedAt !== null) {
+      throw new Error('Nodo no encontrado o eliminado.');
+    }
+
+    // 2. Fetch template and check if exists
+    const template = await tx.template.findUnique({
+      where: { id: templateId },
+    });
+
+    if (!template) {
+      throw new Error('Plantilla no encontrada.');
+    }
+
+    // 3. Verify brainId match
+    if (template.brainId !== node.brainId) {
+      throw new Error('La plantilla no pertenece al mismo cerebro que el nodo.');
+    }
+
+    // 4. Verify templateType is page
+    if (template.templateType !== 'page') {
+      throw new Error('Solo se pueden aplicar plantillas de tipo "page".');
+    }
+
+    // 5. Verify schemaJson has fields
+    interface SchemaField {
+      name?: string;
+      label?: string;
+      type?: string;
+    }
+    const schema = template.schemaJson as { fields?: SchemaField[] } | null;
+    if (!schema || !schema.fields || !Array.isArray(schema.fields) || schema.fields.length === 0) {
+      throw new Error('La plantilla no tiene campos definidos en su esquema.');
+    }
+
+    // 6. Convert fields to markdown
+    const markdownLines: string[] = [];
+    for (const field of schema.fields) {
+      const name = field.name || 'campo';
+      const label = field.label || name;
+      const type = field.type || 'text';
+
+      let placeholder = '_Por completar_';
+      if (type === 'date') {
+        placeholder = '_Fecha por definir_';
+      } else if (type === 'text') {
+        placeholder = '_Texto por completar_';
+      } else if (type === 'markdown') {
+        placeholder = '_Contenido en Markdown por completar_';
+      } else if (type === 'number') {
+        placeholder = '_Valor numérico por definir_';
+      }
+
+      markdownLines.push(`## ${label}\n\n${placeholder}\n`);
+    }
+
+    const generatedMarkdown = markdownLines.join('\n');
+
+    // 7. Update node
+    const updatedNode = await tx.node.update({
+      where: { id: nodeId },
+      data: {
+        contentMarkdown: generatedMarkdown,
+        templateId: templateId,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      },
+    });
+
+    // 8. Create node version
+    await tx.nodeVersion.create({
+      data: {
+        nodeId: nodeId,
+        title: updatedNode.title,
+        contentMarkdown: generatedMarkdown,
+        status: updatedNode.status,
+        savedBy: userId,
+        changeNote: `Plantilla aplicada: ${template.name}`,
+      },
+    });
+
+    return {
+      id: updatedNode.id,
+      brainId: updatedNode.brainId,
+      parentId: updatedNode.parentId,
+      templateId: updatedNode.templateId,
+      title: updatedNode.title,
+      slug: updatedNode.slug,
+      contentMarkdown: updatedNode.contentMarkdown,
+      status: updatedNode.status,
+      description: updatedNode.description,
+      category: updatedNode.category,
+      ownerUserId: updatedNode.ownerUserId,
+      responsibleUserId: updatedNode.responsibleUserId,
+      position: updatedNode.position,
+      lockedBy: updatedNode.lockedBy,
+      lockedAt: updatedNode.lockedAt,
+      createdBy: updatedNode.createdBy,
+      updatedBy: updatedNode.updatedBy,
+      reviewedAt: updatedNode.reviewedAt,
+      nextReviewAt: updatedNode.nextReviewAt,
+      createdAt: updatedNode.createdAt,
+      updatedAt: updatedNode.updatedAt,
+      deletedAt: updatedNode.deletedAt,
+    };
+  });
+}
+
+
 
 
 

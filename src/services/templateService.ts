@@ -23,3 +23,24 @@ export async function getTemplatesForBrain(brainId: string): Promise<Template[]>
     updatedAt: t.updatedAt,
   }));
 }
+
+export async function getTemplateById(templateId: string): Promise<Template | null> {
+  const t = await db.template.findUnique({
+    where: { id: templateId },
+  });
+
+  if (!t) return null;
+
+  return {
+    id: t.id,
+    brainId: t.brainId,
+    name: t.name,
+    description: t.description,
+    templateType: t.templateType as TemplateType,
+    schemaJson: t.schemaJson as Record<string, unknown>,
+    createdBy: t.createdBy,
+    updatedBy: t.updatedBy,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+  };
+}
