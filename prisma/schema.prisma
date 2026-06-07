@@ -1,0 +1,198 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum BrainVisibility {
+  private
+  invited_only
+  company
+}
+
+enum BrainRole {
+  owner
+  editor
+  reader
+}
+
+enum NodeStatus {
+  draft
+  active
+  needs_review
+  archived
+}
+
+enum TemplateType {
+  page
+  structure
+}
+
+model User {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  name      String
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdBrains    Brain[]       @relation("CreatedBrains")
+  memberships      BrainMember[]
+  createdTemplates Template[]    @relation("CreatedTemplates")
+  updatedTemplates Template[]    @relation("UpdatedTemplates")
+  ownedNodes       Node[]        @relation("OwnedNodes")
+  responsibleNodes Node[]        @relation("ResponsibleNodes")
+  createdNodes     Node[]        @relation("CreatedNodes")
+  updatedNodes     Node[]        @relation("UpdatedNodes")
+  lockedNodes      Node[]        @relation("LockedNodes")
+  savedVersions    NodeVersion[]
+
+  @@map("users")
+}
+
+model Brain {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  visibility  BrainVisibility @default(private)
+  createdBy   String          @map("created_by") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  creator   User          @relation("CreatedBrains", fields: [createdBy], references: [id], onDelete: Restrict)
+  members   BrainMember[]
+  templates Template[]
+  nodes     Node[]
+  tags      Tag[]
+
+  @@map("brains")
+}
+
+model BrainMember {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brainId   String    @map("brain_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  role      BrainRole @default(reader)
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  brain Brain @relation(fields: [brainId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([brainId, userId])
+  @@index([userId, brainId])
+  @@map("brain_members")
+}
+
+model Template {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brainId      String       @map("brain_id") @db.Uuid
+  name         String
+  description  String?
+  templateType TemplateType @map("template_type")
+  schemaJson   Json         @map("schema_json")
+  createdBy    String       @map("created_by") @db.Uuid
+  updatedBy    String?      @map("updated_by") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  brain   Brain  @relation(fields: [brainId], references: [id], onDelete: Cascade)
+  creator User   @relation("CreatedTemplates", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater User?  @relation("UpdatedTemplates", fields: [updatedBy], references: [id], onDelete: SetNull)
+  nodes   Node[]
+
+  @@map("templates")
+}
+
+model Node {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brainId           String     @map("brain_id") @db.Uuid
+  parentId          String?    @map("parent_id") @db.Uuid
+  templateId        String?    @map("template_id") @db.Uuid
+  title             String
+  slug              String
+  contentMarkdown   String     @default("") @map("content_markdown")
+  status            NodeStatus @default(draft)
+  description       String?
+  category          String?
+  ownerUserId       String     @map("owner_user_id") @db.Uuid
+  responsibleUserId String     @map("responsible_user_id") @db.Uuid
+  position          Int        @default(0)
+  lockedBy          String?    @map("locked_by") @db.Uuid
+  lockedAt          DateTime?  @map("locked_at")
+  createdBy         String     @map("created_by") @db.Uuid
+  updatedBy         String     @map("updated_by") @db.Uuid
+  reviewedAt        DateTime?  @map("reviewed_at")
+  nextReviewAt      DateTime?  @map("next_review_at")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+  deletedAt         DateTime?  @map("deleted_at")
+
+  // Relations
+  brain       Brain         @relation(fields: [brainId], references: [id], onDelete: Cascade)
+  parent      Node?         @relation("NodeHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Node[]        @relation("NodeHierarchy")
+  template    Template?     @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  owner       User          @relation("OwnedNodes", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  responsible User          @relation("ResponsibleNodes", fields: [responsibleUserId], references: [id], onDelete: Restrict)
+  creator     User          @relation("CreatedNodes", fields: [createdBy], references: [id], onDelete: Restrict)
+  updater     User          @relation("UpdatedNodes", fields: [updatedBy], references: [id], onDelete: Restrict)
+  locker      User?         @relation("LockedNodes", fields: [lockedBy], references: [id], onDelete: SetNull)
+  versions    NodeVersion[]
+  nodeTags    NodeTag[]
+
+  @@unique([brainId, parentId, slug])
+  @@index([brainId, parentId, position])
+  @@index([brainId, slug])
+  @@index([lockedBy])
+  @@map("nodes")
+}
+
+model NodeVersion {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nodeId          String     @map("node_id") @db.Uuid
+  title           String
+  contentMarkdown String     @map("content_markdown")
+  status          NodeStatus
+  savedBy         String     @map("saved_by") @db.Uuid
+  changeNote      String?    @map("change_note")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  // Relations
+  node  Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  saver User @relation(fields: [savedBy], references: [id], onDelete: Restrict)
+
+  @@index([nodeId, createdAt(sort: Desc)])
+  @@map("node_versions")
+}
+
+model Tag {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brainId   String   @map("brain_id") @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  brain    Brain     @relation(fields: [brainId], references: [id], onDelete: Cascade)
+  nodeTags NodeTag[]
+
+  @@unique([brainId, name])
+  @@map("tags")
+}
+
+model NodeTag {
+  nodeId String @map("node_id") @db.Uuid
+  tagId  String @map("tag_id") @db.Uuid
+
+  // Relations
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([nodeId, tagId])
+  @@map("node_tags")
+}
