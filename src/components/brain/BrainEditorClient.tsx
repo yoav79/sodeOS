@@ -55,6 +55,73 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
 
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
+  // Creation States
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [createParentId, setCreateParentId] = useState<string | null>(null);
+  const [createTitle, setCreateTitle] = useState<string>('');
+  const [createContentMarkdown, setCreateContentMarkdown] = useState<string>('');
+  const [createStatus, setCreateStatus] = useState<string>('draft');
+  const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const openCreateModal = (parentId: string | null = null) => {
+    setCreateParentId(parentId);
+    setCreateTitle('');
+    setCreateContentMarkdown('');
+    setCreateStatus('draft');
+    setCreateError(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCreateNode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createTitle.trim()) {
+      setCreateError('El título es obligatorio.');
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      setCreateError(null);
+
+      const res = await fetch(`/api/brains/${brainId}/nodes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: createTitle.trim(),
+          parentId: createParentId,
+          contentMarkdown: createContentMarkdown,
+          status: createStatus,
+        }),
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al crear el nodo.');
+      }
+
+      setIsCreateModalOpen(false);
+      setRefreshTrigger((prev) => prev + 1);
+
+      if (data.node && data.node.id) {
+        setSelectedNodeId(data.node.id);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al crear el nodo.';
+      setCreateError(message);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       const res = await fetch('/api/auth/logout', {
@@ -304,9 +371,20 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Tree View */}
         <aside className="w-80 border-r border-slate-200 bg-white flex flex-col">
-          <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-            <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Árbol de Conocimiento</h2>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Todos los nodos son páginas de contenido.</p>
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Árbol de Conocimiento</h2>
+              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Todos los nodos son páginas de contenido.</p>
+            </div>
+            <button
+              onClick={() => openCreateModal(null)}
+              className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors flex items-center justify-center shrink-0"
+              title="Nuevo nodo raíz"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto p-3">
             {loading && (
@@ -342,12 +420,23 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
         {/* Detail / Edit View Panel */}
         <main className="flex-1 bg-slate-50 overflow-y-auto flex flex-col">
           {!selectedNodeId ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">
-              <svg className="w-12 h-12 text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 gap-4">
+              <svg className="w-12 h-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
               </svg>
-              <h2 className="text-sm font-semibold text-slate-600 font-sans">Ningún nodo seleccionado</h2>
-              <p className="text-xs text-slate-400 mt-1">Haz clic en el título de un nodo en el sidebar para visualizar su detalle.</p>
+              <div className="text-center">
+                <h2 className="text-sm font-semibold text-slate-600 font-sans">Ningún nodo seleccionado</h2>
+                <p className="text-xs text-slate-400 mt-1">Haz clic en el título de un nodo en el sidebar para visualizar su detalle o crea uno nuevo.</p>
+              </div>
+              <button
+                onClick={() => openCreateModal(null)}
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-md shadow-blue-500/10"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Crear Nodo Raíz
+              </button>
             </div>
           ) : detailLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 gap-3">
@@ -489,6 +578,15 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                       </p>
                     </div>
                     <div className="flex items-center gap-4 shrink-0">
+                      <button
+                        onClick={() => openCreateModal(nodeDetail.id)}
+                        className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white transition-colors flex items-center gap-1.5 shadow-md shadow-blue-500/10"
+                      >
+                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Nueva subpágina
+                      </button>
                       <button
                         onClick={handleStartEdit}
                         className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 border border-slate-200 shadow-sm transition-colors flex items-center gap-1.5"
@@ -682,6 +780,107 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
           )}
         </main>
       </div>
+
+      {/* Create Node Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh] text-slate-900">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {createParentId ? 'Crear Nueva Subpágina' : 'Crear Nuevo Nodo Raíz'}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  {createParentId ? 'Se creará como hijo del nodo seleccionado' : 'Se creará en la raíz del cerebro'}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreateNode} className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+              {createError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+                  ⚠️ {createError}
+                </div>
+              )}
+
+              {/* Title */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Título (Obligatorio)</label>
+                <input
+                  type="text"
+                  required
+                  value={createTitle}
+                  onChange={(e) => setCreateTitle(e.target.value)}
+                  placeholder="Ej. Guía de Onboarding"
+                  className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm font-medium focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
+                />
+              </div>
+
+              {/* Content Markdown */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Contenido Markdown Inicial (Opcional)</label>
+                <textarea
+                  value={createContentMarkdown}
+                  onChange={(e) => setCreateContentMarkdown(e.target.value)}
+                  placeholder="# Título Principal\n\nEscribe el contenido de tu página en formato Markdown."
+                  className="bg-white border border-slate-200 rounded-xl p-4 text-slate-800 font-mono text-sm leading-relaxed focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 min-h-[160px] resize-y"
+                />
+              </div>
+
+              {/* Status */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Estado Inicial</label>
+                <select
+                  value={createStatus}
+                  onChange={(e) => setCreateStatus(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
+                >
+                  <option value="draft">Borrador</option>
+                  <option value="active">Vigente (Activo)</option>
+                  <option value="needs_review">En Revisión</option>
+                  <option value="archived">Archivado</option>
+                </select>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="flex items-center gap-3 justify-end border-t border-slate-100 pt-4 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  disabled={isCreating}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-semibold text-slate-600 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white transition-colors flex items-center gap-2 disabled:opacity-50 shadow-md shadow-blue-500/10"
+                >
+                  {isCreating ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Creando...
+                    </>
+                  ) : (
+                    'Crear Nodo'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

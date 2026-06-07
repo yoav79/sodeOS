@@ -1,6 +1,6 @@
 import db from '@/lib/db';
 import { NodeTreeItem, Node } from '@/types';
-import { NodeStatus } from '@prisma/client';
+import { NodeStatus, Prisma } from '@prisma/client';
 
 /**
  * Fetches all active nodes for a brain and structures them into a hierarchical tree.
@@ -279,6 +279,142 @@ export async function getNodeVersions(nodeId: string) {
   });
 
   return versions;
+}
+
+export interface CreateNodeInput {
+  title: string;
+  parentId?: string | null;
+  contentMarkdown?: string;
+  status?: NodeStatus;
+  userId: string;
+}
+
+function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+}
+
+async function generateUniqueSlug(tx: Prisma.TransactionClient, brainId: string, parentId: string | null, title: string): Promise<string> {
+  const baseSlug = slugify(title) || 'node';
+  let slug = baseSlug;
+  let counter = 1;
+
+  while (true) {
+    const existing = await tx.node.findFirst({
+      where: {
+        brainId,
+        parentId,
+        slug,
+        deletedAt: null,
+      },
+    });
+
+    if (!existing) {
+      break;
+    }
+
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+  }
+
+  return slug;
+}
+
+export async function createNode(
+  brainId: string,
+  input: CreateNodeInput
+): Promise<Node> {
+  return await db.$transaction(async (tx) => {
+    if (input.parentId) {
+      const parentNode = await tx.node.findFirst({
+        where: {
+          id: input.parentId,
+          brainId: brainId,
+          deletedAt: null,
+        },
+      });
+      if (!parentNode) {
+        throw new Error('El nodo padre especificado no existe o no pertenece a este cerebro.');
+      }
+    }
+
+    const parentId = input.parentId || null;
+    const slug = await generateUniqueSlug(tx, brainId, parentId, input.title);
+    const contentMarkdown = input.contentMarkdown || '';
+    const status = input.status || 'draft';
+
+    const lastNode = await tx.node.findFirst({
+      where: {
+        brainId,
+        parentId,
+        deletedAt: null,
+      },
+      orderBy: {
+        position: 'desc',
+      },
+    });
+    const position = lastNode ? lastNode.position + 1 : 0;
+
+    const node = await tx.node.create({
+      data: {
+        brainId,
+        parentId,
+        title: input.title,
+        slug,
+        contentMarkdown,
+        status,
+        ownerUserId: input.userId,
+        responsibleUserId: input.userId,
+        position,
+        createdBy: input.userId,
+        updatedBy: input.userId,
+      },
+    });
+
+    await tx.nodeVersion.create({
+      data: {
+        nodeId: node.id,
+        title: node.title,
+        contentMarkdown: node.contentMarkdown,
+        status: node.status,
+        savedBy: input.userId,
+        changeNote: 'Creación inicial del nodo.',
+      },
+    });
+
+    return {
+      id: node.id,
+      brainId: node.brainId,
+      parentId: node.parentId,
+      templateId: node.templateId,
+      title: node.title,
+      slug: node.slug,
+      contentMarkdown: node.contentMarkdown,
+      status: node.status,
+      description: node.description,
+      category: node.category,
+      ownerUserId: node.ownerUserId,
+      responsibleUserId: node.responsibleUserId,
+      position: node.position,
+      lockedBy: node.lockedBy,
+      lockedAt: node.lockedAt,
+      createdBy: node.createdBy,
+      updatedBy: node.updatedBy,
+      reviewedAt: node.reviewedAt,
+      nextReviewAt: node.nextReviewAt,
+      createdAt: node.createdAt,
+      updatedAt: node.updatedAt,
+      deletedAt: node.deletedAt,
+    };
+  });
 }
 
 
