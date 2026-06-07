@@ -241,3 +241,44 @@ export async function updateNodeContent(
   });
 }
 
+/**
+ * Fetches the version history of a single Node by its ID.
+ * Returns null if the node does not exist or is deleted.
+ * Versions are ordered by createdAt descending, and include the saver User details.
+ */
+export async function getNodeVersions(nodeId: string) {
+  // Check if node exists and is active
+  const nodeExists = await db.node.findFirst({
+    where: {
+      id: nodeId,
+      deletedAt: null,
+    },
+  });
+
+  if (!nodeExists) {
+    return null;
+  }
+
+  // Fetch all versions
+  const versions = await db.nodeVersion.findMany({
+    where: {
+      nodeId: nodeId,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    include: {
+      saver: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return versions;
+}
+
+

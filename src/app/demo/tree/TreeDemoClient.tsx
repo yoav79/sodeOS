@@ -9,6 +9,22 @@ interface TreeDemoClientProps {
   brainName: string;
 }
 
+interface NodeVersionWithSaver {
+  id: string;
+  nodeId: string;
+  title: string;
+  contentMarkdown: string;
+  status: string;
+  savedBy: string;
+  changeNote: string | null;
+  createdAt: string;
+  saver?: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
+}
+
 export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientProps) {
   const [tree, setTree] = useState<NodeTreeItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -18,6 +34,12 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
   const [nodeDetail, setNodeDetail] = useState<Node | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  // Versions History States
+  const [versions, setVersions] = useState<NodeVersionWithSaver[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState<boolean>(false);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+
 
   // Edit Mode States
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -101,6 +123,46 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
     };
   }, [selectedNodeId, refreshTrigger]);
 
+  // Fetch versions history
+  useEffect(() => {
+    let active = true;
+
+    if (!selectedNodeId) {
+      Promise.resolve().then(() => {
+        if (active) setVersions([]);
+      });
+      return;
+    }
+
+    async function fetchVersions() {
+      await Promise.resolve();
+      if (!active) return;
+      setVersionsLoading(true);
+      setVersionsError(null);
+
+      try {
+        const res = await fetch(`/api/nodes/${selectedNodeId}/versions`);
+        if (!res.ok) {
+          throw new Error(`Error al obtener historial de versiones: ${res.statusText}`);
+        }
+        const data = await res.json();
+        if (active) {
+          setVersions(data.versions || []);
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error desconocido.';
+        if (active) setVersionsError(message);
+      } finally {
+        if (active) setVersionsLoading(false);
+      }
+    }
+
+    fetchVersions();
+    return () => {
+      active = false;
+    };
+  }, [selectedNodeId, refreshTrigger]);
+
   const handleStartEdit = () => {
     if (nodeDetail) {
       setEditTitle(nodeDetail.title);
@@ -148,7 +210,7 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
       }
 
       setIsEditing(false);
-      // Trigger refresh of tree hierarchy and node detail
+      // Trigger refresh of tree hierarchy, node detail and versions list
       setRefreshTrigger((prev) => prev + 1);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al guardar los cambios.';
@@ -171,7 +233,7 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 font-sans">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur font-sans">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 p-2 rounded-lg">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -467,6 +529,92 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
                     ) : (
                       <div className="prose prose-invert max-w-none text-zinc-300 whitespace-pre-wrap font-mono text-sm leading-relaxed">
                         {nodeDetail.contentMarkdown}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Historial de Versiones */}
+                  <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-6 flex flex-col gap-4">
+                    <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+                      <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Historial de Versiones
+                      </span>
+                      <span className="text-[10px] text-zinc-600 bg-zinc-800/30 px-2 py-0.5 rounded border border-zinc-800 font-mono">
+                        {versions.length} {versions.length === 1 ? 'versión' : 'versiones'}
+                      </span>
+                    </div>
+
+                    {versionsLoading ? (
+                      <div className="flex items-center justify-center py-6 gap-2 text-xs text-zinc-500">
+                        <div className="w-4 h-4 border border-zinc-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span>Cargando historial de versiones...</span>
+                      </div>
+                    ) : versionsError ? (
+                      <div className="text-xs text-red-400 py-3 bg-red-950/10 border border-red-900/40 rounded-lg px-4">
+                        ⚠️ {versionsError}
+                      </div>
+                    ) : versions.length === 0 ? (
+                      <div className="text-xs text-zinc-600 py-6 text-center">
+                        No hay versiones de historial guardadas para este nodo.
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3 max-h-[350px] overflow-y-auto pr-1">
+                        {versions.map((ver, idx) => (
+                          <div key={ver.id} className="bg-zinc-900/40 border border-zinc-800/60 hover:border-zinc-800 rounded-xl p-4 flex flex-col gap-2.5 transition-colors">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-zinc-200 truncate max-w-[200px]">
+                                    {ver.title}
+                                  </span>
+                                  <span className="text-[9px] text-zinc-500 px-1.5 py-0.5 bg-zinc-800 rounded border border-zinc-700/30 font-mono font-semibold uppercase">
+                                    V{versions.length - idx}
+                                  </span>
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                                    ver.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                    ver.status === 'draft' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                    ver.status === 'needs_review' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                    'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                                  }`}>
+                                    {ver.status === 'active' ? 'Vigente' :
+                                     ver.status === 'draft' ? 'Borrador' :
+                                     ver.status === 'needs_review' ? 'En Revisión' :
+                                     'Archivado'}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-zinc-500">
+                                  Guardado el {new Date(ver.createdAt).toLocaleString('es-ES', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                              <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
+                                <span className="text-[9px] text-zinc-500 uppercase font-semibold">Guardado por</span>
+                                <span className="text-[10px] text-zinc-300 font-medium">{ver.saver?.name || 'Usuario Demo'}</span>
+                              </div>
+                            </div>
+
+                            {ver.changeNote && (
+                              <div className="text-xs bg-zinc-950/40 border border-zinc-850/60 rounded-lg px-3 py-2 text-zinc-400 leading-relaxed font-sans">
+                                <span className="font-semibold text-zinc-500 text-[10px] uppercase block mb-0.5">Nota de cambio:</span>
+                                {ver.changeNote}
+                              </div>
+                            )}
+
+                            <div className="text-xs bg-zinc-950/20 rounded p-2.5 font-mono text-zinc-500 truncate whitespace-nowrap">
+                              {ver.contentMarkdown ? ver.contentMarkdown.substring(0, 120) : 'Sin contenido'}
+                              {ver.contentMarkdown && ver.contentMarkdown.length > 120 ? '...' : ''}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
