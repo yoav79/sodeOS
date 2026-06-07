@@ -489,5 +489,185 @@ export async function archiveNodeTree(
   });
 }
 
+export async function moveNode(
+  nodeId: string,
+  input: { newParentId: string | null; newPosition?: number },
+  userId: string
+): Promise<Node | null> {
+  const node = await db.node.findFirst({
+    where: { id: nodeId, deletedAt: null }
+  });
+  if (!node) {
+    return null;
+  }
+
+  const brainId = node.brainId;
+  const oldParentId = node.parentId;
+  const newParentId = input.newParentId;
+
+  // 1. Validation: newParentId === nodeId
+  if (newParentId === nodeId) {
+    throw new Error('Un nodo no puede ser su propio padre.');
+  }
+
+  // 2. Validation: check if newParentId belongs to the same brain and is active
+  if (newParentId !== null) {
+    const targetParent = await db.node.findFirst({
+      where: { id: newParentId, deletedAt: null }
+    });
+    if (!targetParent) {
+      throw new Error('El nodo padre destino no existe o está archivado.');
+    }
+    if (targetParent.brainId !== brainId) {
+      throw new Error('El nodo padre destino no pertenece al mismo cerebro.');
+    }
+  }
+
+  // 3. Validation: Detección de ciclos
+  if (newParentId !== null) {
+    const allNodes = await db.node.findMany({
+      where: { brainId, deletedAt: null },
+      select: { id: true, parentId: true }
+    });
+
+    const parentToChildren = new Map<string, string[]>();
+    for (const n of allNodes) {
+      if (n.parentId) {
+        const list = parentToChildren.get(n.parentId) || [];
+        list.push(n.id);
+        parentToChildren.set(n.parentId, list);
+      }
+    }
+
+    const descendantIds = new Set<string>();
+    const queue = [nodeId];
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const children = parentToChildren.get(currentId);
+      if (children) {
+        for (const childId of children) {
+          descendantIds.add(childId);
+          queue.push(childId);
+        }
+      }
+    }
+
+    if (descendantIds.has(newParentId)) {
+      throw new Error('Movimiento inválido: crearía un ciclo en el árbol.');
+    }
+  }
+
+  return await db.$transaction(async (tx) => {
+    // Generate unique slug in destination if parent has changed
+    let slug = node.slug;
+    if (oldParentId !== newParentId) {
+      slug = await generateUniqueSlug(tx, brainId, newParentId, node.title);
+    }
+
+    // A) Get active sibling nodes at origin (excluding the current node)
+    const siblingsOrigin = await tx.node.findMany({
+      where: {
+        brainId,
+        parentId: oldParentId,
+        deletedAt: null,
+        id: { not: nodeId }
+      },
+      orderBy: { position: 'asc' }
+    });
+
+    // B) Get active sibling nodes at destination
+    const siblingsDest = await tx.node.findMany({
+      where: {
+        brainId,
+        parentId: newParentId,
+        deletedAt: null
+      },
+      orderBy: { position: 'asc' }
+    });
+
+    const destListWithoutSelf = siblingsDest.filter(n => n.id !== nodeId);
+
+    let targetPos = input.newPosition !== undefined ? input.newPosition : destListWithoutSelf.length;
+    if (targetPos < 0) targetPos = 0;
+    if (targetPos > destListWithoutSelf.length) targetPos = destListWithoutSelf.length;
+
+    const finalDestList: { id: string; position?: number }[] = [];
+    for (let i = 0; i < destListWithoutSelf.length; i++) {
+      if (i === targetPos) {
+        finalDestList.push({ id: nodeId });
+      }
+      finalDestList.push(destListWithoutSelf[i]);
+    }
+    if (targetPos === destListWithoutSelf.length) {
+      finalDestList.push({ id: nodeId });
+    }
+
+    // Update positions in destination list
+    for (let i = 0; i < finalDestList.length; i++) {
+      const item = finalDestList[i];
+      if (item.id === nodeId) {
+        continue;
+      }
+      if (item.position !== i) {
+        await tx.node.update({
+          where: { id: item.id },
+          data: { position: i }
+        });
+      }
+    }
+
+    // Update positions in origin list if parent has changed
+    if (oldParentId !== newParentId) {
+      for (let i = 0; i < siblingsOrigin.length; i++) {
+        const item = siblingsOrigin[i];
+        if (item.position !== i) {
+          await tx.node.update({
+            where: { id: item.id },
+            data: { position: i }
+          });
+        }
+      }
+    }
+
+    // Finally, update the node itself
+    const updatedNode = await tx.node.update({
+      where: { id: nodeId },
+      data: {
+        parentId: newParentId,
+        position: targetPos,
+        slug,
+        updatedBy: userId,
+        updatedAt: new Date()
+      }
+    });
+
+    return {
+      id: updatedNode.id,
+      brainId: updatedNode.brainId,
+      parentId: updatedNode.parentId,
+      templateId: updatedNode.templateId,
+      title: updatedNode.title,
+      slug: updatedNode.slug,
+      contentMarkdown: updatedNode.contentMarkdown,
+      status: updatedNode.status,
+      description: updatedNode.description,
+      category: updatedNode.category,
+      ownerUserId: updatedNode.ownerUserId,
+      responsibleUserId: updatedNode.responsibleUserId,
+      position: updatedNode.position,
+      lockedBy: updatedNode.lockedBy,
+      lockedAt: updatedNode.lockedAt,
+      createdBy: updatedNode.createdBy,
+      updatedBy: updatedNode.updatedBy,
+      reviewedAt: updatedNode.reviewedAt,
+      nextReviewAt: updatedNode.nextReviewAt,
+      createdAt: updatedNode.createdAt,
+      updatedAt: updatedNode.updatedAt,
+      deletedAt: updatedNode.deletedAt,
+    };
+  });
+}
+
+
 
 

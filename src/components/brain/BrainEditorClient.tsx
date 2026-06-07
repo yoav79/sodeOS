@@ -26,6 +26,23 @@ interface NodeVersionWithSaver {
   };
 }
 
+interface FlatNodeWithDepth {
+  id: string;
+  title: string;
+  depth: number;
+}
+
+const getFlatNodesWithDepth = (nodes: NodeTreeItem[], depth = 0): FlatNodeWithDepth[] => {
+  const list: FlatNodeWithDepth[] = [];
+  for (const n of nodes) {
+    list.push({ id: n.id, title: n.title, depth });
+    if (n.children && n.children.length > 0) {
+      list.push(...getFlatNodesWithDepth(n.children, depth + 1));
+    }
+  }
+  return list;
+};
+
 export default function BrainEditorClient({ brainId, brainName }: TreeDemoClientProps) {
   const router = useRouter();
 
@@ -189,6 +206,123 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     } finally {
       setIsArchiving(false);
     }
+  };
+
+  // Moving / Reordering States
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState<boolean>(false);
+  const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
+
+  const findParentAndSiblings = (
+    nodes: NodeTreeItem[],
+    targetId: string,
+    parent: NodeTreeItem | null = null
+  ): { parent: NodeTreeItem | null; siblings: NodeTreeItem[] } | null => {
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      if (n.id === targetId) {
+        return { parent, siblings: nodes };
+      }
+      if (n.children && n.children.length > 0) {
+        const result = findParentAndSiblings(n.children, targetId, n);
+        if (result) return result;
+      }
+    }
+    return null;
+  };
+
+  const getDescendantIds = (item: NodeTreeItem): string[] => {
+    const ids: string[] = [];
+    const collect = (n: NodeTreeItem) => {
+      ids.push(n.id);
+      if (n.children) {
+        n.children.forEach(collect);
+      }
+    };
+    if (item.children) {
+      item.children.forEach(collect);
+    }
+    return ids;
+  };
+
+  const findNodeInTree = (nodes: NodeTreeItem[], targetId: string): NodeTreeItem | null => {
+    for (const n of nodes) {
+      if (n.id === targetId) return n;
+      if (n.children && n.children.length > 0) {
+        const found = findNodeInTree(n.children, targetId);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const executeMove = async (newParentId: string | null, newPosition?: number) => {
+    if (!nodeDetail) return;
+    try {
+      setIsMoving(true);
+      setMoveError(null);
+      const res = await fetch(`/api/nodes/${nodeDetail.id}/move`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newParentId,
+          newPosition,
+        }),
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 403) {
+          setMoveError('Permisos insuficientes para mover este nodo.');
+          return;
+        }
+        if (res.status === 404) {
+          setSelectedNodeId(null);
+          setNodeDetail(null);
+          setRefreshTrigger((prev) => prev + 1);
+          return;
+        }
+        throw new Error(data.error || 'Error al mover el nodo.');
+      }
+
+      setRefreshTrigger((prev) => prev + 1);
+      const detailRes = await fetch(`/api/nodes/${nodeDetail.id}`);
+      if (detailRes.ok) {
+        const detailData = await detailRes.json();
+        setNodeDetail(detailData.node);
+      }
+      setIsMoveModalOpen(false);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al mover el nodo.';
+      setMoveError(message);
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
+  const placementInfo = nodeDetail ? findParentAndSiblings(tree, nodeDetail.id) : null;
+  const currentSiblings = placementInfo ? placementInfo.siblings : [];
+  const currentIndex = currentSiblings.findIndex((n) => n.id === nodeDetail?.id);
+
+  const canMoveUp = currentIndex > 0;
+  const canMoveDown = currentIndex >= 0 && currentIndex < currentSiblings.length - 1;
+
+  const handleMoveUp = async () => {
+    if (!nodeDetail || !canMoveUp || !placementInfo) return;
+    await executeMove(placementInfo.parent?.id || null, currentIndex - 1);
+  };
+
+  const handleMoveDown = async () => {
+    if (!nodeDetail || !canMoveDown || !placementInfo) return;
+    await executeMove(placementInfo.parent?.id || null, currentIndex + 1);
   };
 
   const handleLogout = async () => {
@@ -635,6 +769,12 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                       <button onClick={() => setArchiveError(null)} className="text-red-500 hover:text-red-700 font-bold">✕</button>
                     </div>
                   )}
+                  {moveError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center justify-between gap-2">
+                      <span>⚠️ {moveError}</span>
+                      <button onClick={() => setMoveError(null)} className="text-red-500 hover:text-red-700 font-bold">✕</button>
+                    </div>
+                  )}
                   {/* Node Breadcrumbs / Meta */}
                   <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
                     <span>Cerebros</span>
@@ -671,6 +811,43 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                         </svg>
                         Editar
                       </button>
+
+                      <div className="flex items-center gap-1 border border-slate-200 rounded-xl bg-white p-0.5 shadow-sm shrink-0">
+                        <button
+                          onClick={handleMoveUp}
+                          disabled={!canMoveUp || isMoving}
+                          title="Subir posición"
+                          className="p-2 rounded-lg hover:bg-slate-50 text-slate-500 disabled:opacity-40 transition-colors"
+                        >
+                          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={handleMoveDown}
+                          disabled={!canMoveDown || isMoving}
+                          title="Bajar posición"
+                          className="p-2 rounded-lg hover:bg-slate-50 text-slate-500 disabled:opacity-40 transition-colors"
+                        >
+                          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setMoveError(null);
+                          setIsMoveModalOpen(true);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 border border-slate-200 shadow-sm transition-colors flex items-center gap-1.5"
+                      >
+                        <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        Mover
+                      </button>
+
                       <button
                         onClick={handleArchiveNode}
                         disabled={isArchiving}
@@ -975,6 +1152,109 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
           </div>
         </div>
       )}
+
+      {/* Move Node Modal */}
+      {isMoveModalOpen && nodeDetail && (() => {
+        const treeItem = findNodeInTree(tree, nodeDetail.id);
+        const forbiddenIds = new Set<string>();
+        forbiddenIds.add(nodeDetail.id);
+        if (treeItem) {
+          getDescendantIds(treeItem).forEach((id) => forbiddenIds.add(id));
+        }
+
+        const flatNodes = getFlatNodesWithDepth(tree);
+        const eligibleNodes = flatNodes.filter((n) => !forbiddenIds.has(n.id));
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[85vh] text-slate-900">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Mover Página</h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Selecciona el destino para: <span className="font-semibold text-slate-800">&ldquo;{nodeDetail.title}&rdquo;</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsMoveModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+                {moveError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+                    ⚠️ {moveError}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Destino</span>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-[40vh] overflow-y-auto bg-slate-50/50">
+                    <button
+                      onClick={() => executeMove(null)}
+                      disabled={nodeDetail.parentId === null || isMoving}
+                      className={`w-full text-left px-4 py-3 text-sm font-semibold transition-colors flex items-center gap-2 hover:bg-slate-100/80 ${
+                        nodeDetail.parentId === null
+                          ? 'bg-blue-50/60 text-blue-700 border-l-2 border-blue-600'
+                          : 'text-slate-700'
+                      }`}
+                    >
+                      <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      Raíz (Sin página padre)
+                    </button>
+
+                    {eligibleNodes.map((n) => {
+                      const isCurrentParent = nodeDetail.parentId === n.id;
+                      return (
+                        <button
+                          key={n.id}
+                          onClick={() => executeMove(n.id)}
+                          disabled={isCurrentParent || isMoving}
+                          className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center gap-2 hover:bg-slate-100/80 ${
+                            isCurrentParent
+                              ? 'bg-blue-50/60 text-blue-700 border-l-2 border-blue-600 font-semibold'
+                              : 'text-slate-700 font-medium'
+                          }`}
+                          style={{ paddingLeft: `${(n.depth + 1) * 16}px` }}
+                        >
+                          <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="truncate">{n.title}</span>
+                        </button>
+                      );
+                    })}
+
+                    {eligibleNodes.length === 0 && nodeDetail.parentId === null && (
+                      <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                        No hay otras páginas disponibles en este cerebro.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end bg-slate-50/50 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsMoveModalOpen(false)}
+                  disabled={isMoving}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-semibold text-slate-600 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
