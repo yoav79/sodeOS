@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { NodeTreeItem, Node } from '@/types';
 import NodeTree from '@/components/tree/NodeTree';
 
@@ -26,6 +27,8 @@ interface NodeVersionWithSaver {
 }
 
 export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientProps) {
+  const router = useRouter();
+
   const [tree, setTree] = useState<NodeTreeItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,12 +55,32 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
 
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
+  const handleLogout = async () => {
+    try {
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+      if (res.ok) {
+        router.push('/login');
+      } else {
+        alert('Error al cerrar sesión.');
+      }
+    } catch (err) {
+      console.error('Logout error:', err);
+      alert('Error de red al cerrar sesión.');
+    }
+  };
+
   // Fetch the nested tree structures
   useEffect(() => {
     let active = true;
     async function fetchTree() {
       try {
         const res = await fetch(`/api/brains/${brainId}/tree`);
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
         if (!res.ok) {
           throw new Error(`Error en el servidor: ${res.statusText}`);
         }
@@ -80,7 +103,7 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
     return () => {
       active = false;
     };
-  }, [brainId, refreshTrigger, selectedNodeId]);
+  }, [brainId, refreshTrigger, selectedNodeId, router]);
 
   // Fetch the full details of the selected node
   useEffect(() => {
@@ -101,6 +124,10 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
 
       try {
         const res = await fetch(`/api/nodes/${selectedNodeId}`);
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
         if (!res.ok) {
           if (res.status === 404) {
             throw new Error('El nodo seleccionado no existe o fue eliminado.');
@@ -121,7 +148,7 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
     return () => {
       active = false;
     };
-  }, [selectedNodeId, refreshTrigger]);
+  }, [selectedNodeId, refreshTrigger, router]);
 
   // Fetch versions history
   useEffect(() => {
@@ -142,6 +169,10 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
 
       try {
         const res = await fetch(`/api/nodes/${selectedNodeId}/versions`);
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
         if (!res.ok) {
           throw new Error(`Error al obtener historial de versiones: ${res.statusText}`);
         }
@@ -161,7 +192,7 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
     return () => {
       active = false;
     };
-  }, [selectedNodeId, refreshTrigger]);
+  }, [selectedNodeId, refreshTrigger, router]);
 
   const handleStartEdit = () => {
     if (nodeDetail) {
@@ -204,6 +235,11 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
         }),
       });
 
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Error al guardar los cambios.');
@@ -245,8 +281,16 @@ export default function TreeDemoClient({ brainId, brainName }: TreeDemoClientPro
             <p className="text-xs text-zinc-500">Visualización y Edición de Estructuras</p>
           </div>
         </div>
-        <div className="text-xs font-semibold px-3 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/50">
-          Cerebro: <span className="text-blue-400">{brainName}</span>
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-semibold px-3 py-1.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/50">
+            Cerebro: <span className="text-blue-400">{brainName}</span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="text-xs font-semibold px-3 py-1.5 rounded-full bg-red-950/40 text-red-400 border border-red-900/30 hover:bg-red-900/40 transition-colors"
+          >
+            Cerrar sesión
+          </button>
         </div>
       </header>
 
