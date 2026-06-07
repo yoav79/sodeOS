@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 import { User } from '@/types';
+import { BrainRole } from '@prisma/client';
 
 export const SESSION_COOKIE_NAME = 'cerebro_session';
 export const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -106,3 +107,53 @@ export async function requireCurrentUser(): Promise<User> {
   }
   return user;
 }
+
+export class AuthError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = 'AuthError';
+  }
+}
+
+// Map roles to hierarchical numeric values
+const ROLE_VALUES: Record<BrainRole, number> = {
+  owner: 3,
+  editor: 2,
+  reader: 1,
+};
+
+/**
+ * Verifies if a user has access to a specific Brain with at least the minimum role required.
+ * Returns the BrainMember record if access is allowed.
+ * Throws an AuthError with status 403 if access is denied.
+ */
+export async function verifyBrainAccess(
+  userId: string,
+  brainId: string,
+  minRole: BrainRole = 'reader'
+) {
+  const membership = await db.brainMember.findUnique({
+    where: {
+      brainId_userId: {
+        brainId,
+        userId,
+      },
+    },
+  });
+
+  if (!membership) {
+    throw new AuthError('No tienes acceso a este cerebro.', 403);
+  }
+
+  const userRoleValue = ROLE_VALUES[membership.role];
+  const requiredRoleValue = ROLE_VALUES[minRole];
+
+  if (userRoleValue < requiredRoleValue) {
+    throw new AuthError('Permisos insuficientes para realizar esta acción.', 403);
+  }
+
+  return membership;
+}
+

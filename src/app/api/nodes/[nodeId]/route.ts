@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getNodeDetail, updateNodeContent } from '@/services/nodeService';
+import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 
 export async function GET(
   request: Request,
@@ -9,13 +10,35 @@ export async function GET(
     const { nodeId } = await params;
 
     if (!nodeId) {
-      return NextResponse.json({ error: 'nodeId is required' }, { status: 400 });
+      return NextResponse.json({ error: 'El ID del nodo es requerido.' }, { status: 400 });
     }
 
-    const node = await getNodeDetail(nodeId);
+    // 1. Authenticate user
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
+    }
 
+    // 2. Fetch node detail
+    const node = await getNodeDetail(nodeId);
     if (!node) {
-      return NextResponse.json({ error: 'Nodo no encontrado o eliminado' }, { status: 404 });
+      return NextResponse.json({ error: 'Nodo no encontrado o eliminado.' }, { status: 404 });
+    }
+
+    // 3. Authorize access (reader access required)
+    try {
+      await verifyBrainAccess(currentUser.id, node.brainId, 'reader');
+    } catch (err: unknown) {
+      if (err instanceof AuthError) {
+        return NextResponse.json(
+          { error: err.message },
+          { status: err.status }
+        );
+      }
+      return NextResponse.json(
+        { error: 'No autorizado.' },
+        { status: 403 }
+      );
     }
 
     return NextResponse.json({ node }, { status: 200 });
@@ -37,7 +60,7 @@ export async function PATCH(
     const { nodeId } = await params;
 
     if (!nodeId) {
-      return NextResponse.json({ error: 'nodeId is required' }, { status: 400 });
+      return NextResponse.json({ error: 'El ID del nodo es requerido.' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -66,16 +89,40 @@ export async function PATCH(
       );
     }
 
-    // Fijo temporal del usuario demo del seed
-    // TODO: Reemplazar por el ID del usuario autenticado cuando exista auth real
-    const MOCK_USER_ID = "00000000-0000-0000-0000-000000000001";
+    // 1. Authenticate user
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
+    }
+
+    // 2. Fetch node detail to find its brainId
+    const node = await getNodeDetail(nodeId);
+    if (!node) {
+      return NextResponse.json({ error: 'Nodo no encontrado o eliminado.' }, { status: 404 });
+    }
+
+    // 3. Authorize access (editor access required)
+    try {
+      await verifyBrainAccess(currentUser.id, node.brainId, 'editor');
+    } catch (err: unknown) {
+      if (err instanceof AuthError) {
+        return NextResponse.json(
+          { error: err.message },
+          { status: err.status }
+        );
+      }
+      return NextResponse.json(
+        { error: 'No autorizado.' },
+        { status: 403 }
+      );
+    }
 
     const result = await updateNodeContent(nodeId, {
       title,
       contentMarkdown,
       status: status,
       changeNote,
-      userId: MOCK_USER_ID,
+      userId: currentUser.id,
     });
 
     if (!result.node) {
@@ -95,4 +142,5 @@ export async function PATCH(
     );
   }
 }
+
 
