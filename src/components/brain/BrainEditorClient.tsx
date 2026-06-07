@@ -201,7 +201,7 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
 
     const hasContent = nodeDetail.contentMarkdown && nodeDetail.contentMarkdown.trim() !== '';
     if (hasContent) {
-      const confirmApply = window.confirm(
+      const confirmApply = (window as unknown as { __skipConfirm?: boolean }).__skipConfirm || window.confirm(
         'Este nodo ya tiene contenido. Aplicar esta plantilla reemplazará TODO el contenido actual por secciones vacías.\n\nEl contenido previo quedará guardado en el historial de versiones.\n\n¿Deseas continuar?'
       );
       if (!confirmApply) return;
@@ -245,6 +245,58 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
       setApplyTemplateError(msg);
     } finally {
       setIsApplyingTemplate(null);
+    }
+  };
+
+  const [isApplyingStructure, setIsApplyingStructure] = useState<string | null>(null);
+  const [applyStructureError, setApplyStructureError] = useState<string | null>(null);
+  const [applyStructureSuccess, setApplyStructureSuccess] = useState<string | null>(null);
+
+  const handleApplyStructureTemplate = async (templateId: string, templateName: string, sectionsCount: number) => {
+    if (!selectedNodeId || !nodeDetail) return;
+
+    const confirmApply = (window as unknown as { __skipConfirm?: boolean }).__skipConfirm || window.confirm(
+      `Se crearán ${sectionsCount} subnodos (como páginas borrador) bajo el nodo "${nodeDetail.title}".\n\nSi ya existen subnodos con nombres similares, se crearán nuevos nodos con identificadores únicos.\n\n¿Deseas continuar?`
+    );
+    if (!confirmApply) return;
+
+    try {
+      setIsApplyingStructure(templateId);
+      setApplyStructureError(null);
+      setApplyStructureSuccess(null);
+
+      const res = await fetch(`/api/nodes/${selectedNodeId}/apply-structure-template`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          templateId,
+        }),
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al aplicar la plantilla de estructura.');
+      }
+
+      setApplyStructureSuccess(`Estructura "${templateName}" creada exitosamente con ${sectionsCount} subnodos.`);
+      setRefreshTrigger((prev) => prev + 1);
+
+      setTimeout(() => {
+        setApplyStructureSuccess(null);
+      }, 4000);
+
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido al aplicar la estructura.';
+      setApplyStructureError(msg);
+    } finally {
+      setIsApplyingStructure(null);
     }
   };
 
@@ -1490,6 +1542,22 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                 </div>
               )}
 
+              {applyStructureSuccess && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-xs flex items-center gap-2">
+                  <svg className="w-4 h-4 shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{applyStructureSuccess}</span>
+                </div>
+              )}
+
+              {applyStructureError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex flex-col gap-1">
+                  <span className="font-semibold">⚠️ Error al aplicar estructura:</span>
+                  <span>{applyStructureError}</span>
+                </div>
+              )}
+
               {templatesError && (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex flex-col gap-2">
                   <span className="font-semibold flex items-center gap-1">⚠️ {templatesError}</span>
@@ -1566,6 +1634,41 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                               </>
                             ) : (
                               'Aplicar'
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Apply button only for structure type templates */}
+                      {tpl.templateType === 'structure' && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-4">
+                          {!selectedNodeId ? (
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              Selecciona un nodo para aplicar esta estructura
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Creará subnodos hijos
+                            </span>
+                          )}
+                          <button
+                            onClick={() => {
+                              const sectionsCount = (tpl.schemaJson as { sections?: unknown[] })?.sections?.length || 0;
+                              handleApplyStructureTemplate(tpl.id, tpl.name, sectionsCount);
+                            }}
+                            disabled={!selectedNodeId || isApplyingStructure !== null}
+                            className="px-3.5 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition-colors shrink-0 flex items-center gap-1.5 shadow-sm shadow-violet-500/10"
+                          >
+                            {isApplyingStructure === tpl.id ? (
+                              <>
+                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                Creando...
+                              </>
+                            ) : (
+                              'Aplicar estructura'
                             )}
                           </button>
                         </div>

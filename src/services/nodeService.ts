@@ -786,6 +786,136 @@ export async function applyTemplateToNode(
   });
 }
 
+export async function applyStructureTemplateToNode(
+  nodeId: string,
+  templateId: string,
+  userId: string
+): Promise<Node[]> {
+  return await db.$transaction(async (tx) => {
+    // 1. Fetch parent node and check if exists and is active
+    const parentNode = await tx.node.findUnique({
+      where: { id: nodeId },
+    });
+
+    if (!parentNode || parentNode.deletedAt !== null) {
+      throw new Error('El nodo padre no existe o fue eliminado.');
+    }
+
+    // 2. Fetch template and check if exists
+    const template = await tx.template.findUnique({
+      where: { id: templateId },
+    });
+
+    if (!template) {
+      throw new Error('Plantilla no encontrada.');
+    }
+
+    // 3. Verify brainId match
+    if (template.brainId !== parentNode.brainId) {
+      throw new Error('La plantilla no pertenece al mismo cerebro que el nodo padre.');
+    }
+
+    // 4. Verify templateType is structure
+    if (template.templateType !== 'structure') {
+      throw new Error('Solo se pueden aplicar plantillas de tipo "structure".');
+    }
+
+    // 5. Verify schemaJson has sections
+    interface SchemaSection {
+      name?: string;
+      label?: string;
+    }
+    const schema = template.schemaJson as { sections?: SchemaSection[] } | null;
+    if (!schema || !schema.sections || !Array.isArray(schema.sections) || schema.sections.length === 0) {
+      throw new Error('La plantilla no tiene secciones definidas en su esquema.');
+    }
+
+    // 6. Find the position starting index
+    const lastNode = await tx.node.findFirst({
+      where: {
+        brainId: parentNode.brainId,
+        parentId: nodeId,
+        deletedAt: null,
+      },
+      orderBy: {
+        position: 'desc',
+      },
+    });
+    let nextPosition = lastNode ? lastNode.position + 1 : 0;
+
+    const createdNodes: Node[] = [];
+
+    // 7. Create each section as a child node
+    for (const section of schema.sections) {
+      const name = section.name || 'seccion';
+      const title = section.label || name;
+
+      // Generate unique slug
+      const slug = await generateUniqueSlug(tx, parentNode.brainId, nodeId, title);
+
+      // Create node
+      const childNode = await tx.node.create({
+        data: {
+          brainId: parentNode.brainId,
+          parentId: nodeId,
+          templateId: templateId,
+          title,
+          slug,
+          contentMarkdown: '',
+          status: 'draft',
+          ownerUserId: userId,
+          responsibleUserId: userId,
+          position: nextPosition,
+          createdBy: userId,
+          updatedBy: userId,
+        },
+      });
+
+      nextPosition++;
+
+      // Create version
+      await tx.nodeVersion.create({
+        data: {
+          nodeId: childNode.id,
+          title: childNode.title,
+          contentMarkdown: childNode.contentMarkdown,
+          status: childNode.status,
+          savedBy: userId,
+          changeNote: `Creado desde plantilla: ${template.name}`,
+        },
+      });
+
+      createdNodes.push({
+        id: childNode.id,
+        brainId: childNode.brainId,
+        parentId: childNode.parentId,
+        templateId: childNode.templateId,
+        title: childNode.title,
+        slug: childNode.slug,
+        contentMarkdown: childNode.contentMarkdown,
+        status: childNode.status,
+        description: childNode.description,
+        category: childNode.category,
+        ownerUserId: childNode.ownerUserId,
+        responsibleUserId: childNode.responsibleUserId,
+        position: childNode.position,
+        lockedBy: childNode.lockedBy,
+        lockedAt: childNode.lockedAt,
+        createdBy: childNode.createdBy,
+        updatedBy: childNode.updatedBy,
+        reviewedAt: childNode.reviewedAt,
+        nextReviewAt: childNode.nextReviewAt,
+        createdAt: childNode.createdAt,
+        updatedAt: childNode.updatedAt,
+        deletedAt: childNode.deletedAt,
+      });
+    }
+
+    return createdNodes;
+  });
+}
+
+
 
 
 
