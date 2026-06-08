@@ -141,6 +141,8 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
   const [versionsLoading, setVersionsLoading] = useState<boolean>(false);
   const [versionsError, setVersionsError] = useState<string | null>(null);
 
+  const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history'>('meta');
+
 
   // Edit Mode States
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -850,33 +852,45 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shadow-sm shadow-slate-100/50 backdrop-blur font-sans z-10">
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-600 p-2.5 rounded-xl shadow-lg shadow-blue-500/20">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
+    <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+      {/* Topbar compacta */}
+      <header className="h-12 border-b border-slate-200 bg-white flex items-center justify-between px-4 z-10 shrink-0">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => router.push('/dashboard')}>
+            <div className="bg-blue-600 p-1.5 rounded-lg shadow-md shadow-blue-500/10">
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <span className="text-xs font-bold text-slate-800 tracking-tight">Cerebro Empresarial</span>
           </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">Cerebro Empresarial</h1>
-            <p className="text-xs text-slate-500 font-medium">Visualización y Edición de Estructuras</p>
-          </div>
+
+          <div className="h-4 w-px bg-slate-200 shrink-0" />
+
+          {/* Breadcrumb temporal simple */}
+          <nav className="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
+            <span className="hover:text-blue-600 cursor-pointer shrink-0" onClick={() => router.push('/dashboard')}>Cerebros</span>
+            <span className="text-slate-300">/</span>
+            <span className="font-medium truncate max-w-[120px] text-slate-700">{brainName}</span>
+            {nodeDetail && (
+              <>
+                <span className="text-slate-300">/</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[180px]">{nodeDetail.title}</span>
+              </>
+            )}
+          </nav>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-            Cerebro: <span className="text-blue-600">{brainName}</span>
-          </div>
+
+        <div className="flex items-center gap-2">
           <button
             onClick={() => router.push('/dashboard')}
-            className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1"
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1"
           >
             ← Dashboard
           </button>
           <button
             onClick={handleLogout}
-            className="text-xs font-semibold px-3 py-1.5 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
+            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
           >
             Cerrar sesión
           </button>
@@ -886,11 +900,11 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
       {/* Main Workspace */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Tree View */}
-        <aside className="w-80 border-r border-slate-200 bg-white flex flex-col">
+        <aside className="w-72 border-r border-slate-200 bg-white flex flex-col shrink-0">
           <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Árbol de Conocimiento</h2>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Todos los nodos son páginas de contenido.</p>
+              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Árbol</h2>
+              <p className="text-[9px] text-slate-500 mt-0.5 font-medium">Todos los nodos son páginas.</p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
@@ -962,7 +976,7 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
         </aside>
 
         {/* Detail / Edit View Panel */}
-        <main className="flex-1 bg-slate-50 overflow-y-auto flex flex-col">
+        <main className="flex-1 bg-slate-50 overflow-y-auto flex flex-col min-w-0">
           {!selectedNodeId ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 gap-4">
               <svg className="w-12 h-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -1116,14 +1130,6 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                       <button onClick={() => setMoveError(null)} className="text-red-500 hover:text-red-700 font-bold">✕</button>
                     </div>
                   )}
-                  {/* Node Breadcrumbs / Meta */}
-                  <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-                    <span>Cerebros</span>
-                    <span>/</span>
-                    <span>{brainName}</span>
-                    <span>/</span>
-                    <span className="text-slate-600 font-semibold">{nodeDetail.title}</span>
-                  </div>
 
                   {/* Title Header */}
                   <div className="flex items-start justify-between border-b border-slate-200 pb-5">
@@ -1225,50 +1231,6 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                     </div>
                   </div>
 
-                  {/* Metadata Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white border border-slate-200 shadow-sm shadow-slate-100/50 rounded-xl p-4 flex flex-col gap-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Categoría</span>
-                      <span className="text-sm font-semibold text-slate-700 truncate">{nodeDetail.category || 'Ninguna'}</span>
-                    </div>
-                    <div className="bg-white border border-slate-200 shadow-sm shadow-slate-100/50 rounded-xl p-4 flex flex-col gap-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Responsable</span>
-                      <span className="text-sm font-semibold text-slate-700">
-                        {nodeDetail.responsibleUserId === '00000000-0000-0000-0000-000000000001' ? 'Usuario Demo' : nodeDetail.responsibleUserId.slice(-8)}
-                      </span>
-                    </div>
-                    <div className="bg-white border border-slate-200 shadow-sm shadow-slate-100/50 rounded-xl p-4 flex flex-col gap-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">ID Único</span>
-                      <span className="text-xs text-slate-500 font-mono truncate">{nodeDetail.id}</span>
-                    </div>
-                    <div className="bg-white border border-slate-200 shadow-sm shadow-slate-100/50 rounded-xl p-4 flex flex-col gap-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Actualización</span>
-                      <span className="text-xs text-slate-500 truncate font-semibold">
-                        {new Date(nodeDetail.updatedAt).toLocaleDateString('es-ES', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Revision Dates Panel */}
-                  <div className="bg-slate-100/50 border border-slate-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-white rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium">Última revisión:</span>
-                      <span className="font-semibold text-slate-700">
-                        {nodeDetail.reviewedAt ? new Date(nodeDetail.reviewedAt).toLocaleDateString('es-ES') : 'Pendiente'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-white rounded border border-slate-200">
-                      <span className="text-slate-500 font-medium">Próxima revisión:</span>
-                      <span className="font-semibold text-slate-700">
-                        {nodeDetail.nextReviewAt ? new Date(nodeDetail.nextReviewAt).toLocaleDateString('es-ES') : 'No programada'}
-                      </span>
-                    </div>
-                  </div>
-
                   {/* Markdown Preview Box */}
                   <div className="bg-white border border-slate-200 shadow-sm shadow-slate-100/50 rounded-xl p-6 min-h-[300px] flex flex-col">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -1292,92 +1254,6 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                       </div>
                     )}
                   </div>
-
-                  {/* Historial de Versiones */}
-                  <div className="bg-white border border-slate-200 shadow-sm shadow-slate-100/50 rounded-xl p-6 flex flex-col gap-4">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Historial de Versiones
-                      </span>
-                      <span className="text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-mono font-medium">
-                        {versions.length} {versions.length === 1 ? 'versión' : 'versiones'}
-                      </span>
-                    </div>
-
-                    {versionsLoading ? (
-                      <div className="flex items-center justify-center py-6 gap-2 text-xs text-slate-400">
-                        <div className="w-4 h-4 border border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                        <span>Cargando historial de versiones...</span>
-                      </div>
-                    ) : versionsError ? (
-                      <div className="text-xs text-red-700 py-3 bg-red-50 border border-red-200 rounded-lg px-4 font-semibold">
-                        ⚠️ {versionsError}
-                      </div>
-                    ) : versions.length === 0 ? (
-                      <div className="text-xs text-slate-400 py-6 text-center">
-                        No hay versiones de historial guardadas para este nodo.
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-3 max-h-[350px] overflow-y-auto pr-1">
-                        {versions.map((ver, idx) => (
-                          <div key={ver.id} className="bg-slate-50/50 border border-slate-200 hover:border-slate-300 rounded-xl p-4 flex flex-col gap-2.5 transition-colors">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex flex-col gap-0.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-slate-800 truncate max-w-[200px]">
-                                    {ver.title}
-                                  </span>
-                                  <span className="text-[9px] text-slate-500 px-1.5 py-0.5 bg-white rounded border border-slate-200 font-mono font-semibold uppercase">
-                                    V{versions.length - idx}
-                                  </span>
-                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                                    ver.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                    ver.status === 'draft' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                                    ver.status === 'needs_review' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                    'bg-slate-100 text-slate-600 border-slate-200'
-                                  }`}>
-                                    {ver.status === 'active' ? 'Vigente' :
-                                     ver.status === 'draft' ? 'Borrador' :
-                                     ver.status === 'needs_review' ? 'En Revisión' :
-                                     'Archivado'}
-                                  </span>
-                                </div>
-                                <span className="text-[10px] text-slate-400 font-medium">
-                                  Guardado el {new Date(ver.createdAt).toLocaleString('es-ES', {
-                                    day: 'numeric',
-                                    month: 'short',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit'
-                                  })}
-                                </span>
-                              </div>
-                              <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
-                                <span className="text-[9px] text-slate-400 uppercase font-semibold">Guardado por</span>
-                                <span className="text-[10px] text-slate-600 font-semibold">{ver.saver?.name || 'Usuario Demo'}</span>
-                              </div>
-                            </div>
-
-                            {ver.changeNote && (
-                              <div className="text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-600 leading-relaxed font-sans">
-                                <span className="font-semibold text-slate-400 text-[10px] uppercase block mb-0.5">Nota de cambio:</span>
-                                {ver.changeNote}
-                              </div>
-                            )}
-
-                            <div className="text-xs bg-slate-100/60 rounded p-2.5 font-mono text-slate-500 truncate whitespace-nowrap">
-                              {ver.contentMarkdown ? ver.contentMarkdown.substring(0, 120) : 'Sin contenido'}
-                              {ver.contentMarkdown && ver.contentMarkdown.length > 120 ? '...' : ''}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
             </div>
@@ -1391,6 +1267,151 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
             </div>
           )}
         </main>
+
+        {/* Panel Derecho (Metadatos & Historial) */}
+        <aside className="w-72 border-l border-slate-200 bg-white flex flex-col shrink-0">
+          {/* Tabs bar */}
+          <div className="flex border-b border-slate-200 text-xs shrink-0 bg-slate-50/50">
+            <button
+              onClick={() => setRightPanelTab('meta')}
+              className={`flex-1 py-3 text-center font-semibold border-b-2 transition-colors ${
+                rightPanelTab === 'meta'
+                  ? 'border-blue-600 text-blue-600 bg-white'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Metadatos
+            </button>
+            <button
+              onClick={() => setRightPanelTab('history')}
+              className={`flex-1 py-3 text-center font-semibold border-b-2 transition-colors ${
+                rightPanelTab === 'history'
+                  ? 'border-blue-600 text-blue-600 bg-white'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Historial
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {!selectedNodeId ? (
+              <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 gap-2 px-4 py-8">
+                <span className="text-2xl">📋</span>
+                <p className="text-xs font-medium">Selecciona un documento para ver metadatos e historial</p>
+              </div>
+            ) : detailLoading ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                <div className="w-4 h-4 border border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-[11px] font-medium">Cargando panel...</span>
+              </div>
+            ) : nodeDetail ? (
+              rightPanelTab === 'meta' ? (
+                /* Metadatos Tab */
+                <div className="space-y-4">
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-3">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">ID Único</span>
+                      <span className="text-[11px] text-slate-600 font-mono select-all break-all">{nodeDetail.id}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Slug</span>
+                      <span className="text-xs text-slate-700 font-medium font-mono">/{nodeDetail.slug}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Categoría</span>
+                      <span className="text-xs text-slate-700 font-semibold">{nodeDetail.category || 'Ninguna'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Responsable</span>
+                      <span className="text-xs text-slate-700 font-semibold">
+                        {nodeDetail.responsibleUserId === '00000000-0000-0000-0000-000000000001' ? 'Usuario Demo' : nodeDetail.responsibleUserId.slice(-8)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Última actualización</span>
+                      <span className="text-xs text-slate-700 font-semibold">
+                        {new Date(nodeDetail.updatedAt).toLocaleDateString('es-ES', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2.5">
+                    <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fechas de revisión</h4>
+                    <div className="flex items-center justify-between text-xs py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 font-medium">Última:</span>
+                      <span className="font-semibold text-slate-700">
+                        {nodeDetail.reviewedAt ? new Date(nodeDetail.reviewedAt).toLocaleDateString('es-ES') : 'Pendiente'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs py-1">
+                      <span className="text-slate-500 font-medium">Próxima:</span>
+                      <span className="font-semibold text-slate-700">
+                        {nodeDetail.nextReviewAt ? new Date(nodeDetail.nextReviewAt).toLocaleDateString('es-ES') : 'No programada'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Historial Tab */
+                <div className="space-y-4">
+                  {versionsLoading ? (
+                    <div className="flex items-center justify-center py-6 gap-2 text-xs text-slate-400">
+                      <div className="w-4 h-4 border border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Cargando versiones...</span>
+                    </div>
+                  ) : versionsError ? (
+                    <div className="text-xs text-red-700 py-3 bg-red-50 border border-red-200 rounded-lg px-3 font-semibold">
+                      ⚠️ {versionsError}
+                    </div>
+                  ) : versions.length === 0 ? (
+                    <div className="text-xs text-slate-400 py-6 text-center">
+                      No hay historial registrado.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {versions.map((ver, idx) => (
+                        <div key={ver.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
+                              {ver.title}
+                            </span>
+                            <span className="text-[9px] text-slate-500 px-1.5 py-0.5 bg-white rounded border border-slate-200 font-mono font-semibold uppercase">
+                              V{versions.length - idx}
+                            </span>
+                          </div>
+                          {ver.changeNote && (
+                            <p className="text-[11px] text-slate-500 line-clamp-2 italic">
+                              &ldquo;{ver.changeNote}&rdquo;
+                            </p>
+                          )}
+                          {!ver.changeNote && (
+                            <p className="text-[11px] text-slate-400 line-clamp-2 italic">
+                              Sin nota de cambios
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
+                            <span>Por: {ver.saver?.name || 'Usuario'}</span>
+                            <span>{new Date(ver.createdAt).toLocaleDateString('es-ES')}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+                No hay datos disponibles.
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* Create Node Modal */}
