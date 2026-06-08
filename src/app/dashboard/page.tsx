@@ -24,14 +24,28 @@ export default async function DashboardPage() {
           visibility: true,
           createdAt: true,
           updatedAt: true,
+          _count: {
+            select: {
+              nodes: {
+                where: {
+                  deletedAt: null,
+                },
+              },
+            },
+          },
         },
       },
     },
   });
 
   const brains = memberships.map((m) => ({
-    ...m.brain,
+    id: m.brain.id,
+    name: m.brain.name,
+    description: m.brain.description,
+    visibility: m.brain.visibility,
     role: m.role,
+    activeNodesCount: m.brain._count.nodes,
+    updatedAt: m.brain.updatedAt.toISOString(),
   }));
   const brainIds = brains.map((b) => b.id);
 
