@@ -8,6 +8,7 @@ interface NodeTreeProps {
   selectedNodeId: string | null;
   onSelectNode: (node: NodeTreeItem) => void;
   level?: number;
+  forceExpanded?: boolean;
 }
 
 export default function NodeTree({
@@ -15,6 +16,7 @@ export default function NodeTree({
   selectedNodeId,
   onSelectNode,
   level = 0,
+  forceExpanded = false,
 }: NodeTreeProps) {
   if (!items || items.length === 0) return null;
 
@@ -27,6 +29,7 @@ export default function NodeTree({
           selectedNodeId={selectedNodeId}
           onSelectNode={onSelectNode}
           level={level}
+          forceExpanded={forceExpanded}
         />
       ))}
     </ul>
@@ -38,6 +41,7 @@ interface NodeTreeRowProps {
   selectedNodeId: string | null;
   onSelectNode: (node: NodeTreeItem) => void;
   level: number;
+  forceExpanded?: boolean;
 }
 
 function NodeTreeRow({
@@ -45,10 +49,12 @@ function NodeTreeRow({
   selectedNodeId,
   onSelectNode,
   level,
+  forceExpanded = false,
 }: NodeTreeRowProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = item.children && item.children.length > 0;
   const isSelected = selectedNodeId === item.id;
+  const showChildren = forceExpanded || isExpanded;
 
   const getStatusColor = (status: NodeStatus) => {
     switch (status) {
@@ -101,7 +107,7 @@ function NodeTreeRow({
             disabled={!hasChildren}
             className={`p-1 rounded hover:bg-slate-200 transition-transform duration-200 ${
               !hasChildren ? 'opacity-0 cursor-default' : 'opacity-70 hover:opacity-100'
-            } ${isExpanded && hasChildren ? 'rotate-90' : ''}`}
+            } ${showChildren && hasChildren ? 'rotate-90' : ''}`}
           >
             <svg
               className="w-3 h-3 fill-current text-slate-400 group-hover:text-slate-600"
@@ -143,13 +149,14 @@ function NodeTreeRow({
       </div>
 
       {/* Render children recursively if expanded */}
-      {hasChildren && isExpanded && (
+      {hasChildren && showChildren && (
         <div className="mt-0.5">
           <NodeTree
             items={item.children}
             selectedNodeId={selectedNodeId}
             onSelectNode={onSelectNode}
             level={level + 1}
+            forceExpanded={forceExpanded}
           />
         </div>
       )}

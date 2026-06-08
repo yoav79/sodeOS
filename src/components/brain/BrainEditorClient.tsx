@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { NodeTreeItem, Node, Template } from '@/types';
 import NodeTree from '@/components/tree/NodeTree';
@@ -142,6 +142,54 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
   const [versionsError, setVersionsError] = useState<string | null>(null);
 
   const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history'>('meta');
+
+  // Search local states and filtering
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const { filteredTree, totalSearchResults } = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return { filteredTree: tree, totalSearchResults: 0 };
+    }
+
+    let matchCount = 0;
+
+    const filterNode = (node: NodeTreeItem): NodeTreeItem | null => {
+      const filteredChildren: NodeTreeItem[] = [];
+      if (node.children && node.children.length > 0) {
+        node.children.forEach(child => {
+          const res = filterNode(child);
+          if (res) {
+            filteredChildren.push(res);
+          }
+        });
+      }
+
+      const matchesSelf = node.title.toLowerCase().includes(query);
+      if (matchesSelf) {
+        matchCount++;
+      }
+
+      if (matchesSelf || filteredChildren.length > 0) {
+        return {
+          ...node,
+          children: filteredChildren
+        };
+      }
+
+      return null;
+    };
+
+    const result: NodeTreeItem[] = [];
+    tree.forEach(node => {
+      const res = filterNode(node);
+      if (res) {
+        result.push(res);
+      }
+    });
+
+    return { filteredTree: result, totalSearchResults: matchCount };
+  }, [tree, searchQuery]);
 
 
   // Edit Mode States
@@ -944,6 +992,46 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
               </button>
             </div>
           </div>
+
+          {/* Buscador Local */}
+          <div className="px-4 pb-3 pt-3 border-b border-slate-100 bg-white">
+            <div className="relative flex items-center">
+              <span className="absolute left-3 text-slate-400">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Buscar documento..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  title="Limpiar búsqueda"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            
+            {/* Contador de resultados */}
+            {searchQuery.trim() !== '' && (
+              <div className="mt-2 text-[10px] font-semibold text-slate-500 flex items-center justify-between px-1">
+                <span>Resultados de búsqueda:</span>
+                <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md font-mono border border-slate-200">
+                  {totalSearchResults} {totalSearchResults === 1 ? 'coincidencia' : 'coincidencias'}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="flex-1 overflow-y-auto p-3">
             {loading && (
               <div className="flex flex-col items-center justify-center h-40 gap-3 text-slate-400">
@@ -966,11 +1054,22 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
             )}
 
             {!loading && !error && tree.length > 0 && (
-              <NodeTree
-                items={tree}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={(node) => selectNodeHandler(node.id)}
-              />
+              <>
+                {searchQuery.trim() !== '' && filteredTree.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-xs flex flex-col items-center gap-2">
+                    <span className="text-lg">🔍</span>
+                    <p className="font-semibold text-slate-600">No se encontraron documentos</p>
+                    <p className="text-[10px] text-slate-400">Intenta con otros términos.</p>
+                  </div>
+                ) : (
+                  <NodeTree
+                    items={filteredTree}
+                    selectedNodeId={selectedNodeId}
+                    onSelectNode={(node) => selectNodeHandler(node.id)}
+                    forceExpanded={searchQuery.trim() !== ''}
+                  />
+                )}
+              </>
             )}
           </div>
         </aside>
