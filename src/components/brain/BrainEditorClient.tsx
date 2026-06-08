@@ -124,6 +124,24 @@ const renderSchemaSummary = (template: Template) => {
   );
 };
 
+function getNodePath(nodes: NodeTreeItem[], targetId: string): NodeTreeItem[] | null {
+  if (!nodes || nodes.length === 0) return null;
+
+  for (const node of nodes) {
+    if (node.id === targetId) {
+      return [node];
+    }
+    if (node.children && node.children.length > 0) {
+      const path = getNodePath(node.children, targetId);
+      if (path) {
+        return [node, ...path];
+      }
+    }
+  }
+
+  return null;
+}
+
 export default function BrainEditorClient({ brainId, brainName }: TreeDemoClientProps) {
   const router = useRouter();
 
@@ -190,6 +208,11 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
 
     return { filteredTree: result, totalSearchResults: matchCount };
   }, [tree, searchQuery]);
+
+  const breadcrumbPath = useMemo(() => {
+    if (!selectedNodeId || tree.length === 0) return null;
+    return getNodePath(tree, selectedNodeId);
+  }, [tree, selectedNodeId]);
 
 
   // Edit Mode States
@@ -899,6 +922,71 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     setSelectedNodeId(id);
   };
 
+  const renderBreadcrumbNodes = () => {
+    if (!breadcrumbPath || breadcrumbPath.length === 0) return null;
+
+    const len = breadcrumbPath.length;
+    
+    if (len <= 4) {
+      return breadcrumbPath.map((node, index) => {
+        const isLast = index === len - 1;
+        return (
+          <React.Fragment key={node.id}>
+            <span className="text-slate-300">/</span>
+            {isLast ? (
+              <span className="font-semibold text-slate-800 truncate max-w-[180px]">{node.title}</span>
+            ) : (
+              <span
+                onClick={() => selectNodeHandler(node.id)}
+                className="hover:text-blue-600 cursor-pointer shrink-0 transition-colors font-medium truncate max-w-[120px]"
+              >
+                {node.title}
+              </span>
+            )}
+          </React.Fragment>
+        );
+      });
+    }
+
+    const firstNode = breadcrumbPath[0];
+    const penultimateNode = breadcrumbPath[len - 2];
+    const currentNode = breadcrumbPath[len - 1];
+
+    return (
+      <>
+        {/* Primer nodo */}
+        <span className="text-slate-300">/</span>
+        <span
+          onClick={() => selectNodeHandler(firstNode.id)}
+          className="hover:text-blue-600 cursor-pointer shrink-0 transition-colors font-medium truncate max-w-[120px]"
+        >
+          {firstNode.title}
+        </span>
+
+        {/* Separador colapsado */}
+        <span className="text-slate-300">/</span>
+        <span className="text-slate-400 px-1 font-medium cursor-default" title="Segmentos intermedios ocultados">
+          &hellip;
+        </span>
+
+        {/* Penúltimo nodo */}
+        <span className="text-slate-300">/</span>
+        <span
+          onClick={() => selectNodeHandler(penultimateNode.id)}
+          className="hover:text-blue-600 cursor-pointer shrink-0 transition-colors font-medium truncate max-w-[120px]"
+        >
+          {penultimateNode.title}
+        </span>
+
+        {/* Nodo actual */}
+        <span className="text-slate-300">/</span>
+        <span className="font-semibold text-slate-800 truncate max-w-[180px]">
+          {currentNode.title}
+        </span>
+      </>
+    );
+  };
+
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       {/* Topbar compacta */}
@@ -915,15 +1003,32 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
 
           <div className="h-4 w-px bg-slate-200 shrink-0" />
 
-          {/* Breadcrumb temporal simple */}
+          {/* Breadcrumb funcional jerárquico */}
           <nav className="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
-            <span className="hover:text-blue-600 cursor-pointer shrink-0" onClick={() => router.push('/dashboard')}>Cerebros</span>
+            <span 
+              className="hover:text-blue-600 cursor-pointer shrink-0 transition-colors" 
+              onClick={() => router.push('/brains')}
+            >
+              Cerebros
+            </span>
             <span className="text-slate-300">/</span>
-            <span className="font-medium truncate max-w-[120px] text-slate-700">{brainName}</span>
-            {nodeDetail && (
+            <span 
+              className="hover:text-blue-600 cursor-pointer shrink-0 transition-colors font-medium truncate max-w-[120px] text-slate-700" 
+              onClick={() => {
+                setSelectedNodeId(null);
+                setNodeDetail(null);
+              }}
+              title="Ir al inicio de este cerebro"
+            >
+              {brainName}
+            </span>
+            {breadcrumbPath && renderBreadcrumbNodes()}
+            {!breadcrumbPath && nodeDetail && (
               <>
                 <span className="text-slate-300">/</span>
-                <span className="font-semibold text-slate-800 truncate max-w-[180px]">{nodeDetail.title}</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[180px]">
+                  {nodeDetail.title}
+                </span>
               </>
             )}
           </nav>
