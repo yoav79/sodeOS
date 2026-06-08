@@ -42,12 +42,14 @@ export default async function DashboardPage() {
     updatedAt: string;
     updaterName: string;
     brainName: string;
+    brainId: string;
   }
 
   interface RecentActivity {
     id: string;
     nodeId: string;
     nodeTitle: string;
+    brainId: string;
     changeNote: string;
     createdAt: string;
     saverName: string;
@@ -106,6 +108,7 @@ export default async function DashboardPage() {
         },
         brain: {
           select: {
+            id: true,
             name: true,
           },
         },
@@ -119,6 +122,7 @@ export default async function DashboardPage() {
       updatedAt: n.updatedAt.toISOString(),
       updaterName: n.updater.name,
       brainName: n.brain.name,
+      brainId: n.brain.id,
     }));
 
     // 6. Get recent activity from node_versions
@@ -153,6 +157,7 @@ export default async function DashboardPage() {
       id: v.id,
       nodeId: v.nodeId,
       nodeTitle: v.node.title,
+      brainId: v.node.brainId,
       changeNote: v.changeNote || 'Guardó una nueva versión',
       createdAt: v.createdAt.toISOString(),
       saverName: v.saver.name,

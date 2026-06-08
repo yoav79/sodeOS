@@ -31,7 +31,7 @@ export default function LoginForm() {
       }
 
       // Successful login
-      router.push('/demo/tree');
+      router.push('/dashboard');
       router.refresh();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ocurrió un error inesperado. Por favor, intenta de nuevo.';

@@ -30,11 +30,13 @@ interface DashboardClientProps {
     updatedAt: string;
     updaterName: string;
     brainName: string;
+    brainId: string;
   }>;
   recentActivity: Array<{
     id: string;
     nodeId: string;
     nodeTitle: string;
+    brainId: string;
     changeNote: string;
     createdAt: string;
     saverName: string;
@@ -131,13 +133,13 @@ export default function DashboardClient({
             </a>
 
             <button
-              onClick={() => router.push(brains.length > 0 ? `/brains/${brains[0].id}` : '/dashboard')}
+              onClick={() => router.push('/brains')}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 text-slate-600 hover:text-slate-900 font-medium text-sm transition-colors text-left"
             >
               <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
-              Editor de Árbol
+              Cerebros
             </button>
 
             <span className="px-3 pt-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
@@ -229,13 +231,13 @@ export default function DashboardClient({
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push(brains.length > 0 ? `/brains/${brains[0].id}` : '/dashboard')}
+              onClick={() => router.push('/brains')}
               className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md shadow-blue-500/10 transition-colors flex items-center gap-2"
             >
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              Abrir Editor de Árbol
+              Ver mis Cerebros
             </button>
           </div>
         </div>
@@ -334,7 +336,7 @@ export default function DashboardClient({
                   <h4 className="font-bold text-slate-800 mb-3 text-sm">Accesos Rápidos</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <button
-                      onClick={() => router.push(brains.length > 0 ? `/brains/${brains[0].id}` : '/dashboard')}
+                      onClick={() => router.push('/brains')}
                       className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-center transition-colors"
                     >
                       <span className="block text-lg mb-1">🌲</span>
@@ -375,7 +377,7 @@ export default function DashboardClient({
                           <div className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 border-2 border-white ring-4 ring-blue-50"></div>
                           
                           <div className="flex justify-between items-start gap-4">
-                            <span className="text-xs font-bold text-slate-800 hover:text-blue-600 cursor-pointer" onClick={() => router.push('/demo/tree')}>
+                            <span className="text-xs font-bold text-slate-800 hover:text-blue-600 cursor-pointer" onClick={() => router.push(`/brains/${act.brainId}`)}>
                               {act.nodeTitle}
                             </span>
                             <span className="text-[9px] text-slate-400 shrink-0 font-medium">
@@ -405,7 +407,7 @@ export default function DashboardClient({
                     recentNodes.map((node) => (
                       <div
                         key={node.id}
-                        onClick={() => router.push('/demo/tree')}
+                        onClick={() => router.push(`/brains/${node.brainId}`)}
                         className="flex justify-between items-center gap-4 py-2 border-b border-slate-100 last:border-0 hover:bg-slate-50 rounded-lg px-2 cursor-pointer transition-colors"
                       >
                         <div className="overflow-hidden">
