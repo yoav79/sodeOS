@@ -915,6 +915,227 @@ export async function applyStructureTemplateToNode(
   });
 }
 
+/**
+ * Fetches root-level archived nodes for a brain, limited to 100 entries, ordered by deletedAt DESC.
+ * A root archived node is a node that is archived (deletedAt !== null) and whose parent is either null or active (deletedAt === null).
+ */
+export async function getArchivedNodes(brainId: string) {
+  const rootArchivedNodes = await db.node.findMany({
+    where: {
+      brainId,
+      deletedAt: { not: null },
+      OR: [
+        { parentId: null },
+        { parent: { deletedAt: null } }
+      ]
+    },
+    orderBy: {
+      deletedAt: 'desc'
+    },
+    take: 100,
+    include: {
+      parent: {
+        select: {
+          title: true
+        }
+      }
+    }
+  });
+
+  const allNodes = await db.node.findMany({
+    where: { brainId },
+    select: { id: true, parentId: true, deletedAt: true }
+  });
+
+  const parentToChildren = new Map<string, string[]>();
+  for (const n of allNodes) {
+    if (n.parentId) {
+      const list = parentToChildren.get(n.parentId) || [];
+      list.push(n.id);
+      parentToChildren.set(n.parentId, list);
+    }
+  }
+
+  return rootArchivedNodes.map(node => {
+    // Count descendant count (only count descendants that are archived)
+    let descendantCount = 0;
+    const queue = [node.id];
+    const visited = new Set<string>([node.id]);
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const children = parentToChildren.get(currentId) || [];
+      for (const childId of children) {
+        if (!visited.has(childId)) {
+          visited.add(childId);
+          const childNode = allNodes.find(x => x.id === childId);
+          if (childNode && childNode.deletedAt !== null) {
+            descendantCount++;
+            queue.push(childId);
+          }
+        }
+      }
+    }
+
+    return {
+      id: node.id,
+      title: node.title,
+      slug: node.slug,
+      parentId: node.parentId,
+      parentTitle: node.parent?.title || null,
+      deletedAt: node.deletedAt,
+      updatedBy: node.updatedBy,
+      descendantCount
+    };
+  });
+}
+
+/**
+ * Atomically restores an archived node tree.
+ * Determines the target parent destination (moves to root if original parent is archived or non-existent).
+ * Recursively restores descendants whose deletedAt >= archivedAt.
+ * Regenerates unique slugs per level.
+ * Regenerates position for the root restored node in its target destination level.
+ * Creates a version entry in node_versions for the restored root node only.
+ */
+export async function restoreNodeTree(
+  nodeId: string,
+  userId: string
+): Promise<{ restoredNode: Node; restoredCount: number } | null> {
+  const rootNode = await db.node.findUnique({
+    where: { id: nodeId }
+  });
+
+  if (!rootNode || rootNode.deletedAt === null) {
+    return null;
+  }
+
+  const archivedAt = rootNode.deletedAt;
+
+  return await db.$transaction(async (tx) => {
+    // 1. Determine destination parent
+    let targetParentId: string | null = null;
+    if (rootNode.parentId) {
+      const parentNode = await tx.node.findUnique({
+        where: { id: rootNode.parentId }
+      });
+      if (parentNode && parentNode.deletedAt === null) {
+        targetParentId = rootNode.parentId;
+      }
+    }
+
+    // 2. Fetch all nodes in the brain to build the hierarchy in memory
+    const allNodes = await tx.node.findMany({
+      where: { brainId: rootNode.brainId }
+    });
+
+    // 3. Collect descendants to restore using BFS
+    const descendantsToRestore: typeof allNodes = [];
+    const queue = [rootNode];
+    const visited = new Set<string>([rootNode.id]);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const children = allNodes.filter(n => n.parentId === current.id);
+      for (const child of children) {
+        if (!visited.has(child.id)) {
+          visited.add(child.id);
+          // Only restore if archived and deletedAt >= archivedAt (meaning it was not archived independently before)
+          if (child.deletedAt !== null && child.deletedAt.getTime() >= archivedAt.getTime()) {
+            descendantsToRestore.push(child);
+            queue.push(child);
+          }
+        }
+      }
+    }
+
+    // 4. Recalculate slug and position for the root restored node
+    const rootSlug = await generateUniqueSlug(tx, rootNode.brainId, targetParentId, rootNode.title);
+    
+    const lastActiveNode = await tx.node.findFirst({
+      where: {
+        brainId: rootNode.brainId,
+        parentId: targetParentId,
+        deletedAt: null,
+      },
+      orderBy: {
+        position: 'desc',
+      },
+    });
+    const rootPosition = lastActiveNode ? lastActiveNode.position + 1 : 0;
+
+    // 5. Restore the root node
+    const updatedRoot = await tx.node.update({
+      where: { id: rootNode.id },
+      data: {
+        parentId: targetParentId,
+        slug: rootSlug,
+        position: rootPosition,
+        deletedAt: null,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      }
+    });
+
+    // 6. Create a new NodeVersion for the restored root node only
+    await tx.nodeVersion.create({
+      data: {
+        nodeId: rootNode.id,
+        title: updatedRoot.title,
+        contentMarkdown: updatedRoot.contentMarkdown,
+        status: updatedRoot.status,
+        savedBy: userId,
+        changeNote: "Nodo restaurado desde papelera.",
+      }
+    });
+
+    // 7. Restore all collected descendants sequentially to update their slugs
+    for (const descendant of descendantsToRestore) {
+      const newSlug = await generateUniqueSlug(tx, descendant.brainId, descendant.parentId, descendant.title);
+      await tx.node.update({
+        where: { id: descendant.id },
+        data: {
+          slug: newSlug,
+          deletedAt: null,
+          updatedBy: userId,
+          updatedAt: new Date(),
+        }
+      });
+    }
+
+    const domainRoot: Node = {
+      id: updatedRoot.id,
+      brainId: updatedRoot.brainId,
+      parentId: updatedRoot.parentId,
+      templateId: updatedRoot.templateId,
+      title: updatedRoot.title,
+      slug: updatedRoot.slug,
+      contentMarkdown: updatedRoot.contentMarkdown,
+      status: updatedRoot.status,
+      description: updatedRoot.description,
+      category: updatedRoot.category,
+      ownerUserId: updatedRoot.ownerUserId,
+      responsibleUserId: updatedRoot.responsibleUserId,
+      position: updatedRoot.position,
+      lockedBy: updatedRoot.lockedBy,
+      lockedAt: updatedRoot.lockedAt,
+      createdBy: updatedRoot.createdBy,
+      updatedBy: updatedRoot.updatedBy,
+      reviewedAt: updatedRoot.reviewedAt,
+      nextReviewAt: updatedRoot.nextReviewAt,
+      createdAt: updatedRoot.createdAt,
+      updatedAt: updatedRoot.updatedAt,
+      deletedAt: updatedRoot.deletedAt,
+    };
+
+    return {
+      restoredNode: domainRoot,
+      restoredCount: 1 + descendantsToRestore.length
+    };
+  });
+}
+
+
 
 
 
