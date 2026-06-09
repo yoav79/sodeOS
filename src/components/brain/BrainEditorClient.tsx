@@ -11,10 +11,7 @@ import EditorDocumentForm from './editor/EditorDocumentForm';
 import CreateNodeModal from './editor/modals/CreateNodeModal';
 import TrashModal, { TrashedNode } from './editor/modals/TrashModal';
 import TemplatesModal from './editor/modals/TemplatesModal';
-import MoveNodeModal from './editor/modals/MoveNodeModal';
-
-
-
+import MoveNodeModal, { FlatNodeWithDepth } from './editor/modals/MoveNodeModal';
 
 interface TreeDemoClientProps {
   brainId: string;
@@ -36,13 +33,6 @@ export interface NodeVersionWithSaver {
     email: string;
   };
 }
-
-interface FlatNodeWithDepth {
-  id: string;
-  title: string;
-  depth: number;
-}
-
 const getFlatNodesWithDepth = (nodes: NodeTreeItem[], depth = 0): FlatNodeWithDepth[] => {
   const list: FlatNodeWithDepth[] = [];
   for (const n of nodes) {
@@ -457,17 +447,6 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
 
   const handleArchiveNode = async () => {
     if (!nodeDetail) return;
-
-    const findNodeInTree = (nodes: NodeTreeItem[], targetId: string): NodeTreeItem | null => {
-      for (const n of nodes) {
-        if (n.id === targetId) return n;
-        if (n.children && n.children.length > 0) {
-          const found = findNodeInTree(n.children, targetId);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
 
     const treeItem = findNodeInTree(tree, nodeDetail.id);
     const hasChildren = treeItem ? treeItem.children.length > 0 : false;
