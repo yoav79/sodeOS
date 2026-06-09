@@ -1277,65 +1277,78 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                     </div>
                   )}
 
-                  {/* Title Field */}
+                  {/* Título del documento en edición (Notion-style input) */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Título del Nodo</label>
                     <input
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-950 text-lg font-bold focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
-                      placeholder="Ej. Título del Nodo"
+                      className="bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-600 px-0 py-2 text-slate-900 text-3xl font-extrabold focus:outline-none transition-all placeholder-slate-300"
+                      placeholder="Sin título"
                     />
                   </div>
 
-                  {/* Status & Category */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Estado (Status)</label>
-                      <select
-                        value={editStatus}
-                        onChange={(e) => setEditStatus(e.target.value)}
-                        className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-950 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
-                      >
-                        <option value="active">Vigente (Activo)</option>
-                        <option value="draft">Borrador</option>
-                        <option value="needs_review">En Revisión</option>
-                        <option value="archived">Archivado</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Categoría</label>
-                      <div className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-500">
-                        {nodeDetail.category || 'Ninguna (Solo Lectura)'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Markdown Content */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Contenido Markdown</label>
+                  {/* Editor de Contenido Markdown */}
+                  <div className="flex flex-col gap-2">
                     <textarea
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-xl p-4 text-slate-800 font-mono text-sm leading-relaxed focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 min-h-[300px] resize-y"
-                      placeholder="# Encabezado\n\nEscribe contenido aquí..."
+                      className="w-full bg-white border border-slate-200 rounded-xl p-5 text-slate-800 font-sans text-sm leading-relaxed focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 min-h-[420px] resize-y shadow-inner transition-colors"
+                      placeholder="Comienza a escribir en Markdown aquí..."
                     />
                   </div>
 
-                  {/* Change Note */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Nota de Cambios (Version History)</label>
-                    <input
-                      type="text"
-                      value={editChangeNote}
-                      onChange={(e) => setEditChangeNote(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 text-sm focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
-                      placeholder="Ej. Se actualizó la descripción del proceso de cobros."
-                    />
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      * Nota de cambios guardada de forma permanente en node_versions.
-                    </span>
+                  {/* Panel de Metadatos y Auditoría (compacto y al pie) */}
+                  <div className="bg-slate-50/50 border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm">
+                    <div className="flex items-center gap-1.5 pb-2 border-b border-slate-200/60">
+                      <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                      </svg>
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Configuración del Documento</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Estado */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Estado de publicación</label>
+                        <select
+                          value={editStatus}
+                          onChange={(e) => setEditStatus(e.target.value)}
+                          className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
+                        >
+                          <option value="active">Vigente (Activo)</option>
+                          <option value="draft">Borrador</option>
+                          <option value="needs_review">En Revisión</option>
+                          <option value="archived">Archivado</option>
+                        </select>
+                      </div>
+
+                      {/* Categoría */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Categoría</label>
+                        <div className="bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-500 font-semibold h-[34px] flex items-center">
+                          {nodeDetail.category || 'Sin categoría programada'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nota de cambios */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Nota de cambios para el Historial</label>
+                      <input
+                        type="text"
+                        value={editChangeNote}
+                        onChange={(e) => setEditChangeNote(e.target.value)}
+                        className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
+                        placeholder="Ej: Corrección ortográfica y actualización de fechas de entrega."
+                      />
+                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Esta nota se agregará a la versión y será visible en la pestaña Historial.
+                      </span>
+                    </div>
                   </div>
 
                   {/* Separador de fin de formulario */}
@@ -1477,25 +1490,33 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
                     </button>
                   </div>
 
-                  {/* Markdown Preview Box */}
-                  <div className="bg-white border border-slate-200 shadow-sm shadow-slate-100/50 rounded-xl p-6 min-h-[300px] flex flex-col">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                      <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
-                        </svg>
-                        Vista Previa Markdown
-                      </span>
-                      <span className="text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 font-medium">
-                        Solo lectura
-                      </span>
-                    </div>
+                  {/* Vista de Documento / Hoja de papel (Light SaaS) */}
+                  <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-8 md:p-10 min-h-[400px] flex flex-col transition-all">
                     {!nodeDetail.contentMarkdown || nodeDetail.contentMarkdown.trim() === '' ? (
-                      <div className="flex-1 flex items-center justify-center text-slate-400 text-xs py-12">
-                        Este nodo no contiene información o contenido Markdown.
+                      <div className="flex-1 flex flex-col items-center justify-center text-center py-16 px-4 gap-4 bg-slate-50/50 border border-dashed border-slate-200 rounded-2xl">
+                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center border border-slate-200/60 shadow-sm">
+                          <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-semibold text-slate-700">Este documento aún no tiene contenido</h3>
+                          <p className="text-[11px] text-slate-400 mt-1 max-w-[220px] leading-relaxed">
+                            Comienza a redactar el contenido de esta página o aplica una plantilla de estructura.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleStartEdit}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white transition-colors shadow-md shadow-blue-500/10"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Redactar Contenido
+                        </button>
                       </div>
                     ) : (
-                      <div className="prose max-w-none text-slate-800 whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                      <div className="text-slate-800 whitespace-pre-wrap font-sans text-sm leading-relaxed break-words">
                         {nodeDetail.contentMarkdown}
                       </div>
                     )}
