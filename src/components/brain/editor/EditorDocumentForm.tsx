@@ -4,6 +4,27 @@ import React, { useState } from 'react';
 import { Node } from '@/types';
 import RichMarkdownEditor from './rich-text/RichMarkdownEditor';
 
+const detectAdvancedMarkdown = (content: string): boolean => {
+  if (!content) return false;
+
+  // 1. Images: presence of "!["
+  if (content.includes('![')) return true;
+
+  // 2. Mermaid blocks: "```mermaid"
+  if (content.includes('```mermaid')) return true;
+
+  // 3. Task lists: "- [ ]" or "- [x]"
+  if (/-\s*\[[ xX]\]/.test(content)) return true;
+
+  // 4. HTML tags: common tags like <div, <span, <table, <iframe, <script, <img
+  if (/<(div|span|table|iframe|script|img|br|p|h[1-6]|ul|ol|li)\b/i.test(content)) return true;
+
+  // 5. Tables: simple markdown table line followed or preceded by divider |---| or similar
+  if (/\|?\s*:?-+:?\s*\|(\s*:?-+:?\s*\|)*/.test(content) && content.includes('|')) return true;
+
+  return false;
+};
+
 interface EditorDocumentFormProps {
   nodeDetail: Node;
   editTitle: string;
@@ -34,8 +55,24 @@ export default function EditorDocumentForm({
   onEditChangeNoteChange,
   onSave,
   onCancel,
-}: EditorDocumentFormProps) {
-  const [editorMode, setEditorMode] = useState<'visual' | 'markdown'>('visual');
+ }: EditorDocumentFormProps) {
+  const [editorMode, setEditorMode] = useState<'visual' | 'markdown'>(() => {
+    const isAdvanced = detectAdvancedMarkdown(nodeDetail.contentMarkdown || '');
+    return isAdvanced ? 'markdown' : 'visual';
+  });
+
+  // Detect advanced Markdown in live content
+  const hasAdvancedMarkdown = detectAdvancedMarkdown(editContent);
+
+  const handleSetEditorMode = (mode: 'visual' | 'markdown') => {
+    if (mode === 'visual' && hasAdvancedMarkdown) {
+      const confirmSwitch = window.confirm(
+        'Este documento contiene Markdown avanzado (tablas, imágenes, Mermaid o HTML) que no está soportado por el editor visual. Cambiar a modo Visual eliminará este formato al guardar.\n\n¿Estás seguro de que deseas continuar?'
+      );
+      if (!confirmSwitch) return;
+    }
+    setEditorMode(mode);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,34 +140,45 @@ export default function EditorDocumentForm({
       </div>
 
       {/* Selector de modo y advertencia */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2">
-        <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 w-fit">
-          <button
-            type="button"
-            onClick={() => setEditorMode('visual')}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-              editorMode === 'visual'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Visual
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditorMode('markdown')}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-              editorMode === 'markdown'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Markdown
-          </button>
+      <div className="flex flex-col gap-2 border-b border-slate-100 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 w-fit">
+            <button
+              type="button"
+              onClick={() => handleSetEditorMode('visual')}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                editorMode === 'visual'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Visual
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetEditorMode('markdown')}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                editorMode === 'markdown'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Markdown
+            </button>
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium sm:text-right">
+            {hasAdvancedMarkdown 
+              ? 'Advertencia: Sintaxis avanzada detectada en el documento.' 
+              : 'Usa Markdown si el documento contiene tablas, Mermaid, HTML o sintaxis avanzada.'}
+          </span>
         </div>
-        <span className="text-[10px] text-slate-400 font-medium sm:text-right">
-          Usa Markdown si el documento contiene tablas, Mermaid, HTML o sintaxis avanzada.
-        </span>
+
+        {hasAdvancedMarkdown && (
+          <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-semibold flex items-center gap-1.5 animate-fade-in">
+            <span>⚠️</span>
+            <span>Este documento contiene Markdown avanzado. Edita en modo Markdown para evitar pérdida de tablas, imágenes o sintaxis especial.</span>
+          </div>
+        )}
       </div>
 
       {/* Editor de Contenido */}
