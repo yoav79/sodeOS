@@ -951,30 +951,8 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     setSelectedNodeId(id);
   };
 
-  // Prep search props to avoid unused-vars warnings/errors until S4 visual UI integration
-  const searchProps = {
-    remoteSearchQuery,
-    remoteSearchResults,
-    isRemoteSearching,
-    remoteSearchError,
-    isRemoteSearchOpen,
-    handleRemoteSearch,
-    handleSelectSearchResult,
-  };
-
   return (
-    <div
-      className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden"
-      data-search-ready={JSON.stringify({
-        hasQuery: !!searchProps.remoteSearchQuery,
-        resultsCount: searchProps.remoteSearchResults.length,
-        loading: searchProps.isRemoteSearching,
-        error: !!searchProps.remoteSearchError,
-        isOpen: searchProps.isRemoteSearchOpen,
-        hasHandler: typeof searchProps.handleRemoteSearch === 'function',
-        hasSelectHandler: typeof searchProps.handleSelectSearchResult === 'function',
-      })}
-    >
+    <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       {/* Topbar compacta */}
       <EditorTopbar
         brainName={brainName}
@@ -988,6 +966,14 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
         }}
         onNavigateToDashboard={() => router.push('/dashboard')}
         onLogout={handleLogout}
+        remoteSearchQuery={remoteSearchQuery}
+        remoteSearchResults={remoteSearchResults}
+        isRemoteSearching={isRemoteSearching}
+        remoteSearchError={remoteSearchError}
+        isRemoteSearchOpen={isRemoteSearchOpen}
+        setIsRemoteSearchOpen={setIsRemoteSearchOpen}
+        onRemoteSearch={handleRemoteSearch}
+        onSelectSearchResult={handleSelectSearchResult}
       />
 
       {/* Main Workspace */}
