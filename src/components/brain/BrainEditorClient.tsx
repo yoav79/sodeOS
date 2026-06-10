@@ -80,6 +80,11 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
   const [versionsLoading, setVersionsLoading] = useState<boolean>(false);
   const [versionsError, setVersionsError] = useState<string | null>(null);
 
+  // Restore Version States
+  const [isRestoringVersion, setIsRestoringVersion] = useState<boolean>(false);
+  const [restoreVersionError, setRestoreVersionError] = useState<string | null>(null);
+  const [restoreVersionSuccess, setRestoreVersionSuccess] = useState<string | null>(null);
+
   const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history'>('meta');
 
   // Search local states and filtering
@@ -272,6 +277,53 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
       setRestoreError(msg);
     } finally {
       setIsRestoring(null);
+    }
+  };
+
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!selectedNodeId) return;
+
+    try {
+      setIsRestoringVersion(true);
+      setRestoreVersionError(null);
+      setRestoreVersionSuccess(null);
+
+      // Desactivar modo edición para evitar inconsistencias de estado
+      setIsEditing(false);
+
+      const res = await fetch(`/api/nodes/${selectedNodeId}/versions/${versionId}/restore`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (res.status === 403) {
+        setRestoreVersionError('Permisos insuficientes para restaurar versiones.');
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al restaurar la versión.');
+      }
+
+      setRestoreVersionSuccess('Versión restaurada exitosamente.');
+      setRefreshTrigger((prev) => prev + 1);
+
+      setTimeout(() => {
+        setRestoreVersionSuccess(null);
+      }, 4000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al restaurar la versión.';
+      setRestoreVersionError(message);
+    } finally {
+      setIsRestoringVersion(false);
     }
   };
 
@@ -826,6 +878,11 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     }
     setSelectedNodeId(id);
   };
+
+  // Temporarily reference variables to suppress unused-vars warnings until UI is connected
+  if (process.env.NODE_ENV === 'development' && false) {
+    console.log(isRestoringVersion, restoreVersionError, restoreVersionSuccess, handleRestoreVersion);
+  }
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
