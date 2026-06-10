@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Node } from '@/types';
+import RichMarkdownEditor from './rich-text/RichMarkdownEditor';
 
 interface EditorDocumentFormProps {
   nodeDetail: Node;
@@ -34,6 +35,8 @@ export default function EditorDocumentForm({
   onSave,
   onCancel,
 }: EditorDocumentFormProps) {
+  const [editorMode, setEditorMode] = useState<'visual' | 'markdown'>('visual');
+
   return (
     <div className="flex flex-col gap-6">
       {/* Cabecera del Modo Edición */}
@@ -99,14 +102,54 @@ export default function EditorDocumentForm({
         />
       </div>
 
-      {/* Editor de Contenido Markdown */}
+      {/* Selector de modo y advertencia */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-2">
+        <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 w-fit">
+          <button
+            type="button"
+            onClick={() => setEditorMode('visual')}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+              editorMode === 'visual'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Visual
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditorMode('markdown')}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+              editorMode === 'markdown'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Markdown
+          </button>
+        </div>
+        <span className="text-[10px] text-slate-400 font-medium sm:text-right">
+          Usa Markdown si el documento contiene tablas, Mermaid, HTML o sintaxis avanzada.
+        </span>
+      </div>
+
+      {/* Editor de Contenido */}
       <div className="flex flex-col gap-2">
-        <textarea
-          value={editContent}
-          onChange={(e) => onEditContentChange(e.target.value)}
-          className="w-full bg-white border border-slate-200 rounded-xl p-5 text-slate-800 font-sans text-sm leading-relaxed focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 min-h-[420px] resize-y shadow-inner transition-colors"
-          placeholder="Comienza a escribir en Markdown aquí..."
-        />
+        {editorMode === 'visual' ? (
+          <RichMarkdownEditor
+            value={editContent}
+            onChange={onEditContentChange}
+            disabled={isSaving}
+          />
+        ) : (
+          <textarea
+            value={editContent}
+            onChange={(e) => onEditContentChange(e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-xl p-5 text-slate-800 font-sans text-sm leading-relaxed focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 min-h-[420px] resize-y shadow-inner transition-colors"
+            placeholder="Comienza a escribir en Markdown aquí..."
+            disabled={isSaving}
+          />
+        )}
       </div>
 
       {/* Panel de Metadatos y Auditoría (compacto y al pie) */}
