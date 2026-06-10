@@ -33,6 +33,16 @@ export interface NodeVersionWithSaver {
     email: string;
   };
 }
+
+export interface BrainSearchResult {
+  id: string;
+  title: string;
+  status: string;
+  parentId: string | null;
+  matchedField: 'title' | 'content';
+  snippet: string;
+  updatedAt: string;
+}
 const getFlatNodesWithDepth = (nodes: NodeTreeItem[], depth = 0): FlatNodeWithDepth[] => {
   const list: FlatNodeWithDepth[] = [];
   for (const n of nodes) {
@@ -89,6 +99,13 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
 
   // Search local states and filtering
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Remote Search States
+  const [remoteSearchQuery, setRemoteSearchQuery] = useState<string>('');
+  const [remoteSearchResults, setRemoteSearchResults] = useState<BrainSearchResult[]>([]);
+  const [isRemoteSearching, setIsRemoteSearching] = useState<boolean>(false);
+  const [remoteSearchError, setRemoteSearchError] = useState<string | null>(null);
+  const [isRemoteSearchOpen, setIsRemoteSearchOpen] = useState<boolean>(false);
 
   const { filteredTree, totalSearchResults } = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -325,6 +342,61 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     } finally {
       setIsRestoringVersion(false);
     }
+  };
+
+  const handleRemoteSearch = async (query: string) => {
+    const normalized = query.trim();
+    setRemoteSearchQuery(query);
+
+    if (normalized.length < 2) {
+      setRemoteSearchResults([]);
+      setRemoteSearchError(null);
+      return;
+    }
+
+    if (normalized.length > 100) {
+      setRemoteSearchError('La búsqueda no puede exceder los 100 caracteres.');
+      setRemoteSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsRemoteSearching(true);
+      setRemoteSearchError(null);
+
+      const res = await fetch(`/api/brains/${brainId}/search?q=${encodeURIComponent(normalized)}`);
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (res.status === 403) {
+        setRemoteSearchError('No tienes acceso para buscar en este cerebro.');
+        setRemoteSearchResults([]);
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al realizar la búsqueda.');
+      }
+
+      setRemoteSearchResults(data.results || []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error de conexión con el servidor.';
+      setRemoteSearchError(msg);
+      setRemoteSearchResults([]);
+    } finally {
+      setIsRemoteSearching(false);
+    }
+  };
+
+  const handleSelectSearchResult = (nodeId: string) => {
+    selectNodeHandler(nodeId);
+    setIsRemoteSearchOpen(false);
+    setRemoteSearchResults([]);
+    setRemoteSearchQuery('');
   };
 
   const [isApplyingTemplate, setIsApplyingTemplate] = useState<string | null>(null);
@@ -879,8 +951,30 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     setSelectedNodeId(id);
   };
 
+  // Prep search props to avoid unused-vars warnings/errors until S4 visual UI integration
+  const searchProps = {
+    remoteSearchQuery,
+    remoteSearchResults,
+    isRemoteSearching,
+    remoteSearchError,
+    isRemoteSearchOpen,
+    handleRemoteSearch,
+    handleSelectSearchResult,
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div
+      className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden"
+      data-search-ready={JSON.stringify({
+        hasQuery: !!searchProps.remoteSearchQuery,
+        resultsCount: searchProps.remoteSearchResults.length,
+        loading: searchProps.isRemoteSearching,
+        error: !!searchProps.remoteSearchError,
+        isOpen: searchProps.isRemoteSearchOpen,
+        hasHandler: typeof searchProps.handleRemoteSearch === 'function',
+        hasSelectHandler: typeof searchProps.handleSelectSearchResult === 'function',
+      })}
+    >
       {/* Topbar compacta */}
       <EditorTopbar
         brainName={brainName}
