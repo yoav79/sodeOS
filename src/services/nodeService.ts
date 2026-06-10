@@ -1225,6 +1225,110 @@ export async function restoreNodeVersion(
   });
 }
 
+export interface SearchResult {
+  id: string;
+  title: string;
+  status: string;
+  parentId: string | null;
+  matchedField: 'title' | 'content';
+  snippet: string;
+  updatedAt: Date;
+}
+
+export async function searchNodesInBrain(
+  brainId: string,
+  query: string,
+  limit: number = 10
+): Promise<SearchResult[]> {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return [];
+
+  const resolvedLimit = Math.min(limit, 50);
+
+  const matchedNodes = await db.node.findMany({
+    where: {
+      brainId,
+      deletedAt: null,
+      status: {
+        not: NodeStatus.archived,
+      },
+      OR: [
+        {
+          title: {
+            contains: normalizedQuery,
+            mode: 'insensitive',
+          },
+        },
+        {
+          contentMarkdown: {
+            contains: normalizedQuery,
+            mode: 'insensitive',
+          },
+        },
+      ],
+    },
+    take: resolvedLimit,
+    orderBy: {
+      updatedAt: 'desc',
+    },
+  });
+
+  const lowercaseQuery = normalizedQuery.toLowerCase();
+
+  const results: SearchResult[] = matchedNodes.map((node) => {
+    const titleMatch = node.title.toLowerCase().includes(lowercaseQuery);
+    const matchedField = titleMatch ? 'title' : 'content';
+
+    let snippet = '';
+    const content = node.contentMarkdown || '';
+    
+    // Clean basic markdown syntaxes simple and safe
+    const cleanContent = content
+      .replace(/[#*`~_]/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (matchedField === 'content') {
+      const matchIdx = cleanContent.toLowerCase().indexOf(lowercaseQuery);
+      if (matchIdx !== -1) {
+        const start = Math.max(0, matchIdx - 60);
+        const end = Math.min(cleanContent.length, matchIdx + lowercaseQuery.length + 60);
+        let part = cleanContent.substring(start, end);
+        if (start > 0) part = '...' + part;
+        if (end < cleanContent.length) part = part + '...';
+        snippet = part;
+      } else {
+        snippet = cleanContent.substring(0, 120);
+      }
+    } else {
+      snippet = cleanContent.length > 120 ? cleanContent.substring(0, 120) + '...' : cleanContent;
+    }
+
+    return {
+      id: node.id,
+      title: node.title,
+      status: node.status,
+      parentId: node.parentId,
+      matchedField,
+      snippet,
+      updatedAt: node.updatedAt,
+    };
+  });
+
+  results.sort((a, b) => {
+    if (a.matchedField === 'title' && b.matchedField !== 'title') {
+      return -1;
+    }
+    if (a.matchedField !== 'title' && b.matchedField === 'title') {
+      return 1;
+    }
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
+  });
+
+  return results;
+}
+
 
 
 
