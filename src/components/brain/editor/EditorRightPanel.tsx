@@ -15,6 +15,11 @@ interface EditorRightPanelProps {
   onRightPanelTabChange: (tab: 'meta' | 'history') => void;
   copied: boolean;
   onCopyId: (id: string) => void;
+  onRestoreVersion?: (versionId: string) => void | Promise<void>;
+  isRestoringVersion?: boolean;
+  restoreVersionError?: string | null;
+  restoreVersionSuccess?: string | null;
+  canRestoreVersion?: boolean;
 }
 
 export default function EditorRightPanel({
@@ -28,6 +33,11 @@ export default function EditorRightPanel({
   onRightPanelTabChange,
   copied,
   onCopyId,
+  onRestoreVersion,
+  isRestoringVersion = false,
+  restoreVersionError = null,
+  restoreVersionSuccess = null,
+  canRestoreVersion = true,
 }: EditorRightPanelProps) {
   return (
     <aside className="w-72 border-l border-slate-200 bg-white flex flex-col shrink-0 h-full">
@@ -202,6 +212,18 @@ export default function EditorRightPanel({
           ) : (
             /* Historial Tab */
             <div className="space-y-4">
+              {restoreVersionError && (
+                <div className="text-xs text-red-700 py-2.5 bg-red-50 border border-red-200 rounded-xl px-3 font-medium flex items-start gap-2 shadow-sm">
+                  <span className="mt-0.5">⚠️</span>
+                  <span className="flex-1">{restoreVersionError}</span>
+                </div>
+              )}
+              {restoreVersionSuccess && (
+                <div className="text-xs text-emerald-700 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3 font-medium flex items-start gap-2 shadow-sm">
+                  <span className="mt-0.5">✅</span>
+                  <span className="flex-1">{restoreVersionSuccess}</span>
+                </div>
+              )}
               {versionsLoading ? (
                 <div className="flex items-center justify-center py-6 gap-2 text-xs text-slate-400">
                   <div className="w-4 h-4 border border-slate-400 border-t-transparent rounded-full animate-spin"></div>
@@ -282,6 +304,38 @@ export default function EditorRightPanel({
                               {new Date(ver.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
                             </span>
                           </div>
+
+                          {onRestoreVersion && (
+                            <div className="pt-2 border-t border-slate-100 flex justify-end">
+                              <button
+                                type="button"
+                                disabled={isRestoringVersion || canRestoreVersion === false}
+                                onClick={() => {
+                                  const confirmed = window.confirm(
+                                    `¿Estás seguro de que deseas restaurar la versión V${versions.length - idx}? esto creará una nueva entrada de auditoría en el historial.`
+                                  );
+                                  if (confirmed) {
+                                    onRestoreVersion(ver.id);
+                                  }
+                                }}
+                                className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 disabled:text-slate-400 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-blue-50/50 disabled:hover:bg-transparent"
+                              >
+                                {isRestoringVersion ? (
+                                  <>
+                                    <span className="w-2.5 h-2.5 border border-slate-400 border-t-transparent rounded-full animate-spin"></span>
+                                    Restaurando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                                    </svg>
+                                    Restaurar versión
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
