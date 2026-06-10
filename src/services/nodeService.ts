@@ -1135,6 +1135,96 @@ export async function restoreNodeTree(
   });
 }
 
+/**
+ * Restores a node's content (title, contentMarkdown, status) to a specific historical version.
+ * Runs in a Prisma transaction.
+ * Creates a new NodeVersion as an audit trail.
+ */
+export async function restoreNodeVersion(
+  nodeId: string,
+  versionId: string,
+  userId: string
+): Promise<Node | null> {
+  return await db.$transaction(async (tx) => {
+    // 1. Verify that the node exists and is active (not deleted)
+    const currentNode = await tx.node.findFirst({
+      where: {
+        id: nodeId,
+        deletedAt: null,
+      },
+    });
+
+    if (!currentNode) {
+      throw new Error('Nodo no encontrado o archivado.');
+    }
+
+    // 2. Fetch the requested historical version
+    const version = await tx.nodeVersion.findUnique({
+      where: {
+        id: versionId,
+      },
+    });
+
+    if (!version) {
+      throw new Error('Versión histórica no encontrada.');
+    }
+
+    // 3. Verify that the version belongs to the specified node
+    if (version.nodeId !== nodeId) {
+      throw new Error('La versión especificada no pertenece a este nodo.');
+    }
+
+    // 4. Update the Node with the historical content
+    const updatedNode = await tx.node.update({
+      where: { id: nodeId },
+      data: {
+        title: version.title,
+        contentMarkdown: version.contentMarkdown,
+        status: version.status,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      },
+    });
+
+    // 5. Create a new NodeVersion as audit for this restoration
+    await tx.nodeVersion.create({
+      data: {
+        nodeId: nodeId,
+        title: version.title,
+        contentMarkdown: version.contentMarkdown,
+        status: version.status,
+        savedBy: userId,
+        changeNote: `Restauración desde versión histórica ${versionId}`,
+      },
+    });
+
+    return {
+      id: updatedNode.id,
+      brainId: updatedNode.brainId,
+      parentId: updatedNode.parentId,
+      templateId: updatedNode.templateId,
+      title: updatedNode.title,
+      slug: updatedNode.slug,
+      contentMarkdown: updatedNode.contentMarkdown,
+      status: updatedNode.status,
+      description: updatedNode.description,
+      category: updatedNode.category,
+      ownerUserId: updatedNode.ownerUserId,
+      responsibleUserId: updatedNode.responsibleUserId,
+      position: updatedNode.position,
+      lockedBy: updatedNode.lockedBy,
+      lockedAt: updatedNode.lockedAt,
+      createdBy: updatedNode.createdBy,
+      updatedBy: updatedNode.updatedBy,
+      reviewedAt: updatedNode.reviewedAt,
+      nextReviewAt: updatedNode.nextReviewAt,
+      createdAt: updatedNode.createdAt,
+      updatedAt: updatedNode.updatedAt,
+      deletedAt: updatedNode.deletedAt,
+    };
+  });
+}
+
 
 
 
