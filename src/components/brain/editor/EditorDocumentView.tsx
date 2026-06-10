@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Node } from '@/types';
+import MarkdownDocumentView from './rich-text/MarkdownDocumentView';
 
 interface EditorDocumentViewProps {
   nodeDetail: Node;
@@ -195,9 +196,12 @@ export default function EditorDocumentView({
             </button>
           </div>
         ) : (
-          <div className="text-slate-800 whitespace-pre-wrap font-sans text-sm leading-relaxed break-words">
-            {nodeDetail.contentMarkdown}
-          </div>
+          <MarkdownDocumentView
+            content={nodeDetail.contentMarkdown}
+            emptyMessage="Este documento todavía no tiene contenido."
+            className="!border-none !shadow-none bg-transparent"
+            minHeight="300px"
+          />
         )}
       </div>
     </div>
