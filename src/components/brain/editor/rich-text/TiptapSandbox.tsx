@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import RichMarkdownEditor from './RichMarkdownEditor';
+import MarkdownDocumentView from './MarkdownDocumentView';
 
 const DEFAULT_MARKDOWN = `# Título 1 (Heading 1)
 
@@ -155,6 +156,16 @@ export default function TiptapSandbox() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Previsualización Read-only */}
+      <div className="flex flex-col gap-2 border-t border-slate-200 pt-6">
+        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">4. MarkdownDocumentView (Lector Renderizado Read-only)</span>
+        <MarkdownDocumentView
+          content={tiptapContent}
+          className="min-h-[200px]"
+          emptyMessage="No hay contenido para renderizar en el visor de lectura."
+        />
       </div>
     </div>
   );
