@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export interface MemberWithUser {
   id: string;
@@ -19,6 +20,7 @@ export interface MemberWithUser {
 interface ManageMembersModalProps {
   isOpen: boolean;
   onClose: () => void;
+  brainId: string;
   members: MemberWithUser[];
   isLoading: boolean;
   error: string | null;
@@ -29,13 +31,76 @@ interface ManageMembersModalProps {
 export default function ManageMembersModal({
   isOpen,
   onClose,
+  brainId,
   members,
   isLoading,
   error,
   onRefresh,
   isOwner,
 }: ManageMembersModalProps) {
+  const router = useRouter();
+  const [emailInput, setEmailInput] = useState('');
+  const [roleInput, setRoleInput] = useState<'owner' | 'editor' | 'reader'>('reader');
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState<string | null>(null);
+
   if (!isOpen) return null;
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isAdding) return;
+
+    setAddError(null);
+    setAddSuccess(null);
+
+    const email = emailInput.trim().toLowerCase();
+    if (!email) {
+      setAddError('El correo electrónico es requerido.');
+      return;
+    }
+
+    // Simple email regex validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setAddError('Por favor introduce un correo electrónico válido.');
+      return;
+    }
+
+    try {
+      setIsAdding(true);
+      const res = await fetch(`/api/brains/${brainId}/members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, role: roleInput }),
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al agregar miembro.');
+      }
+
+      setAddSuccess(`Usuario ${email} agregado exitosamente como ${getRoleLabel(roleInput)}.`);
+      setEmailInput('');
+      setRoleInput('reader');
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error de conexión con el servidor.';
+      setAddError(msg);
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -110,8 +175,66 @@ export default function ManageMembersModal({
           {isOwner && !isLoading && !error && (
             <div className="text-[11px] text-blue-700 bg-blue-50/50 border border-blue-100 rounded-lg p-2.5 font-medium flex items-center gap-1.5">
               <span>🛡️</span>
-              <span>Posees privilegios de Propietario. Puedes visualizar la configuración de membresías.</span>
+              <span>Posees privilegios de Propietario. Puedes visualizar y gestionar la configuración de membresías.</span>
             </div>
+          )}
+
+          {isOwner && (
+            <form onSubmit={handleAddMember} className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col gap-3">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Invitar Miembro</h4>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 flex flex-col gap-1">
+                  <input
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    value={emailInput}
+                    onChange={(e) => {
+                      setEmailInput(e.target.value);
+                      if (addError) setAddError(null);
+                      if (addSuccess) setAddSuccess(null);
+                    }}
+                    disabled={isAdding}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors placeholder-slate-400 font-medium"
+                  />
+                </div>
+                <div className="shrink-0 flex gap-2">
+                  <select
+                    value={roleInput}
+                    onChange={(e) => setRoleInput(e.target.value as 'owner' | 'editor' | 'reader')}
+                    disabled={isAdding}
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors"
+                  >
+                    <option value="reader">Lector</option>
+                    <option value="editor">Editor</option>
+                    <option value="owner">Propietario</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={isAdding}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shrink-0 shadow-sm shadow-blue-500/10"
+                  >
+                    {isAdding ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Agregando...</span>
+                      </>
+                    ) : (
+                      <span>Agregar</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+              {addError && (
+                <p className="text-[11px] text-red-600 font-semibold mt-1 flex items-center gap-1 animate-fade-in">
+                  ⚠️ {addError}
+                </p>
+              )}
+              {addSuccess && (
+                <p className="text-[11px] text-green-600 font-semibold mt-1 flex items-center gap-1 animate-fade-in">
+                  ✅ {addSuccess}
+                </p>
+              )}
+            </form>
           )}
 
           {isLoading && (

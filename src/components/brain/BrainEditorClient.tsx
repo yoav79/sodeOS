@@ -1527,6 +1527,7 @@ ${nodeDetail.contentMarkdown}`;
       <ManageMembersModal
         isOpen={isMembersModalOpen}
         onClose={closeMembersModal}
+        brainId={brainId}
         members={members}
         isLoading={isCheckingOwner}
         error={membersError}
