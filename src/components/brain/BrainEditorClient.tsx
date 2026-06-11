@@ -83,7 +83,6 @@ export default function BrainEditorClient({
   const router = useRouter();
 
   // Permisos derivados (para uso futuro en control de UI de barra lateral, editor y topbar)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const canEditBrain = currentUserRole === 'editor' || currentUserRole === 'owner';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const canManageMembers = currentUserRole === 'owner';
@@ -998,6 +997,7 @@ export default function BrainEditorClient({
   }, [selectedNodeId, refreshTrigger, router]);
 
   const handleStartEdit = () => {
+    if (!canEditBrain) return;
     if (nodeDetail) {
       setEditTitle(nodeDetail.title);
       setEditContent(nodeDetail.contentMarkdown);
@@ -1014,6 +1014,7 @@ export default function BrainEditorClient({
   };
 
   const handleSave = async () => {
+    if (!canEditBrain) return;
     if (!selectedNodeId) return;
 
     if (!editTitle.trim()) {
@@ -1424,6 +1425,7 @@ ${nodeDetail.contentMarkdown}`;
                   onMoveUp={handleMoveUp}
                   onMoveDown={handleMoveDown}
                   onArchiveNode={handleArchiveNode}
+                  canEdit={canEditBrain}
                 />
               )}
             </div>
