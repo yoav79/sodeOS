@@ -1017,6 +1017,66 @@ ${nodeDetail.contentMarkdown}`;
     downloadTextFile(filename, jsonContent, 'application/json');
   };
 
+  interface ExportNode {
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+    position: number;
+    parentId: string | null;
+    updatedAt: string;
+    contentMarkdown: string;
+    children: ExportNode[];
+  }
+
+  const mapNodeTreeForExport = (items: NodeTreeItem[]): ExportNode[] => {
+    // Exclude archived nodes
+    const activeItems = items.filter((item) => item.status !== 'archived');
+
+    // Sort by position ascending if position is available
+    const sortedItems = [...activeItems].sort((a, b) => {
+      const posA = typeof a.position === 'number' ? a.position : 0;
+      const posB = typeof b.position === 'number' ? b.position : 0;
+      return posA - posB;
+    });
+
+    return sortedItems.map((item) => {
+      const dateStr = item.updatedAt instanceof Date
+        ? item.updatedAt.toISOString()
+        : new Date(item.updatedAt).toISOString();
+
+      return {
+        id: item.id,
+        title: item.title,
+        slug: item.slug,
+        status: item.status,
+        position: item.position,
+        parentId: item.parentId,
+        updatedAt: dateStr,
+        contentMarkdown: item.contentMarkdown,
+        children: mapNodeTreeForExport(item.children || []),
+      };
+    });
+  };
+
+  const handleExportBrainJson = () => {
+    if (!brainId || !tree) return;
+
+    const exportedNodes = mapNodeTreeForExport(tree);
+
+    const exportObj = {
+      brainId: brainId,
+      brainName: brainName || 'Cerebro',
+      exportedAt: new Date().toISOString(),
+      format: 'sodeos.brain.export.v1',
+      nodes: exportedNodes,
+    };
+
+    const jsonContent = JSON.stringify(exportObj, null, 2);
+    const filename = `${sanitizeFileName(brainName || 'Cerebro')}-completo.json`;
+    downloadTextFile(filename, jsonContent, 'application/json');
+  };
+
   const selectNodeHandler = (id: string) => {
     if (isEditing) {
       if (!window.confirm('Tienes cambios sin guardar. ¿Deseas descartarlos y cambiar de nodo?')) {
@@ -1077,6 +1137,7 @@ ${nodeDetail.contentMarkdown}`;
             setIsTrashModalOpen(true);
             fetchTrashNodes();
           }}
+          onExportBrainJson={handleExportBrainJson}
         />
 
         {/* Detail / Edit View Panel */}

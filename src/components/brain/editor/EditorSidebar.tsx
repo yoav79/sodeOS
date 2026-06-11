@@ -18,6 +18,8 @@ interface EditorSidebarProps {
   onCreateRootNode: () => void;
   onOpenTemplates: () => void;
   onOpenTrash: () => void;
+  onExportBrainJson?: () => void;
+  canExportBrain?: boolean;
 }
 
 export default function EditorSidebar({
@@ -34,6 +36,8 @@ export default function EditorSidebar({
   onCreateRootNode,
   onOpenTemplates,
   onOpenTrash,
+  onExportBrainJson,
+  canExportBrain = true,
 }: EditorSidebarProps) {
   return (
     <aside className="w-72 border-r border-slate-200 bg-white flex flex-col shrink-0">
@@ -44,6 +48,17 @@ export default function EditorSidebar({
           <p className="text-[9px] text-slate-500 mt-0.5 font-medium">Todos los nodos son páginas.</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Exportar Cerebro */}
+          <button
+            onClick={onExportBrainJson}
+            disabled={!canExportBrain || tree.length === 0}
+            className="p-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-slate-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center shrink-0"
+            title="Exportar cerebro JSON"
+          >
+            <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </button>
           {/* Plantillas */}
           <button
             onClick={onOpenTemplates}
