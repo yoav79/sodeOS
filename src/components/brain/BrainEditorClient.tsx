@@ -84,7 +84,6 @@ export default function BrainEditorClient({
 
   // Permisos derivados (para uso futuro en control de UI de barra lateral, editor y topbar)
   const canEditBrain = currentUserRole === 'editor' || currentUserRole === 'owner';
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const canManageMembers = currentUserRole === 'owner';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isReader = currentUserRole === 'reader';
@@ -319,6 +318,7 @@ export default function BrainEditorClient({
   };
 
   const handleRestoreNode = async (nodeId: string, nodeTitle: string) => {
+    if (!canEditBrain) return;
     const confirmRestore = window.confirm(`¿Estás seguro de que deseas restaurar "${nodeTitle}" y sus descendientes?`);
     if (!confirmRestore) return;
 
@@ -366,6 +366,7 @@ export default function BrainEditorClient({
   };
 
   const handleRestoreVersion = async (versionId: string) => {
+    if (!canEditBrain) return;
     if (!selectedNodeId) return;
 
     try {
@@ -472,6 +473,7 @@ export default function BrainEditorClient({
   const [applySuccessFeedback, setApplySuccessFeedback] = useState<string | null>(null);
 
   const handleApplyTemplate = async (templateId: string, templateName: string) => {
+    if (!canEditBrain) return;
     if (!selectedNodeId || !nodeDetail) return;
 
     const hasContent = nodeDetail.contentMarkdown && nodeDetail.contentMarkdown.trim() !== '';
@@ -528,6 +530,7 @@ export default function BrainEditorClient({
   const [applyStructureSuccess, setApplyStructureSuccess] = useState<string | null>(null);
 
   const handleApplyStructureTemplate = async (templateId: string, templateName: string, sectionsCount: number) => {
+    if (!canEditBrain) return;
     if (!selectedNodeId || !nodeDetail) return;
 
     const confirmApply = (window as unknown as { __skipConfirm?: boolean }).__skipConfirm || window.confirm(
@@ -576,6 +579,7 @@ export default function BrainEditorClient({
   };
 
   const openCreateModal = (parentId: string | null = null) => {
+    if (!canEditBrain) return;
     setCreateParentId(parentId);
     setCreateTitle('');
     setCreateContentMarkdown('');
@@ -586,6 +590,7 @@ export default function BrainEditorClient({
 
   const handleCreateNode = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditBrain) return;
     if (!createTitle.trim()) {
       setCreateError('El título es obligatorio.');
       return;
@@ -638,6 +643,7 @@ export default function BrainEditorClient({
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
   const handleArchiveNode = async () => {
+    if (!canEditBrain) return;
     if (!nodeDetail) return;
 
     const treeItem = findNodeInTree(tree, nodeDetail.id);
@@ -740,6 +746,7 @@ export default function BrainEditorClient({
   };
 
   const executeMove = async (newParentId: string | null, newPosition?: number) => {
+    if (!canEditBrain) return;
     if (!nodeDetail) return;
     try {
       setIsMoving(true);
@@ -799,11 +806,13 @@ export default function BrainEditorClient({
   const canMoveDown = currentIndex >= 0 && currentIndex < currentSiblings.length - 1;
 
   const handleMoveUp = async () => {
+    if (!canEditBrain) return;
     if (!nodeDetail || !canMoveUp || !placementInfo) return;
     await executeMove(placementInfo.parent?.id || null, currentIndex - 1);
   };
 
   const handleMoveDown = async () => {
+    if (!canEditBrain) return;
     if (!nodeDetail || !canMoveDown || !placementInfo) return;
     await executeMove(placementInfo.parent?.id || null, currentIndex + 1);
   };
@@ -1346,8 +1355,9 @@ ${nodeDetail.contentMarkdown}`;
           }}
           onExportBrainJson={handleExportBrainJson}
           onExportBrainMarkdown={handleExportBrainMarkdown}
-          showMembersButton={!isCheckingOwner && isOwner}
           onOpenMembers={openMembersModal}
+          canEditBrain={canEditBrain}
+          canManageMembers={canManageMembers}
         />
 
         {/* Detail / Edit View Panel */}
@@ -1459,6 +1469,7 @@ ${nodeDetail.contentMarkdown}`;
           onExportMarkdown={handleExportNodeMarkdown}
           onExportJson={handleExportNodeJson}
           isEditing={isEditing}
+          canRestoreVersion={canEditBrain}
         />
       </div>
 

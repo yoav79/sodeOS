@@ -88,21 +88,21 @@ export default function EditorDocumentView({
       </div>
 
       {/* ── Toolbar contextual compacta (modo lectura) ── */}
-      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1.5 shadow-sm w-fit">
-        {/* Nueva subpágina */}
-        <button
-          onClick={() => onCreateSubpage(nodeDetail.id)}
-          title="Nueva subpágina"
-          aria-label="Nueva subpágina"
-          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
+      {canEdit && (
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1.5 shadow-sm w-fit">
+          {/* Nueva subpágina */}
+          <button
+            onClick={() => onCreateSubpage(nodeDetail.id)}
+            title="Nueva subpágina"
+            aria-label="Nueva subpágina"
+            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
 
-        {/* Editar */}
-        {canEdit && (
+          {/* Editar */}
           <button
             onClick={onStartEdit}
             title="Editar documento"
@@ -114,72 +114,72 @@ export default function EditorDocumentView({
             </svg>
             <span className="hidden sm:inline text-xs font-semibold">Editar</span>
           </button>
-        )}
 
-        {/* Separador */}
-        <div className="h-5 w-px bg-slate-200 mx-0.5" />
+          {/* Separador */}
+          <div className="h-5 w-px bg-slate-200 mx-0.5" />
 
-        {/* Mover */}
-        <button
-          onClick={onOpenMoveModal}
-          title="Mover a otra ubicación"
-          aria-label="Mover nodo"
-          className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-          </svg>
-        </button>
-
-        {/* Separador */}
-        <div className="h-5 w-px bg-slate-200 mx-0.5" />
-
-        {/* Subir posición */}
-        <button
-          onClick={onMoveUp}
-          disabled={!canMoveUp || isMoving}
-          title={canMoveUp ? 'Subir posición' : 'Ya está en la primera posición'}
-          aria-label="Subir posición"
-          className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center disabled:opacity-35 disabled:cursor-not-allowed"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-          </svg>
-        </button>
-
-        {/* Bajar posición */}
-        <button
-          onClick={onMoveDown}
-          disabled={!canMoveDown || isMoving}
-          title={canMoveDown ? 'Bajar posición' : 'Ya está en la última posición'}
-          aria-label="Bajar posición"
-          className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center disabled:opacity-35 disabled:cursor-not-allowed"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {/* Separador danger */}
-        <div className="h-5 w-px bg-slate-200 mx-0.5" />
-
-        {/* Archivar */}
-        <button
-          onClick={onArchiveNode}
-          disabled={isArchiving}
-          title={isArchiving ? 'Archivando...' : 'Archivar documento (acción destructiva)'}
-          aria-label="Archivar documento"
-          className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isArchiving ? (
-            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-          ) : (
+          {/* Mover */}
+          <button
+            onClick={onOpenMoveModal}
+            title="Mover a otra ubicación"
+            aria-label="Mover nodo"
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
             </svg>
-          )}
-        </button>
-      </div>
+          </button>
+
+          {/* Separador */}
+          <div className="h-5 w-px bg-slate-200 mx-0.5" />
+
+          {/* Subir posición */}
+          <button
+            onClick={onMoveUp}
+            disabled={!canMoveUp || isMoving}
+            title={canMoveUp ? 'Subir posición' : 'Ya está en la primera posición'}
+            aria-label="Subir posición"
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center disabled:opacity-35 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+
+          {/* Bajar posición */}
+          <button
+            onClick={onMoveDown}
+            disabled={!canMoveDown || isMoving}
+            title={canMoveDown ? 'Bajar posición' : 'Ya está en la última posición'}
+            aria-label="Bajar posición"
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center disabled:opacity-35 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Separador danger */}
+          <div className="h-5 w-px bg-slate-200 mx-0.5" />
+
+          {/* Archivar */}
+          <button
+            onClick={onArchiveNode}
+            disabled={isArchiving}
+            title={isArchiving ? 'Archivando...' : 'Archivar documento (acción destructiva)'}
+            aria-label="Archivar documento"
+            className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isArchiving ? (
+              <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Vista de Documento / Hoja de papel (Light SaaS) */}
       <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-8 md:p-10 min-h-[400px] flex flex-col transition-all">
