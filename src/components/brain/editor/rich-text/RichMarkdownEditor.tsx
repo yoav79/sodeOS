@@ -115,83 +115,9 @@ export default function RichMarkdownEditor({
   };
 
   return (
-    <div className={`rich-markdown-editor flex flex-col border border-slate-200 bg-white rounded-xl overflow-hidden shadow-inner focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-all ${className}`}>
+    <div className={`rich-markdown-editor rich-markdown-content flex flex-col border border-slate-200 bg-white rounded-xl overflow-hidden shadow-inner focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-all ${className}`}>
       {/* Encapsulated styles for Tiptap content */}
       <style>{`
-        .rich-markdown-editor .ProseMirror ul {
-          list-style-type: disc !important;
-          padding-left: 1.5rem !important;
-          margin-bottom: 0.75rem !important;
-        }
-        .rich-markdown-editor .ProseMirror ol {
-          list-style-type: decimal !important;
-          padding-left: 1.5rem !important;
-          margin-bottom: 0.75rem !important;
-        }
-        .rich-markdown-editor .ProseMirror h1 {
-          font-size: 1.75rem !important;
-          font-weight: 800 !important;
-          margin-top: 1.25rem !important;
-          margin-bottom: 0.75rem !important;
-          color: #0f172a !important;
-        }
-        .rich-markdown-editor .ProseMirror h2 {
-          font-size: 1.35rem !important;
-          font-weight: 700 !important;
-          margin-top: 1rem !important;
-          margin-bottom: 0.5rem !important;
-          color: #1e293b !important;
-        }
-        .rich-markdown-editor .ProseMirror h3 {
-          font-size: 1.15rem !important;
-          font-weight: 700 !important;
-          margin-top: 0.85rem !important;
-          margin-bottom: 0.4rem !important;
-          color: #334155 !important;
-        }
-        .rich-markdown-editor .ProseMirror p {
-          margin-bottom: 0.75rem !important;
-        }
-        .rich-markdown-editor .ProseMirror blockquote {
-          border-left: 4px solid #cbd5e1 !important;
-          padding-left: 1rem !important;
-          font-style: italic !important;
-          color: #475569 !important;
-          margin: 1rem 0 !important;
-        }
-        .rich-markdown-editor .ProseMirror pre {
-          background-color: #1e293b !important;
-          color: #f8fafc !important;
-          padding: 1rem !important;
-          border-radius: 0.5rem !important;
-          font-family: monospace !important;
-          font-size: 0.875rem !important;
-          overflow-x: auto !important;
-          margin: 1rem 0 !important;
-        }
-        .rich-markdown-editor .ProseMirror code {
-          background-color: #f1f5f9 !important;
-          color: #0f172a !important;
-          padding: 0.125rem 0.25rem !important;
-          border-radius: 0.25rem !important;
-          font-family: monospace !important;
-          font-size: 0.875rem !important;
-        }
-        .rich-markdown-editor .ProseMirror pre code {
-          background-color: transparent !important;
-          color: inherit !important;
-          padding: 0 !important;
-          border-radius: 0 !important;
-        }
-        .rich-markdown-editor .ProseMirror a {
-          color: #2563eb !important;
-          text-decoration: underline !important;
-        }
-        .rich-markdown-editor .ProseMirror hr {
-          border: 0 !important;
-          border-top: 2px solid #e2e8f0 !important;
-          margin: 1.5rem 0 !important;
-        }
         .rich-markdown-editor .ProseMirror p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           float: left;
