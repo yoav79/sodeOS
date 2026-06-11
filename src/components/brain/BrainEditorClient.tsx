@@ -12,6 +12,7 @@ import CreateNodeModal from './editor/modals/CreateNodeModal';
 import TrashModal, { TrashedNode } from './editor/modals/TrashModal';
 import TemplatesModal from './editor/modals/TemplatesModal';
 import MoveNodeModal, { FlatNodeWithDepth } from './editor/modals/MoveNodeModal';
+import ManageMembersModal, { MemberWithUser } from './editor/modals/ManageMembersModal';
 
 interface TreeDemoClientProps {
   brainId: string;
@@ -222,6 +223,61 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
   const [isRestoring, setIsRestoring] = useState<string | null>(null);
   const [restoreSuccess, setRestoreSuccess] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  // Members States
+  const [isOwner, setIsOwner] = useState<boolean>(false);
+  const [isCheckingOwner, setIsCheckingOwner] = useState<boolean>(true);
+  const [members, setMembers] = useState<MemberWithUser[]>([]);
+  const [membersError, setMembersError] = useState<string | null>(null);
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState<boolean>(false);
+
+  const fetchMembers = async (showLoadingState = true) => {
+    try {
+      if (showLoadingState) {
+        setIsCheckingOwner(true);
+      }
+      setMembersError(null);
+      const res = await fetch(`/api/brains/${brainId}/members`);
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (res.status === 403) {
+        setIsOwner(false);
+        setMembers([]);
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'No se pudieron recuperar los miembros.');
+      }
+      const data = await res.json();
+      setMembers(data.members || []);
+      setIsOwner(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar con el servidor.';
+      setMembersError(msg);
+      setIsOwner(false);
+    } finally {
+      if (showLoadingState) {
+        setIsCheckingOwner(false);
+      }
+    }
+  };
+
+  const openMembersModal = () => {
+    setMembersError(null);
+    setIsMembersModalOpen(true);
+    fetchMembers(false);
+  };
+
+  const closeMembersModal = () => {
+    setIsMembersModalOpen(false);
+  };
+
+  const refreshMembers = () => {
+    fetchMembers(true);
+  };
 
   const fetchTrashNodes = async () => {
     try {
@@ -756,6 +812,55 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     }
   };
 
+  // Fetch brain membership to check owner role and load members list
+  useEffect(() => {
+    let active = true;
+    
+    async function initMembers() {
+      setIsCheckingOwner(true);
+      setMembersError(null);
+      try {
+        const res = await fetch(`/api/brains/${brainId}/members`);
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
+        if (res.status === 403) {
+          if (active) {
+            setIsOwner(false);
+            setMembers([]);
+          }
+          return;
+        }
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'No se pudieron recuperar los miembros.');
+        }
+        const data = await res.json();
+        if (active) {
+          setMembers(data.members || []);
+          setIsOwner(true);
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Error de conexión.';
+        if (active) {
+          setMembersError(msg);
+          setIsOwner(false);
+        }
+      } finally {
+        if (active) {
+          setIsCheckingOwner(false);
+        }
+      }
+    }
+
+    initMembers();
+
+    return () => {
+      active = false;
+    };
+  }, [brainId, router]);
+
   // Fetch the nested tree structures
   useEffect(() => {
     let active = true;
@@ -1227,6 +1332,8 @@ ${nodeDetail.contentMarkdown}`;
           }}
           onExportBrainJson={handleExportBrainJson}
           onExportBrainMarkdown={handleExportBrainMarkdown}
+          showMembersButton={!isCheckingOwner && isOwner}
+          onOpenMembers={openMembersModal}
         />
 
         {/* Detail / Edit View Panel */}
@@ -1414,6 +1521,17 @@ ${nodeDetail.contentMarkdown}`;
         onClose={() => setIsTrashModalOpen(false)}
         onRestoreNode={handleRestoreNode}
         onRetryFetch={fetchTrashNodes}
+      />
+
+      {/* Manage Members Modal */}
+      <ManageMembersModal
+        isOpen={isMembersModalOpen}
+        onClose={closeMembersModal}
+        members={members}
+        isLoading={isCheckingOwner}
+        error={membersError}
+        onRefresh={refreshMembers}
+        isOwner={isOwner}
       />
     </div>
   );
