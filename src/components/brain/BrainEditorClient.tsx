@@ -941,6 +941,82 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
     }
   };
 
+  const sanitizeFileName = (name: string): string => {
+    const clean = name
+      .trim()
+      .replace(/[\/\\:*?"<>|]/g, '')
+      .replace(/\s+/g, '-');
+    const truncated = clean.slice(0, 100);
+    return truncated || 'documento';
+  };
+
+  const downloadTextFile = (filename: string, content: string, mimeType: string): void => {
+    const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportNodeMarkdown = () => {
+    if (!nodeDetail || isEditing) return;
+
+    const pathString = breadcrumbPath && breadcrumbPath.length > 0
+      ? breadcrumbPath.map((n) => n.title).join(' > ')
+      : nodeDetail.title;
+
+    const escapeYamlValue = (val: string) => {
+      return val.replace(/"/g, '\\"').replace(/\n/g, ' ');
+    };
+
+    const dateStr = nodeDetail.updatedAt instanceof Date
+      ? nodeDetail.updatedAt.toISOString()
+      : new Date(nodeDetail.updatedAt).toISOString();
+
+    const yamlContent = `---
+id: "${escapeYamlValue(nodeDetail.id)}"
+status: "${escapeYamlValue(nodeDetail.status)}"
+updatedAt: "${escapeYamlValue(dateStr)}"
+path: "${escapeYamlValue(pathString)}"
+---
+# ${nodeDetail.title}
+
+${nodeDetail.contentMarkdown}`;
+
+    const filename = `${sanitizeFileName(nodeDetail.title)}.md`;
+    downloadTextFile(filename, yamlContent, 'text/markdown');
+  };
+
+  const handleExportNodeJson = () => {
+    if (!nodeDetail || isEditing) return;
+
+    const pathString = breadcrumbPath && breadcrumbPath.length > 0
+      ? breadcrumbPath.map((n) => n.title).join(' / ')
+      : nodeDetail.title;
+
+    const dateStr = nodeDetail.updatedAt instanceof Date
+      ? nodeDetail.updatedAt.toISOString()
+      : new Date(nodeDetail.updatedAt).toISOString();
+
+    const exportObj = {
+      id: nodeDetail.id,
+      title: nodeDetail.title,
+      status: nodeDetail.status,
+      parentId: nodeDetail.parentId,
+      updatedAt: dateStr,
+      breadcrumb: pathString,
+      contentMarkdown: nodeDetail.contentMarkdown,
+    };
+
+    const jsonContent = JSON.stringify(exportObj, null, 2);
+    const filename = `${sanitizeFileName(nodeDetail.title)}.json`;
+    downloadTextFile(filename, jsonContent, 'application/json');
+  };
+
   const selectNodeHandler = (id: string) => {
     if (isEditing) {
       if (!window.confirm('Tienes cambios sin guardar. ¿Deseas descartarlos y cambiar de nodo?')) {
@@ -1108,6 +1184,9 @@ export default function BrainEditorClient({ brainId, brainName }: TreeDemoClient
           isRestoringVersion={isRestoringVersion}
           restoreVersionError={restoreVersionError}
           restoreVersionSuccess={restoreVersionSuccess}
+          onExportMarkdown={handleExportNodeMarkdown}
+          onExportJson={handleExportNodeJson}
+          isEditing={isEditing}
         />
       </div>
 

@@ -20,6 +20,9 @@ interface EditorRightPanelProps {
   restoreVersionError?: string | null;
   restoreVersionSuccess?: string | null;
   canRestoreVersion?: boolean;
+  onExportMarkdown?: () => void;
+  onExportJson?: () => void;
+  isEditing?: boolean;
 }
 
 export default function EditorRightPanel({
@@ -38,6 +41,9 @@ export default function EditorRightPanel({
   restoreVersionError = null,
   restoreVersionSuccess = null,
   canRestoreVersion = true,
+  onExportMarkdown,
+  onExportJson,
+  isEditing = false,
 }: EditorRightPanelProps) {
   return (
     <aside className="w-72 border-l border-slate-200 bg-white flex flex-col shrink-0 h-full">
@@ -206,6 +212,41 @@ export default function EditorRightPanel({
                   <span className="font-semibold text-slate-700">
                     {nodeDetail.nextReviewAt ? new Date(nodeDetail.nextReviewAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No programada'}
                   </span>
+                </div>
+              </div>
+
+              {/* Sección 4: Exportar Documento */}
+              <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm space-y-3">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Exportar Documento</h4>
+                <p className="text-[11px] text-slate-500 leading-normal">
+                  Descarga el contenido actual del nodo en tu formato preferido.
+                </p>
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    onClick={onExportMarkdown}
+                    disabled={isEditing}
+                    className="w-full text-xs font-semibold py-2 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    </svg>
+                    Descargar Markdown (.md)
+                  </button>
+                  <button
+                    onClick={onExportJson}
+                    disabled={isEditing}
+                    className="w-full text-xs font-semibold py-2 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Descargar JSON (.json)
+                  </button>
+                  {isEditing && (
+                    <p className="text-[10px] text-amber-600 font-medium text-center mt-1">
+                      Guarda o cancela la edición antes de exportar.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
