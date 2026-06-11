@@ -5,6 +5,10 @@ import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
 
 interface RichMarkdownEditorProps {
   value: string;
@@ -56,6 +60,12 @@ export default function RichMarkdownEditor({
           }
         },
       }),
+      Table.configure({
+        resizable: false,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Markdown.configure({
         html: false, // Restrict raw HTML
         linkify: true,
