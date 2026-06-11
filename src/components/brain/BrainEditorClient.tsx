@@ -17,6 +17,7 @@ import ManageMembersModal, { MemberWithUser } from './editor/modals/ManageMember
 interface TreeDemoClientProps {
   brainId: string;
   brainName: string;
+  currentUserRole: 'reader' | 'editor' | 'owner';
 }
 
 export interface NodeVersionWithSaver {
@@ -74,8 +75,20 @@ function getNodePath(nodes: NodeTreeItem[], targetId: string): NodeTreeItem[] | 
   return null;
 }
 
-export default function BrainEditorClient({ brainId, brainName }: TreeDemoClientProps) {
+export default function BrainEditorClient({
+  brainId,
+  brainName,
+  currentUserRole,
+}: TreeDemoClientProps) {
   const router = useRouter();
+
+  // Permisos derivados (para uso futuro en control de UI de barra lateral, editor y topbar)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const canEditBrain = currentUserRole === 'editor' || currentUserRole === 'owner';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const canManageMembers = currentUserRole === 'owner';
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const isReader = currentUserRole === 'reader';
 
   const [tree, setTree] = useState<NodeTreeItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

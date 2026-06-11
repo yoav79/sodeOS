@@ -30,8 +30,9 @@ export default async function BrainEditorPage({ params }: BrainEditorPageProps) 
   }
 
   // 3. Authorization — friendly 403 screen if no membership
+  let membership;
   try {
-    await verifyBrainAccess(currentUser.id, brain.id, 'reader');
+    membership = await verifyBrainAccess(currentUser.id, brain.id, 'reader');
   } catch (err) {
     if (err instanceof AuthError) {
       return (
@@ -61,5 +62,11 @@ export default async function BrainEditorPage({ params }: BrainEditorPageProps) 
   }
 
   // 4. Render the shared editor
-  return <BrainEditorClient brainId={brain.id} brainName={brain.name} />;
+  return (
+    <BrainEditorClient
+      brainId={brain.id}
+      brainName={brain.name}
+      currentUserRole={membership.role}
+    />
+  );
 }
