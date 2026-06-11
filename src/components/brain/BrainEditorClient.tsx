@@ -1077,6 +1077,94 @@ ${nodeDetail.contentMarkdown}`;
     downloadTextFile(filename, jsonContent, 'application/json');
   };
 
+  interface FlattenedExportNode {
+    node: ExportNode;
+    depth: number;
+    breadcrumb: string[];
+  }
+
+  const flattenExportTree = (
+    nodes: ExportNode[],
+    depth = 0,
+    parentPath: string[] = []
+  ): FlattenedExportNode[] => {
+    const list: FlattenedExportNode[] = [];
+    for (const node of nodes) {
+      const currentPath = [...parentPath, node.title];
+      list.push({
+        node,
+        depth,
+        breadcrumb: currentPath,
+      });
+      if (node.children && node.children.length > 0) {
+        list.push(...flattenExportTree(node.children, depth + 1, currentPath));
+      }
+    }
+    return list;
+  };
+
+  const createMarkdownAnchor = (title: string): string => {
+    return title
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-áéíóúñü]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  };
+
+  const generateBrainMarkdownExport = (exportedNodes: ExportNode[]): string => {
+    const flattened = flattenExportTree(exportedNodes);
+
+    let markdown = `# Cerebro: ${brainName || 'Cerebro'}\n`;
+    markdown += `> **Fecha de Exportación:** ${new Date().toISOString()}\n`;
+    markdown += `> **Formato:** sodeos.brain.export.markdown.v1\n\n`;
+    markdown += `---\n\n`;
+    markdown += `## Índice de Contenido\n\n`;
+
+    // 1. Generate Table of Contents
+    for (const item of flattened) {
+      const indent = '  '.repeat(item.depth);
+      const anchor = createMarkdownAnchor(item.node.title);
+      markdown += `${indent}- [${item.node.title}](#${anchor})\n`;
+    }
+
+    markdown += `\n---\n\n`;
+
+    // 2. Generate content for each node
+    for (const item of flattened) {
+      const pathString = item.breadcrumb.join(' > ');
+      
+      markdown += `## ${item.node.title}\n`;
+      markdown += `> **Ruta:** ${pathString}\n`;
+      markdown += `> **Estado:** ${item.node.status} | **Actualizado:** ${item.node.updatedAt}\n\n`;
+
+      if (item.node.contentMarkdown && item.node.contentMarkdown.trim() !== '') {
+        markdown += `${item.node.contentMarkdown.trim()}\n\n`;
+      } else {
+        markdown += `*Este documento no tiene contenido.*\n\n`;
+      }
+
+      markdown += `---\n\n`;
+    }
+
+    let finalContent = markdown.trim();
+    if (finalContent.endsWith('---')) {
+      finalContent = finalContent.substring(0, finalContent.length - 3).trim();
+    }
+    return finalContent;
+  };
+
+  const handleExportBrainMarkdown = () => {
+    if (!brainId || !tree || tree.length === 0) return;
+
+    const exportedNodes = mapNodeTreeForExport(tree);
+    if (exportedNodes.length === 0) return;
+
+    const markdownContent = generateBrainMarkdownExport(exportedNodes);
+    const filename = `${sanitizeFileName(brainName || 'Cerebro')}-completo.md`;
+    downloadTextFile(filename, markdownContent, 'text/markdown');
+  };
+
   const selectNodeHandler = (id: string) => {
     if (isEditing) {
       if (!window.confirm('Tienes cambios sin guardar. ¿Deseas descartarlos y cambiar de nodo?')) {
@@ -1138,6 +1226,7 @@ ${nodeDetail.contentMarkdown}`;
             fetchTrashNodes();
           }}
           onExportBrainJson={handleExportBrainJson}
+          onExportBrainMarkdown={handleExportBrainMarkdown}
         />
 
         {/* Detail / Edit View Panel */}
