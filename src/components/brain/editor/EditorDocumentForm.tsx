@@ -4,6 +4,38 @@ import React, { useState } from 'react';
 import { Node } from '@/types';
 import RichMarkdownEditor from './rich-text/RichMarkdownEditor';
 
+const hasComplexTable = (content: string): boolean => {
+  // Check for HTML table tags (to be doubly sure, although also caught by HTML regex)
+  if (/<(table|thead|tbody|tfoot|tr|th|td)\b/i.test(content)) return true;
+
+  // Check for colspan/rowspan attributes
+  if (/\b(colspan|rowspan)\b/i.test(content)) return true;
+
+  // If there's no table separator row, we don't even have a table
+  const hasTableSeparator = /\|?\s*:?-+:?\s*\|(\s*:?-+:?\s*\|)*/.test(content);
+  if (!hasTableSeparator) return false;
+
+  // Let's check the lines containing table markup for block-level elements or multiline cells.
+  // Standard GFM tables have rows separated by newlines, with each row on a single line containing '|'.
+  const lines = content.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.includes('|')) {
+      // Check if this row contains nested block elements inside cells:
+      // - Blockquotes (e.g. | > quote |)
+      // - List items (e.g. | - list | or | * list | or | 1. list |)
+      // - Headers (e.g. | # header |)
+      // - Fenced code blocks (e.g. | ``` |)
+      if (/\|\s*(>|-|\*|\d+\.)\s/.test(line) || /\|\s*#+\s/.test(line) || line.includes('```')) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
 const detectAdvancedMarkdown = (content: string): boolean => {
   if (!content) return false;
 
@@ -16,11 +48,11 @@ const detectAdvancedMarkdown = (content: string): boolean => {
   // 3. Task lists: "- [ ]" or "- [x]"
   if (/-\s*\[[ xX]\]/.test(content)) return true;
 
-  // 4. HTML tags: common tags like <div, <span, <table, <iframe, <script, <img
-  if (/<(div|span|table|iframe|script|img|br|p|h[1-6]|ul|ol|li)\b/i.test(content)) return true;
+  // 4. HTML tags: common tags like <div, <span, <table, <iframe, <script, <img, including table sub-elements
+  if (/<(div|span|table|thead|tbody|tfoot|tr|th|td|iframe|script|img|br|p|h[1-6]|ul|ol|li)\b/i.test(content)) return true;
 
-  // 5. Tables: simple markdown table line followed or preceded by divider |---| or similar
-  if (/\|?\s*:?-+:?\s*\|(\s*:?-+:?\s*\|)*/.test(content) && content.includes('|')) return true;
+  // 5. Complex tables: tables containing HTML, colspan, rowspan, or nested blocks inside cells
+  if (hasComplexTable(content)) return true;
 
   return false;
 };
@@ -67,7 +99,7 @@ export default function EditorDocumentForm({
   const handleSetEditorMode = (mode: 'visual' | 'markdown') => {
     if (mode === 'visual' && hasAdvancedMarkdown) {
       const confirmSwitch = window.confirm(
-        'Este documento contiene Markdown avanzado (tablas, imágenes, Mermaid o HTML) que no está soportado por el editor visual. Cambiar a modo Visual eliminará este formato al guardar.\n\n¿Estás seguro de que deseas continuar?'
+        'Este documento contiene Markdown avanzado (imágenes, Mermaid, HTML o tablas complejas) que no está soportado por el editor visual. Cambiar a modo Visual eliminará este formato al guardar.\n\n¿Estás seguro de que deseas continuar?'
       );
       if (!confirmSwitch) return;
     }
@@ -169,14 +201,14 @@ export default function EditorDocumentForm({
           <span className="text-[10px] text-slate-400 font-medium sm:text-right">
             {hasAdvancedMarkdown 
               ? 'Advertencia: Sintaxis avanzada detectada en el documento.' 
-              : 'Usa Markdown si el documento contiene tablas, Mermaid, HTML o sintaxis avanzada.'}
+              : 'Usa Markdown si el documento contiene tablas complejas, Mermaid, HTML o sintaxis avanzada.'}
           </span>
         </div>
 
         {hasAdvancedMarkdown && (
           <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-semibold flex items-center gap-1.5 animate-fade-in">
             <span>⚠️</span>
-            <span>Este documento contiene Markdown avanzado. Edita en modo Markdown para evitar pérdida de tablas, imágenes o sintaxis especial.</span>
+            <span>Este documento contiene Markdown avanzado. Edita en modo Markdown para evitar pérdida de formato especial (como imágenes, Mermaid, HTML o tablas complejas).</span>
           </div>
         )}
       </div>
