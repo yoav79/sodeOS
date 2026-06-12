@@ -62,9 +62,11 @@ export default function EditorDocumentView({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-1 truncate">{nodeDetail.title}</h1>
-            <p className="text-slate-500 text-sm font-medium">
-              {nodeDetail.description || 'Sin descripción adicional para este nodo.'}
-            </p>
+            {nodeDetail.description?.trim() && (
+              <p className="text-slate-500 text-sm font-medium">
+                {nodeDetail.description}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-1">
             {!canEdit && (
