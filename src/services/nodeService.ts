@@ -190,7 +190,7 @@ export async function updateNodeContent(
     const updatedStatus = input.status !== undefined ? input.status : currentNode.status;
 
     // Build Prisma update payload dynamically
-    const updateData: any = {
+    const updateData: Prisma.NodeUncheckedUpdateInput = {
       title: input.title,
       contentMarkdown: input.contentMarkdown,
       status: updatedStatus,

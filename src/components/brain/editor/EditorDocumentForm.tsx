@@ -60,12 +60,14 @@ const detectAdvancedMarkdown = (content: string): boolean => {
 interface EditorDocumentFormProps {
   nodeDetail: Node;
   editTitle: string;
+  editDescription: string;
   editContent: string;
   editStatus: string;
   editChangeNote: string;
   saveError: string | null;
   isSaving: boolean;
   onEditTitleChange: (val: string) => void;
+  onEditDescriptionChange: (val: string) => void;
   onEditContentChange: (val: string) => void;
   onEditStatusChange: (val: string) => void;
   onEditChangeNoteChange: (val: string) => void;
@@ -76,12 +78,14 @@ interface EditorDocumentFormProps {
 export default function EditorDocumentForm({
   nodeDetail,
   editTitle,
+  editDescription,
   editContent,
   editStatus,
   editChangeNote,
   saveError,
   isSaving,
   onEditTitleChange,
+  onEditDescriptionChange,
   onEditContentChange,
   onEditStatusChange,
   onEditChangeNoteChange,
@@ -169,6 +173,21 @@ export default function EditorDocumentForm({
           className="bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-600 px-0 py-2 text-slate-900 text-3xl font-extrabold focus:outline-none transition-all placeholder-slate-300"
           placeholder="Sin título"
         />
+      </div>
+
+      {/* Descripción corta */}
+      <div className="flex flex-col gap-1">
+        <textarea
+          value={editDescription}
+          onChange={(e) => onEditDescriptionChange(e.target.value)}
+          rows={2}
+          maxLength={200}
+          className="w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-blue-600 px-0 py-1 text-slate-600 text-sm focus:outline-none transition-all placeholder-slate-400 resize-none"
+          placeholder="Descripción breve del documento (opcional)"
+        />
+        <div className="flex justify-end text-[10px] font-semibold text-slate-400">
+          {editDescription.length}/200
+        </div>
       </div>
 
       {/* Selector de modo y advertencia */}

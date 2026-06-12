@@ -173,6 +173,7 @@ export default function BrainEditorClient({
   // Edit Mode States
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editTitle, setEditTitle] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
   const [editContent, setEditContent] = useState<string>('');
   const [editStatus, setEditStatus] = useState<string>('active');
   const [editChangeNote, setEditChangeNote] = useState<string>('');
@@ -1009,6 +1010,7 @@ export default function BrainEditorClient({
     if (!canEditBrain) return;
     if (nodeDetail) {
       setEditTitle(nodeDetail.title);
+      setEditDescription(nodeDetail.description || '');
       setEditContent(nodeDetail.contentMarkdown);
       setEditStatus(nodeDetail.status);
       setEditChangeNote('');
@@ -1045,6 +1047,7 @@ export default function BrainEditorClient({
           contentMarkdown: editContent,
           status: editStatus,
           changeNote: editChangeNote,
+          description: editDescription.trim() || null,
         }),
       });
 
@@ -1402,12 +1405,14 @@ ${nodeDetail.contentMarkdown}`;
                 <EditorDocumentForm
                   nodeDetail={nodeDetail}
                   editTitle={editTitle}
+                  editDescription={editDescription}
                   editContent={editContent}
                   editStatus={editStatus}
                   editChangeNote={editChangeNote}
                   saveError={saveError}
                   isSaving={isSaving}
                   onEditTitleChange={setEditTitle}
+                  onEditDescriptionChange={setEditDescription}
                   onEditContentChange={setEditContent}
                   onEditStatusChange={setEditStatus}
                   onEditChangeNoteChange={setEditChangeNote}
