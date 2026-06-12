@@ -64,7 +64,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { title, contentMarkdown, status, changeNote } = body;
+    const { title, contentMarkdown, status, changeNote, description } = body;
 
     // Payload validation
     if (title === undefined || typeof title !== 'string' || title.trim() === '') {
@@ -87,6 +87,32 @@ export async function PATCH(
         { error: 'El estado enviado es inválido. Debe ser uno de: draft, active, needs_review, archived.' },
         { status: 400 }
       );
+    }
+
+    // Validate and normalize description
+    let normalizedDescription: string | null | undefined = undefined;
+    if (description !== undefined) {
+      if (description !== null && typeof description !== 'string') {
+        return NextResponse.json(
+          { error: 'El campo "description" debe ser un string o null.' },
+          { status: 400 }
+        );
+      }
+      if (typeof description === 'string') {
+        const trimmed = description.trim();
+        if (trimmed.length === 0) {
+          normalizedDescription = null;
+        } else if (trimmed.length > 200) {
+          return NextResponse.json(
+            { error: 'La descripción no puede superar los 200 caracteres.' },
+            { status: 400 }
+          );
+        } else {
+          normalizedDescription = trimmed;
+        }
+      } else {
+        normalizedDescription = null;
+      }
     }
 
     // 1. Authenticate user
@@ -123,6 +149,7 @@ export async function PATCH(
       status: status,
       changeNote,
       userId: currentUser.id,
+      description: normalizedDescription,
     });
 
     if (!result.node) {

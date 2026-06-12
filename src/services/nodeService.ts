@@ -126,6 +126,7 @@ export interface UpdateNodeInput {
   status?: NodeStatus;
   changeNote?: string;
   userId: string;
+  description?: string | null;
 }
 
 /**
@@ -154,8 +155,9 @@ export async function updateNodeContent(
     const hasTitleChange = currentNode.title !== input.title;
     const hasContentChange = currentNode.contentMarkdown !== input.contentMarkdown;
     const hasStatusChange = input.status !== undefined && currentNode.status !== input.status;
+    const hasDescriptionChange = input.description !== undefined && currentNode.description !== input.description;
 
-    if (!hasTitleChange && !hasContentChange && !hasStatusChange) {
+    if (!hasTitleChange && !hasContentChange && !hasStatusChange && !hasDescriptionChange) {
       return {
         node: {
           id: currentNode.id,
@@ -187,29 +189,38 @@ export async function updateNodeContent(
 
     const updatedStatus = input.status !== undefined ? input.status : currentNode.status;
 
+    // Build Prisma update payload dynamically
+    const updateData: any = {
+      title: input.title,
+      contentMarkdown: input.contentMarkdown,
+      status: updatedStatus,
+      updatedBy: input.userId,
+      updatedAt: new Date(),
+    };
+
+    if (input.description !== undefined) {
+      updateData.description = input.description;
+    }
+
     // 3. Update the node
     const updatedNode = await tx.node.update({
       where: { id: nodeId },
-      data: {
-        title: input.title,
-        contentMarkdown: input.contentMarkdown,
-        status: updatedStatus,
-        updatedBy: input.userId,
-        updatedAt: new Date(),
-      },
+      data: updateData,
     });
 
-    // 4. Create the NodeVersion
-    await tx.nodeVersion.create({
-      data: {
-        nodeId: nodeId,
-        title: input.title,
-        contentMarkdown: input.contentMarkdown,
-        status: updatedStatus,
-        savedBy: input.userId,
-        changeNote: input.changeNote || 'Sin nota de cambios especificada.',
-      },
-    });
+    // 4. Create the NodeVersion only if title, contentMarkdown, or status changed
+    if (hasTitleChange || hasContentChange || hasStatusChange) {
+      await tx.nodeVersion.create({
+        data: {
+          nodeId: nodeId,
+          title: input.title,
+          contentMarkdown: input.contentMarkdown,
+          status: updatedStatus,
+          savedBy: input.userId,
+          changeNote: input.changeNote || 'Sin nota de cambios especificada.',
+        },
+      });
+    }
 
     return {
       node: {
