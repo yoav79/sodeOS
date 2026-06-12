@@ -141,7 +141,7 @@ export default function EditorTopbar({
   }, [setIsRemoteSearchOpen]);
 
   return (
-    <header className="h-12 border-b border-slate-200 bg-white flex items-center justify-between px-4 z-10 shrink-0">
+    <header className="h-12 border-b border-slate-200 bg-white flex items-center justify-between px-4 z-10 shrink-0 print-hide">
       <div className="flex items-center gap-4 min-w-0">
         <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={onNavigateToDashboard}>
           <div className="bg-blue-600 p-1.5 rounded-lg shadow-md shadow-blue-500/10">

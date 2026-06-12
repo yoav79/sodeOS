@@ -46,7 +46,7 @@ export default function EditorRightPanel({
   isEditing = false,
 }: EditorRightPanelProps) {
   return (
-    <aside className="w-72 border-l border-slate-200 bg-white flex flex-col shrink-0 h-full">
+    <aside className="w-72 border-l border-slate-200 bg-white flex flex-col shrink-0 h-full print-hide">
       {/* Tabs bar (Segmented control style) */}
       <div className="p-2 border-b border-slate-200 text-xs shrink-0 bg-slate-50">
         <div className="flex bg-slate-200/60 p-0.5 rounded-lg">

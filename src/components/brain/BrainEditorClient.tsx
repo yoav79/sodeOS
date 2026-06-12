@@ -1395,7 +1395,7 @@ ${nodeDetail.contentMarkdown}`;
               </div>
             </div>
           ) : nodeDetail ? (
-            <div className="max-w-4xl w-full mx-auto p-8 flex flex-col gap-6">
+            <div className="max-w-4xl w-full mx-auto p-8 flex flex-col gap-6 print-document-root">
               
               {/* EDIT MODE */}
               {isEditing ? (

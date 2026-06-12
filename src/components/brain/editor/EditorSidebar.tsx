@@ -48,7 +48,7 @@ export default function EditorSidebar({
   canManageMembers = false,
 }: EditorSidebarProps) {
   return (
-    <aside className="w-72 border-r border-slate-200 bg-white flex flex-col shrink-0">
+    <aside className="w-72 border-r border-slate-200 bg-white flex flex-col shrink-0 print-hide">
       {/* Header del Sidebar */}
       <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between gap-2">
         <div>

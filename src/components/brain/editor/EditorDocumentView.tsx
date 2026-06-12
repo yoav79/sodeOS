@@ -89,7 +89,7 @@ export default function EditorDocumentView({
 
       {/* ── Toolbar contextual compacta (modo lectura) ── */}
       {canEdit && (
-        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1.5 shadow-sm w-fit">
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1.5 shadow-sm w-fit print-hide">
           {/* Nueva subpágina */}
           <button
             onClick={() => onCreateSubpage(nodeDetail.id)}
