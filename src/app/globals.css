@@ -189,3 +189,99 @@ body {
   overflow-x: auto !important;
 }
 
+/* Reglas de impresión (@media print) */
+@media print {
+  /* Ocultar elementos de UI */
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Reset de contenedores de altura completa para permitir paginación fluida */
+  /* NOTA: [class*="h-screen"] y main necesitan anular su overflow-hidden y altura de pantalla fija */
+  html,
+  body,
+  #__next,
+  main,
+  div[class*="h-screen"],
+  div.flex-1 {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Expandir contenedor del documento al 100% de la página */
+  .print-document-root {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Quitar bordes, sombras y márgenes de la "hoja de papel" simulada en pantalla */
+  .print-document-root div.bg-white {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Asegurar overflow visible en el visor de Tiptap */
+  .rich-markdown-content .ProseMirror {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  /* Adaptar bloques de código para impresión legible sin consumir tinta negra */
+  .rich-markdown-content .ProseMirror pre {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    page-break-inside: avoid !important;
+  }
+
+  .rich-markdown-content .ProseMirror pre code {
+    color: #0f172a !important;
+  }
+
+  /* Evitar cortes extraños dentro de tablas y sus filas */
+  .rich-markdown-content .ProseMirror table {
+    page-break-inside: avoid !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  .rich-markdown-content .ProseMirror tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Preservar colores de fondo claros e importantes (como headers de tablas o badges) */
+  .rich-markdown-content .ProseMirror th,
+  span[class*="bg-"] {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  /* Evitar que los títulos queden huérfanos al final de una página */
+  .rich-markdown-content .ProseMirror h1,
+  .rich-markdown-content .ProseMirror h2,
+  .rich-markdown-content .ProseMirror h3 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    orphans: 3 !important;
+    widows: 3 !important;
+  }
+
+  /* Desactivar animaciones y efectos de transición */
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+  }
+}
+
+
