@@ -137,3 +137,55 @@ body {
   border-top: 1px solid #e2e8f0 !important;
   margin: 2.25rem 0 !important;
 }
+
+/* Estilos para tablas Markdown en Tiptap/ProseMirror */
+.rich-markdown-content .ProseMirror table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin: 1.5rem 0 !important;
+  font-size: 0.875rem !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 0.5rem !important;
+  overflow: hidden !important;
+}
+
+.rich-markdown-content .ProseMirror th,
+.rich-markdown-content .ProseMirror td {
+  border-bottom: 1px solid #cbd5e1 !important;
+  border-right: 1px solid #cbd5e1 !important;
+  padding: 0.75rem 1rem !important;
+  text-align: left !important;
+  line-height: 1.5 !important;
+  color: #334155 !important;
+}
+
+.rich-markdown-content .ProseMirror th {
+  background-color: #f1f5f9 !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+}
+
+/* Evitar bordes dobles */
+.rich-markdown-content .ProseMirror th:last-child,
+.rich-markdown-content .ProseMirror td:last-child {
+  border-right: none !important;
+}
+
+.rich-markdown-content .ProseMirror tr:last-child td {
+  border-bottom: none !important;
+}
+
+.rich-markdown-content .ProseMirror tr:nth-child(even) {
+  background-color: #f8fafc !important;
+}
+
+.rich-markdown-content .ProseMirror tr:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Asegurar scroll horizontal en el contenedor para tablas anchas */
+.rich-markdown-content .ProseMirror {
+  overflow-x: auto !important;
+}
+
