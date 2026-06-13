@@ -180,47 +180,7 @@ export default function DashboardClient({
               Cerebros
             </button>
 
-            <span className="px-3 pt-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              Gestión de Cerebro
-            </span>
 
-            <div className="space-y-0.5">
-              <span
-                className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 font-medium text-sm cursor-not-allowed select-none"
-                title="Disponible dentro de cada cerebro"
-              >
-                <span className="flex items-center gap-3">
-                  <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  Miembros
-                </span>
-              </span>
-
-              <span
-                className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 font-medium text-sm cursor-not-allowed select-none"
-                title="Disponible dentro de cada cerebro"
-              >
-                <span className="flex items-center gap-3">
-                  <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 01.757-.97l10-2.5A1 1 0 0116 3v3h1.243a1 1 0 01.97.757l2.5 10A1 1 0 0120 18v1a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" />
-                  </svg>
-                  Plantillas
-                </span>
-              </span>
-
-              <span
-                className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 font-medium text-sm cursor-not-allowed select-none"
-                title="Disponible dentro de cada cerebro"
-              >
-                <span className="flex items-center gap-3">
-                  <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Papelera
-                </span>
-              </span>
-            </div>
           </nav>
         </div>
 
