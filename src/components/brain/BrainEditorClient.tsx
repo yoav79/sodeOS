@@ -180,6 +180,31 @@ export default function BrainEditorClient({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Derived state to check if editing document is dirty
+  const isDirty = useMemo(() => {
+    if (!isEditing || !nodeDetail) return false;
+    const titleChanged = editTitle.trim() !== (nodeDetail.title || '').trim();
+    const descChanged = editDescription.trim() !== (nodeDetail.description || '').trim();
+    const contentChanged = editContent !== (nodeDetail.contentMarkdown || '');
+    const statusChanged = editStatus !== (nodeDetail.status || '');
+    return titleChanged || descChanged || contentChanged || statusChanged;
+  }, [isEditing, nodeDetail, editTitle, editDescription, editContent, editStatus]);
+
+  // Alert on tab close or reload when changes are unsaved
+  useEffect(() => {
+    if (isEditing && isDirty) {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }
+  }, [isEditing, isDirty]);
+
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
   const handleCopyId = (text: string) => {
@@ -1560,10 +1585,12 @@ ${nodeDetail.contentMarkdown}`;
   };
 
   const selectNodeHandler = (id: string) => {
-    if (isEditing) {
+    if (isEditing && isDirty) {
       if (!window.confirm('Tienes cambios sin guardar. ¿Deseas descartarlos y cambiar de nodo?')) {
         return;
       }
+      setIsEditing(false);
+    } else if (isEditing) {
       setIsEditing(false);
     }
     setSelectedNodeId(id);
@@ -1680,6 +1707,7 @@ ${nodeDetail.contentMarkdown}`;
                   onEditContentChange={setEditContent}
                   onEditStatusChange={setEditStatus}
                   onEditChangeNoteChange={setEditChangeNote}
+                  isDirty={isDirty}
                   onSave={handleSave}
                   onCancel={handleCancelEdit}
                 />
