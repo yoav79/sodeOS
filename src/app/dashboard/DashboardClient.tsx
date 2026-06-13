@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface BrainInfo {
   id: string;
@@ -186,15 +187,19 @@ export default function DashboardClient({
 
         {/* Pinned User Footer Profile */}
         <div className="p-4 border-t border-slate-200 space-y-3 bg-slate-50/50 shrink-0">
-          <div className="flex items-center gap-3 px-1">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
+          <Link
+            href="/profile"
+            className="flex items-center gap-3 px-1.5 py-1 rounded-xl hover:bg-slate-100 transition-colors group cursor-pointer"
+            title="Ver perfil"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-100 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0 group-hover:border-blue-300 group-hover:bg-blue-200/50 transition-colors">
               {user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
             </div>
-            <div className="overflow-hidden">
-              <span className="font-semibold text-sm text-slate-800 block truncate">{user.name}</span>
+            <div className="overflow-hidden flex-1">
+              <span className="font-semibold text-sm text-slate-800 block truncate group-hover:text-blue-700 transition-colors">{user.name}</span>
               <span className="text-[10px] text-slate-500 block truncate">{user.email}</span>
             </div>
-          </div>
+          </Link>
           <button
             onClick={handleLogout}
             disabled={logoutLoading}
