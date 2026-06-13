@@ -112,10 +112,11 @@ interface TemplatesModalProps {
   onApplyStructureTemplate: (templateId: string, name: string, sectionsCount: number) => void;
   onRetryFetch: () => void;
 
-  // New CRUD properties (TPL3B)
+  // CRUD properties (TPL3B + TPL3C)
   canManageTemplates: boolean;
   canApplyTemplates: boolean;
   isTemplateFormOpen: boolean;
+  editingTemplate: Template | null;
   templateFormName: string;
   templateFormDescription: string;
   templateFormType: 'page' | 'structure';
@@ -124,13 +125,14 @@ interface TemplatesModalProps {
   isSubmittingTemplate: boolean;
   templateFormError: string | null;
   onOpenCreateForm: () => void;
+  onOpenEditForm: (template: Template) => void;
   onCloseForm: () => void;
   onTemplateFormNameChange: (v: string) => void;
   onTemplateFormDescriptionChange: (v: string) => void;
   onTemplateFormTypeChange: (v: 'page' | 'structure') => void;
   onTemplateFormFieldsChange: (rows: TemplateFieldRow[]) => void;
   onTemplateFormSectionsChange: (rows: TemplateSectionRow[]) => void;
-  onSubmitCreate: () => void;
+  onSubmitForm: () => void;
 }
 
 export default function TemplatesModal({
@@ -150,10 +152,11 @@ export default function TemplatesModal({
   onApplyStructureTemplate,
   onRetryFetch,
 
-  // New CRUD properties (TPL3B)
+  // CRUD properties (TPL3B + TPL3C)
   canManageTemplates,
   canApplyTemplates,
   isTemplateFormOpen,
+  editingTemplate,
   templateFormName,
   templateFormDescription,
   templateFormType,
@@ -162,15 +165,23 @@ export default function TemplatesModal({
   isSubmittingTemplate,
   templateFormError,
   onOpenCreateForm,
+  onOpenEditForm,
   onCloseForm,
   onTemplateFormNameChange,
   onTemplateFormDescriptionChange,
   onTemplateFormTypeChange,
   onTemplateFormFieldsChange,
   onTemplateFormSectionsChange,
-  onSubmitCreate,
+  onSubmitForm,
 }: TemplatesModalProps) {
   if (!isOpen) return null;
+
+  const isEditing = editingTemplate !== null;
+  const formTitle = isEditing ? 'Editar plantilla' : 'Nueva plantilla';
+  const formSubtitle = isEditing
+    ? 'Modifica el nombre, descripción o esquema de la plantilla'
+    : 'Diseña una nueva plantilla definiendo sus campos o estructura';
+  const submitLabel = isEditing ? 'Guardar cambios' : 'Crear plantilla';
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -179,14 +190,14 @@ export default function TemplatesModal({
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span>{isTemplateFormOpen ? 'Nueva Plantilla' : 'Plantillas del Cerebro'}</span>
+              <span>{isTemplateFormOpen ? formTitle : 'Plantillas del Cerebro'}</span>
               <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-500 font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider">
                 {canManageTemplates ? 'Administración' : 'Solo lectura'}
               </span>
             </h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               {isTemplateFormOpen 
-                ? 'Diseña una nueva plantilla definiendo sus campos o estructura'
+                ? formSubtitle
                 : 'Estructuras y campos predefinidos disponibles para organizar la información'}
             </p>
           </div>
@@ -262,9 +273,12 @@ export default function TemplatesModal({
                       name="templateType"
                       checked={templateFormType === 'page'}
                       onChange={() => onTemplateFormTypeChange('page')}
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                      disabled={isEditing}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    Página (Reemplaza contenido)
+                    <span className={isEditing ? 'opacity-50' : ''}>
+                      Página (Reemplaza contenido)
+                    </span>
                   </label>
                   <label className="flex items-center gap-2 text-sm text-slate-700 font-semibold cursor-pointer">
                     <input
@@ -272,11 +286,19 @@ export default function TemplatesModal({
                       name="templateType"
                       checked={templateFormType === 'structure'}
                       onChange={() => onTemplateFormTypeChange('structure')}
-                      className="w-4 h-4 text-violet-600 focus:ring-violet-500 border-slate-300"
+                      disabled={isEditing}
+                      className="w-4 h-4 text-violet-600 focus:ring-violet-500 border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    Estructura (Crea subnodos)
+                    <span className={isEditing ? 'opacity-50' : ''}>
+                      Estructura (Crea subnodos)
+                    </span>
                   </label>
                 </div>
+                {isEditing && (
+                  <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1">
+                    ⚠️ El tipo de plantilla no puede modificarse una vez creada
+                  </span>
+                )}
               </div>
 
               {/* Dynamic schema editor */}
@@ -526,15 +548,26 @@ export default function TemplatesModal({
                         <h4 className="text-sm font-bold text-slate-800 font-sans">
                           {tpl.name}
                         </h4>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded border tracking-wide uppercase shrink-0 ${
-                            tpl.templateType === 'page'
-                              ? 'bg-blue-50 border-blue-100 text-blue-700'
-                              : 'bg-violet-50 border-violet-100 text-violet-700'
-                          }`}
-                        >
-                          {tpl.templateType === 'page' ? 'Página' : 'Estructura'}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {canManageTemplates && (
+                            <button
+                              onClick={() => onOpenEditForm(tpl)}
+                              className="text-[10px] font-bold text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-300 px-2 py-0.5 rounded-lg transition-colors"
+                              title="Editar plantilla"
+                            >
+                              Editar
+                            </button>
+                          )}
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded border tracking-wide uppercase ${
+                              tpl.templateType === 'page'
+                                ? 'bg-blue-50 border-blue-100 text-blue-700'
+                                : 'bg-violet-50 border-violet-100 text-violet-700'
+                            }`}
+                          >
+                            {tpl.templateType === 'page' ? 'Página' : 'Estructura'}
+                          </span>
+                        </div>
                       </div>
                       
                       {tpl.description && (
@@ -634,17 +667,17 @@ export default function TemplatesModal({
               </button>
               <button
                 type="button"
-                onClick={onSubmitCreate}
+                onClick={onSubmitForm}
                 disabled={isSubmittingTemplate}
                 className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center gap-1.5 shadow-sm shadow-blue-500/10"
               >
                 {isSubmittingTemplate ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Guardando...
+                    {isEditing ? 'Guardando...' : 'Creando...'}
                   </>
                 ) : (
-                  'Guardar'
+                  submitLabel
                 )}
               </button>
             </>

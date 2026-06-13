@@ -205,6 +205,7 @@ export default function BrainEditorClient({
 
   // Template Form States (TPL3B)
   const [isTemplateFormOpen, setIsTemplateFormOpen] = useState<boolean>(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [templateFormName, setTemplateFormName] = useState<string>('');
   const [templateFormDescription, setTemplateFormDescription] = useState<string>('');
   const [templateFormType, setTemplateFormType] = useState<'page' | 'structure'>('page');
@@ -218,6 +219,7 @@ export default function BrainEditorClient({
   const [templateFormError, setTemplateFormError] = useState<string | null>(null);
 
   const resetTemplateForm = () => {
+    setEditingTemplate(null);
     setTemplateFormName('');
     setTemplateFormDescription('');
     setTemplateFormType('page');
@@ -231,80 +233,104 @@ export default function BrainEditorClient({
     setIsTemplateFormOpen(true);
   };
 
+  const handleOpenEditTemplateForm = (template: Template) => {
+    const canManageTemplates = currentUserRole === 'owner';
+    if (!canManageTemplates) return;
+
+    setEditingTemplate(template);
+    setTemplateFormName(template.name);
+    setTemplateFormDescription(template.description ?? '');
+    setTemplateFormType(template.templateType as 'page' | 'structure');
+    setTemplateFormError(null);
+
+    const schema = template.schemaJson as {
+      fields?: { name: string; label?: string; type?: string }[];
+      sections?: { name: string; label?: string }[];
+    };
+
+    if (template.templateType === 'page' && schema.fields && Array.isArray(schema.fields)) {
+      setTemplateFormFields(
+        schema.fields.map((f) => ({
+          name: f.name ?? '',
+          label: f.label ?? '',
+          type: f.type ?? 'text',
+        }))
+      );
+      setTemplateFormSections([{ name: '', label: '' }]);
+    } else if (template.templateType === 'structure' && schema.sections && Array.isArray(schema.sections)) {
+      setTemplateFormSections(
+        schema.sections.map((s) => ({
+          name: s.name ?? '',
+          label: s.label ?? '',
+        }))
+      );
+      setTemplateFormFields([{ name: '', label: '', type: 'text' }]);
+    } else {
+      setTemplateFormFields([{ name: '', label: '', type: 'text' }]);
+      setTemplateFormSections([{ name: '', label: '' }]);
+    }
+
+    setIsTemplateFormOpen(true);
+  };
+
   const handleCloseTemplateForm = () => {
     resetTemplateForm();
     setIsTemplateFormOpen(false);
+  };
+
+  // Shared validation + schemaJson builder used by both create and update
+  const buildSchemaJsonFromForm = (): { schemaJson: Record<string, unknown> } | { error: string } => {
+    const fieldNameRegex = /^[a-z_][a-z0-9_]*$/i;
+
+    if (templateFormType === 'page') {
+      const activeFields = templateFormFields.filter(f => f.name.trim() || f.label.trim());
+      if (activeFields.length === 0) {
+        return { error: 'Debe definir al menos un campo para la plantilla de página.' };
+      }
+      const fields = [];
+      for (const f of activeFields) {
+        const name = f.name.trim();
+        if (!name) return { error: 'Todos los campos definidos deben tener un nombre.' };
+        if (!fieldNameRegex.test(name)) {
+          return { error: `El nombre de campo "${name}" es inválido. Debe comenzar con letra o guión bajo y no contener espacios.` };
+        }
+        fields.push({ name, label: f.label.trim() || undefined, type: f.type || 'text' });
+      }
+      return { schemaJson: { fields } };
+    } else {
+      const activeSections = templateFormSections.filter(s => s.name.trim() || s.label.trim());
+      if (activeSections.length === 0) {
+        return { error: 'Debe definir al menos una sección para la plantilla de estructura.' };
+      }
+      const sections = [];
+      for (const s of activeSections) {
+        const name = s.name.trim();
+        if (!name) return { error: 'Todas las secciones definidas deben tener un nombre.' };
+        if (!fieldNameRegex.test(name)) {
+          return { error: `El nombre de sección "${name}" es inválido. Debe comenzar con letra o guión bajo y no contener espacios.` };
+        }
+        sections.push({ name, label: s.label.trim() || undefined });
+      }
+      return { schemaJson: { sections } };
+    }
+  };
+
+  const validateCommonFormFields = (): string | null => {
+    if (!templateFormName.trim()) return 'El nombre de la plantilla es obligatorio.';
+    if (templateFormName.trim().length > 100) return 'El nombre de la plantilla no puede exceder los 100 caracteres.';
+    if (templateFormDescription.trim().length > 300) return 'La descripción no puede exceder los 300 caracteres.';
+    return null;
   };
 
   const handleCreateTemplate = async () => {
     const canManageTemplates = currentUserRole === 'owner';
     if (!canManageTemplates) return;
 
-    if (!templateFormName.trim()) {
-      setTemplateFormError('El nombre de la plantilla es obligatorio.');
-      return;
-    }
-    if (templateFormName.trim().length > 100) {
-      setTemplateFormError('El nombre de la plantilla no puede exceder los 100 caracteres.');
-      return;
-    }
-    if (templateFormDescription.trim().length > 300) {
-      setTemplateFormError('La descripción no puede exceder los 300 caracteres.');
-      return;
-    }
+    const commonError = validateCommonFormFields();
+    if (commonError) { setTemplateFormError(commonError); return; }
 
-    const fieldNameRegex = /^[a-z_][a-z0-9_]*$/i;
-
-    let schemaJson: Record<string, unknown> = {};
-
-    if (templateFormType === 'page') {
-      const activeFields = templateFormFields.filter(f => f.name.trim() || f.label.trim());
-      if (activeFields.length === 0) {
-        setTemplateFormError('Debe definir al menos un campo para la plantilla de página.');
-        return;
-      }
-      const fields = [];
-      for (const f of activeFields) {
-        const name = f.name.trim();
-        if (!name) {
-          setTemplateFormError('Todos los campos definidos deben tener un nombre.');
-          return;
-        }
-        if (!fieldNameRegex.test(name)) {
-          setTemplateFormError(`El nombre de campo "${name}" es inválido. Debe comenzar con letra o guión bajo y no contener espacios.`);
-          return;
-        }
-        fields.push({
-          name,
-          label: f.label.trim() || undefined,
-          type: f.type || 'text',
-        });
-      }
-      schemaJson = { fields };
-    } else {
-      const activeSections = templateFormSections.filter(s => s.name.trim() || s.label.trim());
-      if (activeSections.length === 0) {
-        setTemplateFormError('Debe definir al menos una sección para la plantilla de estructura.');
-        return;
-      }
-      const sections = [];
-      for (const s of activeSections) {
-        const name = s.name.trim();
-        if (!name) {
-          setTemplateFormError('Todas las secciones definidas deben tener un nombre.');
-          return;
-        }
-        if (!fieldNameRegex.test(name)) {
-          setTemplateFormError(`El nombre de sección "${name}" es inválido. Debe comenzar con letra o guión bajo y no contener espacios.`);
-          return;
-        }
-        sections.push({
-          name,
-          label: s.label.trim() || undefined,
-        });
-      }
-      schemaJson = { sections };
-    }
+    const result = buildSchemaJsonFromForm();
+    if ('error' in result) { setTemplateFormError(result.error); return; }
 
     try {
       setIsSubmittingTemplate(true);
@@ -312,34 +338,25 @@ export default function BrainEditorClient({
 
       const res = await fetch(`/api/brains/${brainId}/templates`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: templateFormName.trim(),
           description: templateFormDescription.trim() || null,
           templateType: templateFormType,
-          schemaJson,
+          schemaJson: result.schemaJson,
         }),
       });
 
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
+      if (res.status === 401) { router.push('/login'); return; }
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al crear la plantilla.');
-      }
+      if (!res.ok) throw new Error(data.error || 'Error al crear la plantilla.');
 
       const newTemplate: Template = data.template;
       setTemplates(prev => {
         const updated = [...prev, newTemplate];
         return updated.sort((a, b) => {
-          if (a.templateType !== b.templateType) {
-            return a.templateType.localeCompare(b.templateType);
-          }
+          if (a.templateType !== b.templateType) return a.templateType.localeCompare(b.templateType);
           return a.name.localeCompare(b.name);
         });
       });
@@ -350,6 +367,62 @@ export default function BrainEditorClient({
       setTemplateFormError(msg);
     } finally {
       setIsSubmittingTemplate(false);
+    }
+  };
+
+  const handleUpdateTemplate = async () => {
+    const canManageTemplates = currentUserRole === 'owner';
+    if (!canManageTemplates || !editingTemplate) return;
+
+    const commonError = validateCommonFormFields();
+    if (commonError) { setTemplateFormError(commonError); return; }
+
+    const result = buildSchemaJsonFromForm();
+    if ('error' in result) { setTemplateFormError(result.error); return; }
+
+    try {
+      setIsSubmittingTemplate(true);
+      setTemplateFormError(null);
+
+      const res = await fetch(`/api/brains/${brainId}/templates/${editingTemplate.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: templateFormName.trim(),
+          description: templateFormDescription.trim() || null,
+          schemaJson: result.schemaJson,
+          // templateType is NOT sent — backend blocks type changes
+        }),
+      });
+
+      if (res.status === 401) { router.push('/login'); return; }
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al actualizar la plantilla.');
+
+      const updatedTemplate: Template = data.template;
+      setTemplates(prev => {
+        const updated = prev.map(t => t.id === updatedTemplate.id ? updatedTemplate : t);
+        return updated.sort((a, b) => {
+          if (a.templateType !== b.templateType) return a.templateType.localeCompare(b.templateType);
+          return a.name.localeCompare(b.name);
+        });
+      });
+
+      handleCloseTemplateForm();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar con el servidor.';
+      setTemplateFormError(msg);
+    } finally {
+      setIsSubmittingTemplate(false);
+    }
+  };
+
+  const handleSubmitTemplateForm = () => {
+    if (editingTemplate) {
+      handleUpdateTemplate();
+    } else {
+      handleCreateTemplate();
     }
   };
 
@@ -1701,14 +1774,16 @@ ${nodeDetail.contentMarkdown}`;
         templateFormSections={templateFormSections}
         isSubmittingTemplate={isSubmittingTemplate}
         templateFormError={templateFormError}
+        editingTemplate={editingTemplate}
         onOpenCreateForm={handleOpenCreateTemplateForm}
+        onOpenEditForm={handleOpenEditTemplateForm}
         onCloseForm={handleCloseTemplateForm}
         onTemplateFormNameChange={setTemplateFormName}
         onTemplateFormDescriptionChange={setTemplateFormDescription}
         onTemplateFormTypeChange={setTemplateFormType}
         onTemplateFormFieldsChange={setTemplateFormFields}
         onTemplateFormSectionsChange={setTemplateFormSections}
-        onSubmitCreate={handleCreateTemplate}
+        onSubmitForm={handleSubmitTemplateForm}
       />
 
       {/* Trash Modal (Papelera) */}
