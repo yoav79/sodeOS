@@ -26,6 +26,64 @@ export default function BrainsClient({ user, brains }: BrainsClientProps) {
   const router = useRouter();
   const [logoutLoading, setLogoutLoading] = useState(false);
 
+  const [localBrains, setLocalBrains] = useState<BrainItem[]>(brains);
+  const [brainToDelete, setBrainToDelete] = useState<BrainItem | null>(null);
+  const [confirmName, setConfirmName] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const closeDeleteModal = () => {
+    setBrainToDelete(null);
+    setConfirmName('');
+    setDeleteError(null);
+    setDeleting(false);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!brainToDelete || confirmName !== brainToDelete.name) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const res = await fetch(`/api/brains/${brainToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        router.refresh();
+        return;
+      }
+
+      if (res.status === 403) {
+        setDeleteError('No tienes permisos para eliminar este cerebro.');
+        setDeleting(false);
+        return;
+      }
+
+      if (res.status === 404) {
+        setLocalBrains((prev) => prev.filter((b) => b.id !== brainToDelete.id));
+        closeDeleteModal();
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data.error || 'Ocurrió un error inesperado al eliminar el cerebro.');
+        setDeleting(false);
+        return;
+      }
+
+      setLocalBrains((prev) => prev.filter((b) => b.id !== brainToDelete.id));
+      closeDeleteModal();
+    } catch (err) {
+      console.error('Error al eliminar cerebro:', err);
+      setDeleteError('Ocurrió un error de red al intentar eliminar el cerebro.');
+      setDeleting(false);
+    }
+  };
+
   const handleLogout = async () => {
     setLogoutLoading(true);
     try {
@@ -218,7 +276,7 @@ export default function BrainsClient({ user, brains }: BrainsClientProps) {
           </div>
         </div>
 
-        {brains.length === 0 ? (
+        {localBrains.length === 0 ? (
           /* Empty State */
           <div className="max-w-md mx-auto my-16 p-8 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-100/50 text-center flex flex-col items-center gap-4">
             <div className="p-4 bg-slate-50 text-slate-400 border border-slate-100 rounded-2xl">
@@ -240,20 +298,33 @@ export default function BrainsClient({ user, brains }: BrainsClientProps) {
         ) : (
           /* Grid of Brain Cards */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {brains.map((brain) => (
+            {localBrains.map((brain) => (
               <div
                 key={brain.id}
                 className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all p-6 flex flex-col justify-between"
               >
                 <div>
                   {/* Badges row */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getVisibilityClass(brain.visibility)}`}>
-                      {getVisibilityLabel(brain.visibility)}
-                    </span>
-                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getRoleClass(brain.role)}`}>
-                      {getRoleLabel(brain.role)}
-                    </span>
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getVisibilityClass(brain.visibility)}`}>
+                        {getVisibilityLabel(brain.visibility)}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getRoleClass(brain.role)}`}>
+                        {getRoleLabel(brain.role)}
+                      </span>
+                    </div>
+                    {brain.role === 'owner' && (
+                      <button
+                        onClick={() => setBrainToDelete(brain)}
+                        className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Eliminar cerebro"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
 
                   {/* Brain Name & Description */}
@@ -292,6 +363,103 @@ export default function BrainsClient({ user, brains }: BrainsClientProps) {
           </div>
         )}
       </main>
+
+      {/* Modal de confirmación de eliminación */}
+      {brainToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header del Modal */}
+            <div className="p-6 pb-4 border-b border-slate-100 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-50 text-red-600 rounded-xl border border-red-100">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Eliminar Cerebro</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Esta acción es permanente e irreversible</p>
+                </div>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleting}
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1.5 rounded-lg transition-colors"
+                title="Cerrar modal"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Estás a punto de eliminar el cerebro <strong className="text-slate-900">{brainToDelete.name}</strong>.
+              </p>
+              
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5">
+                <h4 className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Se eliminará permanentemente:</h4>
+                <ul className="text-[11px] text-amber-700 space-y-1 list-disc pl-4 font-medium">
+                  <li>Todos los documentos y nodos del árbol</li>
+                  <li>Todas las versiones históricas de los documentos</li>
+                  <li>Todas las plantillas asociadas (páginas y estructuras)</li>
+                  <li>Todos los accesos de miembros de este cerebro</li>
+                  <li>Todas las etiquetas asociadas</li>
+                </ul>
+              </div>
+
+              {deleteError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                  ⚠️ {deleteError}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Escribe el nombre del cerebro para confirmar:
+                </label>
+                <input
+                  type="text"
+                  placeholder={brainToDelete.name}
+                  value={confirmName}
+                  onChange={(e) => setConfirmName(e.target.value)}
+                  disabled={deleting}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/20 disabled:opacity-50 transition-all font-medium"
+                />
+              </div>
+            </div>
+
+            {/* Footer del Modal */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+                className="px-4 py-2 border border-slate-200 text-slate-600 font-semibold rounded-xl text-xs bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deleting || confirmName !== brainToDelete.name}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl text-xs shadow-md shadow-red-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {deleting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Eliminando...
+                  </>
+                ) : (
+                  'Eliminar permanentemente'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
