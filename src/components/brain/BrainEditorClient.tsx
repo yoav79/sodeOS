@@ -108,6 +108,7 @@ export default function BrainEditorClient({
   const [restoreVersionSuccess, setRestoreVersionSuccess] = useState<string | null>(null);
 
   const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history'>('meta');
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState<boolean>(false);
 
   // Search local states and filtering
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -1767,6 +1768,8 @@ ${nodeDetail.contentMarkdown}`;
           onExportJson={handleExportNodeJson}
           isEditing={isEditing}
           canRestoreVersion={canEditBrain}
+          isCollapsed={isRightPanelCollapsed}
+          onToggleCollapse={() => setIsRightPanelCollapsed(!isRightPanelCollapsed)}
         />
       </div>
 
