@@ -133,6 +133,11 @@ interface TemplatesModalProps {
   onTemplateFormFieldsChange: (rows: TemplateFieldRow[]) => void;
   onTemplateFormSectionsChange: (rows: TemplateSectionRow[]) => void;
   onSubmitForm: () => void;
+
+  // Deletion properties (TPL3D)
+  isDeletingTemplate: string | null;
+  deleteTemplateError: string | null;
+  onDeleteTemplate: (templateId: string, templateName: string) => void;
 }
 
 export default function TemplatesModal({
@@ -173,6 +178,10 @@ export default function TemplatesModal({
   onTemplateFormFieldsChange,
   onTemplateFormSectionsChange,
   onSubmitForm,
+  // Deletion properties (TPL3D)
+  isDeletingTemplate,
+  deleteTemplateError,
+  onDeleteTemplate,
 }: TemplatesModalProps) {
   if (!isOpen) return null;
 
@@ -519,6 +528,13 @@ export default function TemplatesModal({
                 </div>
               )}
 
+              {deleteTemplateError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex flex-col gap-1">
+                  <span className="font-semibold">⚠️ Error al eliminar la plantilla:</span>
+                  <span>{deleteTemplateError}</span>
+                </div>
+              )}
+
               {templatesError && (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex flex-col gap-2">
                   <span className="font-semibold flex items-center gap-1">⚠️ {templatesError}</span>
@@ -550,13 +566,31 @@ export default function TemplatesModal({
                         </h4>
                         <div className="flex items-center gap-2 shrink-0">
                           {canManageTemplates && (
-                            <button
-                              onClick={() => onOpenEditForm(tpl)}
-                              className="text-[10px] font-bold text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-300 px-2 py-0.5 rounded-lg transition-colors"
-                              title="Editar plantilla"
-                            >
-                              Editar
-                            </button>
+                            <>
+                              <button
+                                onClick={() => onOpenEditForm(tpl)}
+                                disabled={isDeletingTemplate !== null}
+                                className="text-[10px] font-bold text-slate-500 hover:text-blue-600 disabled:opacity-40 disabled:hover:text-slate-500 disabled:cursor-not-allowed border border-slate-200 hover:border-blue-300 px-2 py-0.5 rounded-lg transition-colors"
+                                title="Editar plantilla"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => onDeleteTemplate(tpl.id, tpl.name)}
+                                disabled={isDeletingTemplate !== null}
+                                className="text-[10px] font-bold text-red-500 hover:text-red-700 disabled:opacity-40 disabled:hover:text-red-500 disabled:cursor-not-allowed border border-slate-200 hover:border-red-300 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
+                                title="Eliminar plantilla"
+                              >
+                                {isDeletingTemplate === tpl.id ? (
+                                  <>
+                                    <div className="w-2.5 h-2.5 border border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                                    Eliminando...
+                                  </>
+                                ) : (
+                                  'Eliminar'
+                                )}
+                              </button>
+                            </>
                           )}
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded border tracking-wide uppercase ${
@@ -596,7 +630,7 @@ export default function TemplatesModal({
                           )}
                           <button
                             onClick={() => onApplyTemplate(tpl.id, tpl.name)}
-                            disabled={!selectedNodeId || isApplyingTemplate !== null}
+                            disabled={!selectedNodeId || isApplyingTemplate !== null || isDeletingTemplate === tpl.id}
                             className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition-colors shrink-0 flex items-center gap-1.5 shadow-sm shadow-blue-500/10"
                           >
                             {isApplyingTemplate === tpl.id ? (
@@ -631,7 +665,7 @@ export default function TemplatesModal({
                               const sectionsCount = (tpl.schemaJson as { sections?: unknown[] })?.sections?.length || 0;
                               onApplyStructureTemplate(tpl.id, tpl.name, sectionsCount);
                             }}
-                            disabled={!selectedNodeId || isApplyingStructure !== null}
+                            disabled={!selectedNodeId || isApplyingStructure !== null || isDeletingTemplate === tpl.id}
                             className="px-3.5 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition-colors shrink-0 flex items-center gap-1.5 shadow-sm shadow-violet-500/10"
                           >
                             {isApplyingStructure === tpl.id ? (

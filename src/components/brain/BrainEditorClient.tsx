@@ -218,6 +218,10 @@ export default function BrainEditorClient({
   const [isSubmittingTemplate, setIsSubmittingTemplate] = useState<boolean>(false);
   const [templateFormError, setTemplateFormError] = useState<string | null>(null);
 
+  // Template Deletion States (TPL3D)
+  const [isDeletingTemplate, setIsDeletingTemplate] = useState<string | null>(null);
+  const [deleteTemplateError, setDeleteTemplateError] = useState<string | null>(null);
+
   const resetTemplateForm = () => {
     setEditingTemplate(null);
     setTemplateFormName('');
@@ -423,6 +427,42 @@ export default function BrainEditorClient({
       handleUpdateTemplate();
     } else {
       handleCreateTemplate();
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string, templateName: string) => {
+    const canManageTemplates = currentUserRole === 'owner';
+    if (!canManageTemplates) return;
+
+    const confirmDelete = window.confirm(
+      `Se eliminará la plantilla "${templateName}".\n\nLos nodos que la usaban quedarán sin plantilla asignada, pero el contenido de los nodos no se modificará.\n\n¿Deseas continuar?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setIsDeletingTemplate(templateId);
+      setDeleteTemplateError(null);
+
+      const res = await fetch(`/api/brains/${brainId}/templates/${templateId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al eliminar la plantilla.');
+      }
+
+      setTemplates((prev) => prev.filter((t) => t.id !== templateId));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar con el servidor.';
+      setDeleteTemplateError(msg);
+    } finally {
+      setIsDeletingTemplate(null);
     }
   };
 
@@ -1571,6 +1611,7 @@ ${nodeDetail.contentMarkdown}`;
           onCreateRootNode={() => openCreateModal(null)}
           onOpenTemplates={() => {
             setTemplatesError(null);
+            setDeleteTemplateError(null);
             setIsTemplatesModalOpen(true);
             fetchTemplates();
           }}
@@ -1784,6 +1825,10 @@ ${nodeDetail.contentMarkdown}`;
         onTemplateFormFieldsChange={setTemplateFormFields}
         onTemplateFormSectionsChange={setTemplateFormSections}
         onSubmitForm={handleSubmitTemplateForm}
+        // Deletion Props (TPL3D)
+        isDeletingTemplate={isDeletingTemplate}
+        deleteTemplateError={deleteTemplateError}
+        onDeleteTemplate={handleDeleteTemplate}
       />
 
       {/* Trash Modal (Papelera) */}
