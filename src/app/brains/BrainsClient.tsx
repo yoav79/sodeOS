@@ -148,13 +148,13 @@ export default function BrainsClient({ user, brains }: BrainsClientProps) {
             </button>
 
             <span className="px-3 pt-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              Gestión (Próximamente)
+              Gestión de Cerebro
             </span>
 
             <div className="space-y-0.5">
               <span
                 className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 font-medium text-sm cursor-not-allowed select-none"
-                title="Próximamente"
+                title="Disponible dentro de cada cerebro"
               >
                 <span className="flex items-center gap-3">
                   <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -162,12 +162,11 @@ export default function BrainsClient({ user, brains }: BrainsClientProps) {
                   </svg>
                   Miembros
                 </span>
-                <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold border border-slate-200">Soon</span>
               </span>
 
               <span
                 className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-400 font-medium text-sm cursor-not-allowed select-none"
-                title="Próximamente"
+                title="Disponible dentro de cada cerebro"
               >
                 <span className="flex items-center gap-3">
                   <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -175,7 +174,6 @@ export default function BrainsClient({ user, brains }: BrainsClientProps) {
                   </svg>
                   Plantillas
                 </span>
-                <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase font-bold border border-slate-200">Soon</span>
               </span>
             </div>
           </nav>
