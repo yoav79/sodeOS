@@ -10,7 +10,7 @@ import EditorDocumentView from './editor/EditorDocumentView';
 import EditorDocumentForm from './editor/EditorDocumentForm';
 import CreateNodeModal from './editor/modals/CreateNodeModal';
 import TrashModal, { TrashedNode } from './editor/modals/TrashModal';
-import TemplatesModal from './editor/modals/TemplatesModal';
+import TemplatesModal, { TemplateFieldRow, TemplateSectionRow } from './editor/modals/TemplatesModal';
 import MoveNodeModal, { FlatNodeWithDepth } from './editor/modals/MoveNodeModal';
 import ManageMembersModal, { MemberWithUser } from './editor/modals/ManageMembersModal';
 
@@ -202,6 +202,156 @@ export default function BrainEditorClient({
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState<boolean>(false);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
+
+  // Template Form States (TPL3B)
+  const [isTemplateFormOpen, setIsTemplateFormOpen] = useState<boolean>(false);
+  const [templateFormName, setTemplateFormName] = useState<string>('');
+  const [templateFormDescription, setTemplateFormDescription] = useState<string>('');
+  const [templateFormType, setTemplateFormType] = useState<'page' | 'structure'>('page');
+  const [templateFormFields, setTemplateFormFields] = useState<TemplateFieldRow[]>([
+    { name: '', label: '', type: 'text' }
+  ]);
+  const [templateFormSections, setTemplateFormSections] = useState<TemplateSectionRow[]>([
+    { name: '', label: '' }
+  ]);
+  const [isSubmittingTemplate, setIsSubmittingTemplate] = useState<boolean>(false);
+  const [templateFormError, setTemplateFormError] = useState<string | null>(null);
+
+  const resetTemplateForm = () => {
+    setTemplateFormName('');
+    setTemplateFormDescription('');
+    setTemplateFormType('page');
+    setTemplateFormFields([{ name: '', label: '', type: 'text' }]);
+    setTemplateFormSections([{ name: '', label: '' }]);
+    setTemplateFormError(null);
+  };
+
+  const handleOpenCreateTemplateForm = () => {
+    resetTemplateForm();
+    setIsTemplateFormOpen(true);
+  };
+
+  const handleCloseTemplateForm = () => {
+    resetTemplateForm();
+    setIsTemplateFormOpen(false);
+  };
+
+  const handleCreateTemplate = async () => {
+    const canManageTemplates = currentUserRole === 'owner';
+    if (!canManageTemplates) return;
+
+    if (!templateFormName.trim()) {
+      setTemplateFormError('El nombre de la plantilla es obligatorio.');
+      return;
+    }
+    if (templateFormName.trim().length > 100) {
+      setTemplateFormError('El nombre de la plantilla no puede exceder los 100 caracteres.');
+      return;
+    }
+    if (templateFormDescription.trim().length > 300) {
+      setTemplateFormError('La descripción no puede exceder los 300 caracteres.');
+      return;
+    }
+
+    const fieldNameRegex = /^[a-z_][a-z0-9_]*$/i;
+
+    let schemaJson: Record<string, unknown> = {};
+
+    if (templateFormType === 'page') {
+      const activeFields = templateFormFields.filter(f => f.name.trim() || f.label.trim());
+      if (activeFields.length === 0) {
+        setTemplateFormError('Debe definir al menos un campo para la plantilla de página.');
+        return;
+      }
+      const fields = [];
+      for (const f of activeFields) {
+        const name = f.name.trim();
+        if (!name) {
+          setTemplateFormError('Todos los campos definidos deben tener un nombre.');
+          return;
+        }
+        if (!fieldNameRegex.test(name)) {
+          setTemplateFormError(`El nombre de campo "${name}" es inválido. Debe comenzar con letra o guión bajo y no contener espacios.`);
+          return;
+        }
+        fields.push({
+          name,
+          label: f.label.trim() || undefined,
+          type: f.type || 'text',
+        });
+      }
+      schemaJson = { fields };
+    } else {
+      const activeSections = templateFormSections.filter(s => s.name.trim() || s.label.trim());
+      if (activeSections.length === 0) {
+        setTemplateFormError('Debe definir al menos una sección para la plantilla de estructura.');
+        return;
+      }
+      const sections = [];
+      for (const s of activeSections) {
+        const name = s.name.trim();
+        if (!name) {
+          setTemplateFormError('Todas las secciones definidas deben tener un nombre.');
+          return;
+        }
+        if (!fieldNameRegex.test(name)) {
+          setTemplateFormError(`El nombre de sección "${name}" es inválido. Debe comenzar con letra o guión bajo y no contener espacios.`);
+          return;
+        }
+        sections.push({
+          name,
+          label: s.label.trim() || undefined,
+        });
+      }
+      schemaJson = { sections };
+    }
+
+    try {
+      setIsSubmittingTemplate(true);
+      setTemplateFormError(null);
+
+      const res = await fetch(`/api/brains/${brainId}/templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: templateFormName.trim(),
+          description: templateFormDescription.trim() || null,
+          templateType: templateFormType,
+          schemaJson,
+        }),
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al crear la plantilla.');
+      }
+
+      const newTemplate: Template = data.template;
+      setTemplates(prev => {
+        const updated = [...prev, newTemplate];
+        return updated.sort((a, b) => {
+          if (a.templateType !== b.templateType) {
+            return a.templateType.localeCompare(b.templateType);
+          }
+          return a.name.localeCompare(b.name);
+        });
+      });
+
+      handleCloseTemplateForm();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar con el servidor.';
+      setTemplateFormError(msg);
+    } finally {
+      setIsSubmittingTemplate(false);
+    }
+  };
 
   const fetchTemplates = async () => {
     if (templates.length > 0) return;
@@ -1521,7 +1671,6 @@ ${nodeDetail.contentMarkdown}`;
         );
       })()}
 
-      {/* Templates Modal (Solo lectura) */}
       <TemplatesModal
         isOpen={isTemplatesModalOpen}
         templates={templates}
@@ -1534,10 +1683,32 @@ ${nodeDetail.contentMarkdown}`;
         applyStructureError={applyStructureError}
         applyStructureSuccess={applyStructureSuccess}
         selectedNodeId={selectedNodeId}
-        onClose={() => setIsTemplatesModalOpen(false)}
+        onClose={() => {
+          setIsTemplatesModalOpen(false);
+          handleCloseTemplateForm();
+        }}
         onApplyTemplate={handleApplyTemplate}
         onApplyStructureTemplate={handleApplyStructureTemplate}
         onRetryFetch={fetchTemplates}
+        // CRUD Props (TPL3B)
+        canManageTemplates={currentUserRole === 'owner'}
+        canApplyTemplates={canEditBrain}
+        isTemplateFormOpen={isTemplateFormOpen}
+        templateFormName={templateFormName}
+        templateFormDescription={templateFormDescription}
+        templateFormType={templateFormType}
+        templateFormFields={templateFormFields}
+        templateFormSections={templateFormSections}
+        isSubmittingTemplate={isSubmittingTemplate}
+        templateFormError={templateFormError}
+        onOpenCreateForm={handleOpenCreateTemplateForm}
+        onCloseForm={handleCloseTemplateForm}
+        onTemplateFormNameChange={setTemplateFormName}
+        onTemplateFormDescriptionChange={setTemplateFormDescription}
+        onTemplateFormTypeChange={setTemplateFormType}
+        onTemplateFormFieldsChange={setTemplateFormFields}
+        onTemplateFormSectionsChange={setTemplateFormSections}
+        onSubmitCreate={handleCreateTemplate}
       />
 
       {/* Trash Modal (Papelera) */}
