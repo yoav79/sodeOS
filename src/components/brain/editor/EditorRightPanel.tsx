@@ -3,6 +3,7 @@
 import React from 'react';
 import { Node } from '@/types';
 import { NodeVersionWithSaver } from '../BrainEditorClient';
+import NodeAttachments from './NodeAttachments';
 
 interface EditorRightPanelProps {
   selectedNodeId: string | null;
@@ -25,6 +26,7 @@ interface EditorRightPanelProps {
   isEditing?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  canEdit?: boolean;
 }
 
 export default function EditorRightPanel({
@@ -48,6 +50,7 @@ export default function EditorRightPanel({
   isEditing = false,
   isCollapsed = false,
   onToggleCollapse,
+  canEdit = true,
 }: EditorRightPanelProps) {
   if (isCollapsed) {
     return (
@@ -333,6 +336,9 @@ export default function EditorRightPanel({
                   )}
                 </div>
               </div>
+
+              {/* Sección 5: Adjuntos */}
+              <NodeAttachments nodeId={nodeDetail.id} canEdit={canEdit} />
             </div>
           ) : (
             /* Historial Tab */

@@ -1718,6 +1718,7 @@ ${nodeDetail.contentMarkdown}`;
           canRestoreVersion={canEditBrain}
           isCollapsed={isRightPanelCollapsed}
           onToggleCollapse={() => setIsRightPanelCollapsed(!isRightPanelCollapsed)}
+          canEdit={canEditBrain}
         />
       </div>
 
