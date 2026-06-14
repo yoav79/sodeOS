@@ -56,13 +56,13 @@ export default function EditorRightPanel({
 }: EditorRightPanelProps) {
   if (isCollapsed) {
     return (
-      <aside className="w-12 border-l border-slate-200 bg-slate-50/50 flex flex-col items-center py-3 gap-4 shrink-0 h-full print-hide transition-all duration-250 shadow-inner">
+      <aside className="w-12 border-l border-slate-200 bg-slate-50/50 flex flex-col items-center py-4 gap-4 shrink-0 h-full print-hide transition-all duration-250 shadow-inner">
         {/* Toggle Expand Button */}
         <button
           onClick={onToggleCollapse}
           title="Expandir panel lateral"
           aria-label="Expandir panel lateral"
-          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-all shadow-xs"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-400 hover:text-slate-700 transition-all shadow-xs"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -81,7 +81,7 @@ export default function EditorRightPanel({
           aria-label="Ver Metadatos"
           className={`p-2 rounded-xl transition-all ${
             rightPanelTab === 'meta'
-              ? 'bg-blue-50 text-blue-600 border border-blue-200'
+              ? 'bg-blue-50 text-blue-600 border border-blue-200 shadow-xs'
               : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
           }`}
         >
@@ -100,7 +100,7 @@ export default function EditorRightPanel({
           aria-label="Ver Historial de Versiones"
           className={`p-2 rounded-xl transition-all ${
             rightPanelTab === 'history'
-              ? 'bg-blue-50 text-blue-600 border border-blue-200'
+              ? 'bg-blue-50 text-blue-600 border border-blue-200 shadow-xs'
               : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
           }`}
         >
@@ -119,7 +119,7 @@ export default function EditorRightPanel({
           aria-label="Ver Archivos Adjuntos"
           className={`p-2 rounded-xl transition-all ${
             rightPanelTab === 'files'
-              ? 'bg-blue-50 text-blue-600 border border-blue-200'
+              ? 'bg-blue-50 text-blue-600 border border-blue-200 shadow-xs'
               : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
           }`}
         >
@@ -134,46 +134,46 @@ export default function EditorRightPanel({
   return (
     <aside className="w-80 border-l border-slate-200 bg-white flex flex-col shrink-0 h-full print-hide transition-all duration-250">
       {/* Tabs bar with Collapse Button */}
-      <div className="p-2 border-b border-slate-200 text-xs shrink-0 bg-slate-50 flex items-center gap-2">
+      <div className="p-2.5 border-b border-slate-200 text-xs shrink-0 bg-slate-50 flex items-center gap-2">
         {/* Collapse Button */}
         <button
           onClick={onToggleCollapse}
           title="Colapsar panel lateral"
           aria-label="Colapsar panel lateral"
-          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-all shadow-xs"
+          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 text-slate-400 hover:text-slate-700 transition-all shadow-xs"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
           </svg>
         </button>
 
-        <div className="flex bg-slate-200/60 p-0.5 rounded-lg flex-1">
+        <div className="flex bg-slate-200/50 p-1 rounded-xl flex-1 border border-slate-200/30 gap-0.5">
           <button
             onClick={() => onRightPanelTabChange('meta')}
-            className={`flex-1 py-1 px-2.5 text-center font-medium rounded-md transition-all duration-200 ${
+            className={`flex-1 py-1.5 px-2 text-center text-[11px] font-medium rounded-lg transition-all duration-200 ${
               rightPanelTab === 'meta'
-                ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50 font-semibold'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/30'
+                ? 'bg-white text-blue-600 shadow-xs border border-slate-200/50 font-semibold'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
             }`}
           >
             Metadatos
           </button>
           <button
             onClick={() => onRightPanelTabChange('history')}
-            className={`flex-1 py-1 px-2.5 text-center font-medium rounded-md transition-all duration-200 ${
+            className={`flex-1 py-1.5 px-2 text-center text-[11px] font-medium rounded-lg transition-all duration-200 ${
               rightPanelTab === 'history'
-                ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50 font-semibold'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/30'
+                ? 'bg-white text-blue-600 shadow-xs border border-slate-200/50 font-semibold'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
             }`}
           >
             Historial
           </button>
           <button
             onClick={() => onRightPanelTabChange('files')}
-            className={`flex-1 py-1 px-2.5 text-center font-medium rounded-md transition-all duration-200 ${
+            className={`flex-1 py-1.5 px-2 text-center text-[11px] font-medium rounded-lg transition-all duration-200 ${
               rightPanelTab === 'files'
-                ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50 font-semibold'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/30'
+                ? 'bg-white text-blue-600 shadow-xs border border-slate-200/50 font-semibold'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
             }`}
           >
             Archivos
