@@ -52,8 +52,10 @@ export default async function BrainsIndexPage() {
   return (
     <BrainsClient
       user={{
+        id: currentUser.id,
         name: currentUser.name,
         email: currentUser.email,
+        avatarUrl: currentUser.avatarUrl,
       }}
       brains={brains}
     />

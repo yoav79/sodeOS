@@ -48,6 +48,61 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
   // Avatar Image Load Fail State
   const [imageError, setImageError] = useState(false);
 
+  // File Upload State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Cleanup ObjectURL to prevent memory leaks
+  React.useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  // Determine avatar display URL. R2 files are proxied through teammate-safe avatar route.
+  const getDisplayAvatarUrl = (url: string | null) => {
+    if (!url) return null;
+    if (url.startsWith('/api/files/download') || url.includes('key=')) {
+      return `/api/users/${user.id}/avatar`;
+    }
+    return url;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    if (!file) {
+      return;
+    }
+
+    // Validate MIME type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setProfileError('Tipo de archivo no permitido. Solo se permiten imágenes (JPEG, PNG, GIF, WEBP).');
+      return;
+    }
+
+    // Validate file size (2 MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setProfileError('La imagen excede el tamaño máximo permitido de 2 MB.');
+      return;
+    }
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    const localUrl = URL.createObjectURL(file);
+    setSelectedFile(file);
+    setPreviewUrl(localUrl);
+    setAvatarUrl(''); // Clear manual external URL to avoid confusion
+    setImageError(false);
+  };
+
   // Initials generator
   const getInitials = (nameStr: string) => {
     return nameStr
@@ -81,15 +136,22 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
         setProfileError('El avatarUrl no puede exceder los 500 caracteres.');
         return;
       }
-      try {
-        const parsedUrl = new URL(trimmedAvatar);
-        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-          setProfileError('El avatarUrl debe ser una URL válida (http o https).');
+      
+      const isInternal = trimmedAvatar.startsWith('/api/files/download') || 
+                         trimmedAvatar.startsWith('http://localhost:3000/api/files/download') ||
+                         trimmedAvatar.includes('/api/files/download');
+
+      if (!isInternal) {
+        try {
+          const parsedUrl = new URL(trimmedAvatar);
+          if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+            setProfileError('El avatarUrl debe ser una URL válida (http o https).');
+            return;
+          }
+        } catch {
+          setProfileError('El avatarUrl debe ser una URL válida.');
           return;
         }
-      } catch {
-        setProfileError('El avatarUrl debe ser una URL válida.');
-        return;
       }
     } else {
       trimmedAvatar = '';
@@ -128,7 +190,28 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
 
     setSavingProfile(true);
 
+    let uploadedKey: string | null = null;
     try {
+      // 1. If a local file is selected, upload it to R2 first
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        const uploadRes = await fetch('/api/files', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) {
+          throw new Error(uploadData.error || 'Error al subir el archivo del avatar.');
+        }
+
+        uploadedKey = uploadData.key;
+        trimmedAvatar = `/api/files/download?key=${encodeURIComponent(uploadedKey!)}`;
+      }
+
+      // 2. Perform PATCH request to save user profile
       const res = await fetch('/api/auth/profile', {
         method: 'PATCH',
         headers: {
@@ -153,6 +236,14 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
       }
 
       if (!res.ok) {
+        // 3. Rollback: delete uploaded file from R2 if profile update failed
+        if (uploadedKey) {
+          await fetch(`/api/files?key=${encodeURIComponent(uploadedKey)}`, {
+            method: 'DELETE',
+          }).catch((delErr) => {
+            console.error('Failed to cleanup uploaded avatar file after profile patch error:', delErr);
+          });
+        }
         throw new Error(data.error || 'Error al actualizar el perfil.');
       }
 
@@ -164,6 +255,14 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
       setCompany(data.user.company || '');
       setDepartment(data.user.department || '');
       setJobTitle(data.user.jobTitle || '');
+      
+      // Cleanup file selection & preview on success
+      setSelectedFile(null);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+      
       setImageError(false);
       router.refresh();
     } catch (err: unknown) {
@@ -289,26 +388,70 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
           {/* Left Side: Avatar Card */}
           <div className="md:col-span-1 space-y-6">
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col items-center text-center gap-4">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vista previa</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Foto de Perfil</span>
               
               {/* Avatar Circle */}
-              <div className="w-28 h-28 rounded-2xl overflow-hidden bg-blue-50 border-2 border-blue-100 flex items-center justify-center text-blue-700 font-extrabold text-3xl shadow-inner shadow-blue-500/5 relative">
-                {avatarUrl && !imageError ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatarUrl}
-                    alt={user.name}
-                    className="w-full h-full object-cover"
-                    onError={() => setImageError(true)}
-                  />
-                ) : (
-                  getInitials(name || user.name)
-                )}
+              <div className="w-28 h-28 rounded-2xl overflow-hidden bg-blue-50 border-2 border-blue-100 flex items-center justify-center text-blue-700 font-extrabold text-3xl shadow-inner shadow-blue-500/5 relative group">
+                {(() => {
+                  const avatarToShow = previewUrl || getDisplayAvatarUrl(avatarUrl);
+                  return avatarToShow && !imageError ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarToShow}
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    getInitials(name || user.name)
+                  );
+                })()}
               </div>
 
-              <div className="space-y-1">
-                <h3 className="font-bold text-lg text-slate-800 truncate max-w-[200px]">{user.name}</h3>
-                <p className="text-xs text-slate-400 truncate max-w-[200px]">{user.email}</p>
+              {/* Upload controls */}
+              <div className="flex flex-col gap-2 w-full">
+                <label className="cursor-pointer px-4 py-2 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Seleccionar Imagen
+                  <input
+                    id="avatar-file-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={savingProfile}
+                  />
+                </label>
+                {(avatarUrl || previewUrl) && (
+                  <button
+                    id="avatar-delete-button"
+                    type="button"
+                    onClick={() => {
+                      setAvatarUrl('');
+                      setSelectedFile(null);
+                      if (previewUrl) {
+                        URL.revokeObjectURL(previewUrl);
+                        setPreviewUrl(null);
+                      }
+                      setImageError(false);
+                    }}
+                    disabled={savingProfile}
+                    className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Eliminar Foto
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-400">JPEG, PNG, GIF o WEBP. Máx 2 MB.</p>
+
+              <div className="space-y-1 w-full">
+                <h3 className="font-bold text-lg text-slate-800 truncate max-w-[200px] mx-auto">{user.name}</h3>
+                <p className="text-xs text-slate-400 truncate max-w-[200px] mx-auto">{user.email}</p>
               </div>
 
               <div className="w-full pt-4 border-t border-slate-100 text-left space-y-1 text-xs text-slate-400">
@@ -375,7 +518,7 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
 
                 <div>
                   <label htmlFor="profile-avatar" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    URL de Avatar (Imagen Externa)
+                    Enlace de Avatar (URL externa opcional)
                   </label>
                   <input
                     id="profile-avatar"
@@ -383,13 +526,18 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
                     value={avatarUrl}
                     onChange={(e) => {
                       setAvatarUrl(e.target.value);
+                      setSelectedFile(null);
+                      if (previewUrl) {
+                        URL.revokeObjectURL(previewUrl);
+                        setPreviewUrl(null);
+                      }
                       setImageError(false);
                     }}
                     disabled={savingProfile}
                     className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-slate-900 outline-none transition-colors placeholder-slate-400"
                     placeholder="https://ejemplo.com/tu-foto.jpg"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Introduce una URL pública directa a tu imagen (JPEG, PNG o SVG).</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Como alternativa opcional, puedes introducir una dirección HTTP/HTTPS pública directa a tu imagen externa.</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

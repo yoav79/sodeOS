@@ -181,8 +181,10 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       user={{
+        id: currentUser.id,
         name: currentUser.name,
         email: currentUser.email,
+        avatarUrl: currentUser.avatarUrl,
       }}
       brains={brains}
       metrics={{

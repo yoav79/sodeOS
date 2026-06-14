@@ -16,8 +16,10 @@ interface BrainItem {
 
 interface BrainsClientProps {
   user: {
+    id: string;
     name: string;
     email: string;
+    avatarUrl: string | null;
   };
   brains: BrainItem[];
 }
@@ -25,6 +27,16 @@ interface BrainsClientProps {
 export default function BrainsClient({ user, brains }: BrainsClientProps) {
   const router = useRouter();
   const [logoutLoading, setLogoutLoading] = useState(false);
+
+  const getDisplayAvatarUrl = (url: string | null) => {
+    if (!url) return null;
+    if (url.startsWith('/api/files/download') || url.includes('key=')) {
+      return `/api/users/${user.id}/avatar`;
+    }
+    return url;
+  };
+
+  const displayAvatar = getDisplayAvatarUrl(user.avatarUrl);
 
   const [localBrains, setLocalBrains] = useState<BrainItem[]>(brains);
   const [brainToDelete, setBrainToDelete] = useState<BrainItem | null>(null);
@@ -226,8 +238,17 @@ export default function BrainsClient({ user, brains }: BrainsClientProps) {
             className="flex items-center gap-3 px-1.5 py-1 rounded-xl hover:bg-slate-100 transition-colors group cursor-pointer"
             title="Ver perfil"
           >
-            <div className="w-10 h-10 rounded-xl bg-blue-100 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0 group-hover:border-blue-300 group-hover:bg-blue-200/50 transition-colors">
-              {user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
+            <div className="w-10 h-10 rounded-xl bg-blue-100 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0 group-hover:border-blue-300 group-hover:bg-blue-200/50 transition-colors overflow-hidden">
+              {displayAvatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={displayAvatar}
+                  alt={user.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                user.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
+              )}
             </div>
             <div className="overflow-hidden flex-1">
               <span className="font-semibold text-sm text-slate-800 block truncate group-hover:text-blue-700 transition-colors">{user.name}</span>
