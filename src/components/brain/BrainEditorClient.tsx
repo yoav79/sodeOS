@@ -110,60 +110,12 @@ export default function BrainEditorClient({
   const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history'>('meta');
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState<boolean>(false);
 
-  // Search local states and filtering
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
   // Remote Search States
   const [remoteSearchQuery, setRemoteSearchQuery] = useState<string>('');
   const [remoteSearchResults, setRemoteSearchResults] = useState<BrainSearchResult[]>([]);
   const [isRemoteSearching, setIsRemoteSearching] = useState<boolean>(false);
   const [remoteSearchError, setRemoteSearchError] = useState<string | null>(null);
   const [isRemoteSearchOpen, setIsRemoteSearchOpen] = useState<boolean>(false);
-
-  const { filteredTree, totalSearchResults } = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      return { filteredTree: tree, totalSearchResults: 0 };
-    }
-
-    let matchCount = 0;
-
-    const filterNode = (node: NodeTreeItem): NodeTreeItem | null => {
-      const filteredChildren: NodeTreeItem[] = [];
-      if (node.children && node.children.length > 0) {
-        node.children.forEach(child => {
-          const res = filterNode(child);
-          if (res) {
-            filteredChildren.push(res);
-          }
-        });
-      }
-
-      const matchesSelf = node.title.toLowerCase().includes(query);
-      if (matchesSelf) {
-        matchCount++;
-      }
-
-      if (matchesSelf || filteredChildren.length > 0) {
-        return {
-          ...node,
-          children: filteredChildren
-        };
-      }
-
-      return null;
-    };
-
-    const result: NodeTreeItem[] = [];
-    tree.forEach(node => {
-      const res = filterNode(node);
-      if (res) {
-        result.push(res);
-      }
-    });
-
-    return { filteredTree: result, totalSearchResults: matchCount };
-  }, [tree, searchQuery]);
 
   const breadcrumbPath = useMemo(() => {
     if (!selectedNodeId || tree.length === 0) return null;
@@ -1627,14 +1579,9 @@ ${nodeDetail.contentMarkdown}`;
         {/* Sidebar Tree View */}
         <EditorSidebar
           tree={tree}
-          filteredTree={filteredTree}
           selectedNodeId={selectedNodeId}
           loading={loading}
           error={error}
-          searchQuery={searchQuery}
-          totalSearchResults={totalSearchResults}
-          onSearchQueryChange={setSearchQuery}
-          onClearSearch={() => setSearchQuery('')}
           onSelectNode={selectNodeHandler}
           onCreateRootNode={() => openCreateModal(null)}
           onOpenTemplates={() => {

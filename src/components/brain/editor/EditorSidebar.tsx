@@ -6,14 +6,9 @@ import NodeTree from '@/components/tree/NodeTree';
 
 interface EditorSidebarProps {
   tree: NodeTreeItem[];
-  filteredTree: NodeTreeItem[];
   selectedNodeId: string | null;
   loading: boolean;
   error: string | null;
-  searchQuery: string;
-  totalSearchResults: number;
-  onSearchQueryChange: (val: string) => void;
-  onClearSearch: () => void;
   onSelectNode: (id: string) => void;
   onCreateRootNode: () => void;
   onOpenTemplates: () => void;
@@ -28,14 +23,9 @@ interface EditorSidebarProps {
 
 export default function EditorSidebar({
   tree,
-  filteredTree,
   selectedNodeId,
   loading,
   error,
-  searchQuery,
-  totalSearchResults,
-  onSearchQueryChange,
-  onClearSearch,
   onSelectNode,
   onCreateRootNode,
   onOpenTemplates,
@@ -127,45 +117,6 @@ export default function EditorSidebar({
         </div>
       </div>
 
-      {/* Buscador Local */}
-      <div className="px-4 pb-3 pt-3 border-b border-slate-100 bg-white">
-        <div className="relative flex items-center">
-          <span className="absolute left-3 text-slate-400">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </span>
-          <input
-            type="text"
-            placeholder="Buscar documento..."
-            value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
-            className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium"
-          />
-          {searchQuery && (
-            <button
-              onClick={onClearSearch}
-              className="absolute right-2.5 p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-              title="Limpiar búsqueda"
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        {/* Contador de resultados */}
-        {searchQuery.trim() !== '' && (
-          <div className="mt-2 text-[10px] font-semibold text-slate-500 flex items-center justify-between px-1">
-            <span>Resultados de búsqueda:</span>
-            <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md font-mono border border-slate-200">
-              {totalSearchResults} {totalSearchResults === 1 ? 'coincidencia' : 'coincidencias'}
-            </span>
-          </div>
-        )}
-      </div>
-
       {/* Árbol de nodos */}
       <div className="flex-1 overflow-y-auto p-3">
         {loading && (
@@ -189,22 +140,11 @@ export default function EditorSidebar({
         )}
 
         {!loading && !error && tree.length > 0 && (
-          <>
-            {searchQuery.trim() !== '' && filteredTree.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 text-xs flex flex-col items-center gap-2">
-                <span className="text-lg">🔍</span>
-                <p className="font-semibold text-slate-600">No se encontraron documentos</p>
-                <p className="text-[10px] text-slate-400">Intenta con otros términos.</p>
-              </div>
-            ) : (
-              <NodeTree
-                items={filteredTree}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={(node) => onSelectNode(node.id)}
-                forceExpanded={searchQuery.trim() !== ''}
-              />
-            )}
-          </>
+          <NodeTree
+            items={tree}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={(node) => onSelectNode(node.id)}
+          />
         )}
       </div>
     </aside>
