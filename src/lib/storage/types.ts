@@ -27,7 +27,7 @@ export interface PutFilePayload {
 }
 
 export interface DownloadedFile {
-  stream: ReadableStream | Uint8Array | Buffer | Blob;
+  stream: Uint8Array;
   contentType: string;
   size: number;
   filename: string;
