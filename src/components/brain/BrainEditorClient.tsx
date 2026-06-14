@@ -1578,6 +1578,7 @@ ${nodeDetail.contentMarkdown}`;
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Tree View */}
         <EditorSidebar
+          brainName={brainName}
           tree={tree}
           selectedNodeId={selectedNodeId}
           loading={loading}

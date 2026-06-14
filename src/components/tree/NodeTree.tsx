@@ -138,11 +138,11 @@ function NodeTreeRow({
           <span className="truncate text-sm">{item.title}</span>
         </div>
 
-        {/* Status Badge */}
+        {/* Status Badge — visible en hover o cuando el nodo está seleccionado */}
         <span
-          className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold shrink-0 transition-opacity duration-200 ${getStatusColor(
-            item.status
-          )}`}
+          className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold shrink-0 transition-opacity duration-200 ${getStatusColor(item.status)} ${
+            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
         >
           {getStatusLabel(item.status)}
         </span>
@@ -150,7 +150,7 @@ function NodeTreeRow({
 
       {/* Render children recursively if expanded */}
       {hasChildren && showChildren && (
-        <div className="mt-0.5">
+        <div className="mt-0.5 border-l border-slate-200" style={{ marginLeft: `${level * 12 + 16}px` }}>
           <NodeTree
             items={item.children}
             selectedNodeId={selectedNodeId}
