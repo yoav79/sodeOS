@@ -55,6 +55,7 @@ model User {
   savedVersions    NodeVersion[]
   credentials      UserCredential?
   sessions         Session[]
+  uploadedAttachments NodeAttachment[] @relation("UploadedAttachments")
 
   @@map("users")
 }
@@ -74,6 +75,7 @@ model Brain {
   templates Template[]
   nodes     Node[]
   tags      Tag[]
+  attachments NodeAttachment[]
 
   @@map("brains")
 }
@@ -151,6 +153,7 @@ model Node {
   locker      User?         @relation("LockedNodes", fields: [lockedBy], references: [id], onDelete: SetNull)
   versions    NodeVersion[]
   nodeTags    NodeTag[]
+  attachments NodeAttachment[]
 
   @@unique([brainId, parentId, slug])
   @@index([brainId, parentId, position])
@@ -229,3 +232,25 @@ model Session {
   @@index([sessionToken])
   @@map("sessions")
 }
+
+model NodeAttachment {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nodeId       String   @map("node_id") @db.Uuid
+  brainId      String   @map("brain_id") @db.Uuid
+  uploadedById String   @map("uploaded_by_id") @db.Uuid
+  r2Key        String   @unique @map("r2_key")
+  filename     String
+  contentType  String   @map("content_type")
+  size         Int
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  node       Node  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  brain      Brain @relation(fields: [brainId], references: [id], onDelete: Cascade)
+  uploadedBy User  @relation("UploadedAttachments", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([nodeId, createdAt(sort: Desc)])
+  @@index([brainId])
+  @@map("node_attachments")
+}
+

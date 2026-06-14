@@ -75,3 +75,46 @@ export function assertKeyBelongsToUser(userId: string, key: string): void {
     throw new Error('Acceso no autorizado: formato de clave inválido.');
   }
 }
+
+/**
+ * Generates a standard prefix for all attachments belonging to a specific node inside a brain.
+ */
+export function getAttachmentStoragePrefix(brainId: string, nodeId: string): string {
+  if (!brainId || !nodeId) {
+    throw new Error('BrainId y NodeId son requeridos para obtener el prefijo de adjuntos.');
+  }
+  return `attachments/${brainId}/${nodeId}/`;
+}
+
+/**
+ * Builds a secure, unique storage key for a node attachment.
+ * Prevents overwrites by generating a UUID.
+ */
+export function buildAttachmentKey(brainId: string, nodeId: string, filename: string): string {
+  const prefix = getAttachmentStoragePrefix(brainId, nodeId);
+  const uuid = crypto.randomUUID();
+  const safeName = sanitizeFilename(filename);
+  
+  return `${prefix}${uuid}-${safeName}`;
+}
+
+/**
+ * Asserts that an attachment key belongs to a specific node inside a brain based on the path structure.
+ * Throws an error if the key is unauthorized.
+ */
+export function assertAttachmentKeyBelongsToNode(brainId: string, nodeId: string, key: string): void {
+  if (!brainId || !nodeId || !key) {
+    throw new Error('BrainId, NodeId y Key son requeridos para validar permisos de acceso.');
+  }
+
+  const prefix = getAttachmentStoragePrefix(brainId, nodeId);
+  
+  if (!key.startsWith(prefix)) {
+    throw new Error('Acceso no autorizado: el archivo no pertenece al nodo actual.');
+  }
+
+  // Check for path traversal attempts inside the key
+  if (key.includes('..') || key.includes('\\')) {
+    throw new Error('Acceso no autorizado: formato de clave inválido.');
+  }
+}
