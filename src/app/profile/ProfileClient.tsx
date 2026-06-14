@@ -29,6 +29,10 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
   // Profile Form State
   const [name, setName] = useState(initialUser.name);
   const [avatarUrl, setAvatarUrl] = useState(initialUser.avatarUrl || '');
+  const [phone, setPhone] = useState(initialUser.phone || '');
+  const [company, setCompany] = useState(initialUser.company || '');
+  const [department, setDepartment] = useState(initialUser.department || '');
+  const [jobTitle, setJobTitle] = useState(initialUser.jobTitle || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -91,6 +95,37 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
       trimmedAvatar = '';
     }
 
+    const trimmedPhone = phone.trim();
+    if (trimmedPhone !== '') {
+      if (trimmedPhone.length > 32) {
+        setProfileError('El teléfono no puede exceder los 32 caracteres.');
+        return;
+      }
+      const phoneRegex = /^[+0-9\s\-()]*$/;
+      if (!phoneRegex.test(trimmedPhone)) {
+        setProfileError('El teléfono contiene caracteres no válidos (solo números, +, -, (), espacios).');
+        return;
+      }
+    }
+
+    const trimmedCompany = company.trim();
+    if (trimmedCompany.length > 100) {
+      setProfileError('La empresa no puede exceder los 100 caracteres.');
+      return;
+    }
+
+    const trimmedDept = department.trim();
+    if (trimmedDept.length > 100) {
+      setProfileError('El departamento no puede exceder los 100 caracteres.');
+      return;
+    }
+
+    const trimmedJob = jobTitle.trim();
+    if (trimmedJob.length > 100) {
+      setProfileError('El cargo no puede exceder los 100 caracteres.');
+      return;
+    }
+
     setSavingProfile(true);
 
     try {
@@ -102,6 +137,10 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
         body: JSON.stringify({
           name: trimmedName,
           avatarUrl: trimmedAvatar || null,
+          phone: trimmedPhone || null,
+          company: trimmedCompany || null,
+          department: trimmedDept || null,
+          jobTitle: trimmedJob || null,
         }),
       });
 
@@ -121,6 +160,10 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
       setUser(data.user);
       setName(data.user.name);
       setAvatarUrl(data.user.avatarUrl || '');
+      setPhone(data.user.phone || '');
+      setCompany(data.user.company || '');
+      setDepartment(data.user.department || '');
+      setJobTitle(data.user.jobTitle || '');
       setImageError(false);
       router.refresh();
     } catch (err: unknown) {
@@ -347,6 +390,72 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
                     placeholder="https://ejemplo.com/tu-foto.jpg"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">Introduce una URL pública directa a tu imagen (JPEG, PNG o SVG).</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="profile-phone" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                      Teléfono de contacto
+                    </label>
+                    <input
+                      id="profile-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      disabled={savingProfile}
+                      maxLength={32}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-slate-900 outline-none transition-colors placeholder-slate-400"
+                      placeholder="+56 9 1234 5678"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="profile-company" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                      Empresa
+                    </label>
+                    <input
+                      id="profile-company"
+                      type="text"
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      disabled={savingProfile}
+                      maxLength={100}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-slate-900 outline-none transition-colors placeholder-slate-400"
+                      placeholder="Nombre de la empresa"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="profile-department" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                      Departamento / Área
+                    </label>
+                    <input
+                      id="profile-department"
+                      type="text"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      disabled={savingProfile}
+                      maxLength={100}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-slate-900 outline-none transition-colors placeholder-slate-400"
+                      placeholder="Ej: Operaciones, I+D..."
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="profile-jobtitle" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                      Cargo o Puesto
+                    </label>
+                    <input
+                      id="profile-jobtitle"
+                      type="text"
+                      value={jobTitle}
+                      onChange={(e) => setJobTitle(e.target.value)}
+                      disabled={savingProfile}
+                      maxLength={100}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-sm text-slate-900 outline-none transition-colors placeholder-slate-400"
+                      placeholder="Ej: Director, Analista..."
+                    />
+                  </div>
                 </div>
 
                 <div className="pt-2 flex justify-end">
