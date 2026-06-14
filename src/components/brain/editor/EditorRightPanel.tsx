@@ -47,9 +47,6 @@ export default function EditorRightPanel({
   restoreVersionError = null,
   restoreVersionSuccess = null,
   canRestoreVersion = true,
-  onExportMarkdown,
-  onExportJson,
-  isEditing = false,
   isCollapsed = false,
   onToggleCollapse,
   canEdit = true,
@@ -210,9 +207,6 @@ export default function EditorRightPanel({
                 nodeDetail={nodeDetail}
                 copied={copied}
                 onCopyId={onCopyId}
-                onExportMarkdown={onExportMarkdown}
-                onExportJson={onExportJson}
-                isEditing={isEditing}
               />
             </div>
           ) : rightPanelTab === 'history' ? (
