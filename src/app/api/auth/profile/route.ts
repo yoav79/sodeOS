@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import db from '@/lib/db';
+import { getInternalAvatarKey } from '@/lib/storage/avatar';
+import { assertKeyBelongsToUser } from '@/lib/storage/keys';
+import { deleteFile } from '@/lib/storage/files';
 
 export async function PATCH(request: Request) {
   try {
@@ -71,15 +74,30 @@ export async function PATCH(request: Request) {
               { status: 400 }
             );
           }
-          try {
-            new URL(trimmedAvatar);
-          } catch {
-            return NextResponse.json(
-              { error: 'El avatarUrl debe ser una URL válida.' },
-              { status: 400 }
-            );
+          
+          const internalKey = getInternalAvatarKey(trimmedAvatar);
+          if (internalKey) {
+            try {
+              assertKeyBelongsToUser(currentUser.id, internalKey);
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : 'Clave de avatar no autorizada o inválida.';
+              return NextResponse.json(
+                { error: msg },
+                { status: 403 }
+              );
+            }
+            normalizedAvatarUrl = trimmedAvatar;
+          } else {
+            try {
+              new URL(trimmedAvatar);
+            } catch {
+              return NextResponse.json(
+                { error: 'El avatarUrl debe ser una URL válida o un enlace interno R2.' },
+                { status: 400 }
+              );
+            }
+            normalizedAvatarUrl = trimmedAvatar;
           }
-          normalizedAvatarUrl = trimmedAvatar;
         }
       }
       updateData.avatarUrl = normalizedAvatarUrl;
@@ -186,6 +204,29 @@ export async function PATCH(request: Request) {
         }
       }
       updateData.jobTitle = normalizedJob;
+    }
+
+    // Fetch current user from DB to check for existing internal avatar
+    const existingUser = await db.user.findUnique({
+      where: { id: currentUser.id },
+      select: { avatarUrl: true }
+    });
+
+    if (existingUser && avatarUrl !== undefined) {
+      const oldKey = getInternalAvatarKey(existingUser.avatarUrl);
+      const newKey = getInternalAvatarKey(updateData.avatarUrl);
+      
+      if (oldKey && oldKey !== newKey) {
+        try {
+          await deleteFile(currentUser.id, oldKey);
+        } catch (deleteErr: unknown) {
+          const errorMsg = deleteErr instanceof Error ? deleteErr.message : '';
+          // If the file is not found (NoSuchKey / no existe), don't block the profile update
+          if (!errorMsg.toLowerCase().includes('no existe') && !errorMsg.toLowerCase().includes('nosuchkey')) {
+            console.error('Error deleting orphaned avatar from R2:', deleteErr);
+          }
+        }
+      }
     }
 
     // 5. Update user in DB
