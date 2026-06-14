@@ -3,9 +3,9 @@
 import React from 'react';
 import { Node } from '@/types';
 import { NodeVersionWithSaver } from '../BrainEditorClient';
-import NodeAttachments from './NodeAttachments';
 import EditorMetadataTab from './EditorMetadataTab';
 import EditorHistoryTab from './EditorHistoryTab';
+import EditorFilesTab from './EditorFilesTab';
 
 interface EditorRightPanelProps {
   selectedNodeId: string | null;
@@ -14,8 +14,8 @@ interface EditorRightPanelProps {
   versions: NodeVersionWithSaver[];
   versionsLoading: boolean;
   versionsError: string | null;
-  rightPanelTab: 'meta' | 'history';
-  onRightPanelTabChange: (tab: 'meta' | 'history') => void;
+  rightPanelTab: 'meta' | 'history' | 'files';
+  onRightPanelTabChange: (tab: 'meta' | 'history' | 'files') => void;
   copied: boolean;
   onCopyId: (id: string) => void;
   onRestoreVersion?: (versionId: string) => void | Promise<void>;
@@ -108,6 +108,25 @@ export default function EditorRightPanel({
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </button>
+
+        {/* Tab Shortcut: Files */}
+        <button
+          onClick={() => {
+            onRightPanelTabChange('files');
+            onToggleCollapse?.();
+          }}
+          title="Ver Archivos Adjuntos"
+          aria-label="Ver Archivos Adjuntos"
+          className={`p-2 rounded-xl transition-all ${
+            rightPanelTab === 'files'
+              ? 'bg-blue-50 text-blue-600 border border-blue-200'
+              : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+          </svg>
+        </button>
       </aside>
     );
   }
@@ -149,6 +168,16 @@ export default function EditorRightPanel({
           >
             Historial
           </button>
+          <button
+            onClick={() => onRightPanelTabChange('files')}
+            className={`flex-1 py-1 px-2.5 text-center font-medium rounded-md transition-all duration-200 ${
+              rightPanelTab === 'files'
+                ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50 font-semibold'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/30'
+            }`}
+          >
+            Archivos
+          </button>
         </div>
       </div>
 
@@ -185,11 +214,8 @@ export default function EditorRightPanel({
                 onExportJson={onExportJson}
                 isEditing={isEditing}
               />
-
-              {/* Sección 5: Adjuntos */}
-              <NodeAttachments nodeId={nodeDetail.id} canEdit={canEdit} />
             </div>
-          ) : (
+          ) : rightPanelTab === 'history' ? (
             /* Historial Tab */
             <EditorHistoryTab
               versions={versions}
@@ -200,6 +226,12 @@ export default function EditorRightPanel({
               restoreVersionError={restoreVersionError}
               restoreVersionSuccess={restoreVersionSuccess}
               canRestoreVersion={canRestoreVersion}
+            />
+          ) : (
+            /* Archivos Tab */
+            <EditorFilesTab
+              nodeId={nodeDetail.id}
+              canEdit={canEdit}
             />
           )
         ) : (

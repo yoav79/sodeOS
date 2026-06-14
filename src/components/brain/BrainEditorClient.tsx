@@ -107,7 +107,7 @@ export default function BrainEditorClient({
   const [restoreVersionError, setRestoreVersionError] = useState<string | null>(null);
   const [restoreVersionSuccess, setRestoreVersionSuccess] = useState<string | null>(null);
 
-  const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history'>('meta');
+  const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history' | 'files'>('meta');
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState<boolean>(false);
 
   // Remote Search States
