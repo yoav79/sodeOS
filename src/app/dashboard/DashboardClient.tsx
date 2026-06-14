@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from '@/components/ui/Button';
 
 interface BrainInfo {
   id: string;
@@ -230,22 +231,20 @@ export default function DashboardClient({
               <span className="text-[10px] text-slate-500 block truncate">{user.email}</span>
             </div>
           </Link>
-          <button
+          <Button
             onClick={handleLogout}
-            disabled={logoutLoading}
-            className="w-full py-2 bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-200 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+            loading={logoutLoading}
+            variant="secondary"
+            size="sm"
+            className="w-full text-xs font-semibold py-2 bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-200 hover:shadow-none shadow-none active:bg-slate-100 transition-all flex items-center justify-center gap-1.5"
+            leftIcon={
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            }
           >
-            {logoutLoading ? (
-              <div className="w-3.5 h-3.5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <>
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Cerrar sesión
-              </>
-            )}
-          </button>
+            Cerrar sesión
+          </Button>
         </div>
       </aside>
 
@@ -260,25 +259,31 @@ export default function DashboardClient({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button
+            <Button
               onClick={() => router.push('/brains/new')}
-              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md shadow-blue-500/10 transition-colors flex items-center gap-2"
+              variant="secondary"
+              className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-none shadow-none font-semibold text-sm transition-colors flex items-center gap-2"
+              leftIcon={
+                <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              }
             >
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
               + Nuevo Cerebro
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => router.push('/brains')}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm shadow-sm transition-colors flex items-center gap-2"
+              variant="secondary"
+              className="bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-800 border-none shadow-none font-semibold text-sm transition-colors flex items-center gap-2"
+              leftIcon={
+                <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              }
             >
-              <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
               Ver mis Cerebros
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -305,15 +310,17 @@ export default function DashboardClient({
                 Crea tu primer espacio de conocimiento.
               </p>
             </div>
-            <button
+            <Button
               onClick={() => router.push('/brains/new')}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-md shadow-blue-500/10 flex items-center gap-2"
+              variant="primary"
+              leftIcon={
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              }
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
               Crear mi primer Cerebro
-            </button>
+            </Button>
           </div>
         ) : (
           /* Real Data Dashboard Grid */
@@ -392,31 +399,36 @@ export default function DashboardClient({
                         {brains.length}
                       </span>
                     </div>
-                    <button
+                    <Button
                       onClick={() => router.push('/brains')}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-0.5"
+                      variant="link"
+                      className="text-xs font-semibold hover:no-underline flex items-center gap-0.5"
+                      rightIcon={
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      }
                     >
                       Ver todos
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
+                    </Button>
                   </div>
 
                   {/* Carousel Container */}
                   <div className="relative flex items-center gap-4">
                     {/* Left arrow */}
                     {brains.length > visibleCount && (
-                      <button
+                      <Button
                         onClick={handlePrev}
                         disabled={carouselIndex === 0}
-                        className="p-2 rounded-xl bg-white border border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                        variant="secondary"
+                        size="icon"
+                        className="p-2 text-slate-600 disabled:opacity-30 shrink-0"
                         aria-label="Anterior"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                         </svg>
-                      </button>
+                      </Button>
                     )}
 
                     {/* Cards container */}
@@ -463,15 +475,18 @@ export default function DashboardClient({
                                 <span className="text-[9px] text-slate-400 font-medium">
                                   Act. {formatDate(brain.updatedAt)}
                                 </span>
-                                <button
+                                <Button
                                   onClick={() => router.push(`/brains/${brain.id}`)}
-                                  className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-0.5"
+                                  variant="link"
+                                  className="text-xs font-bold hover:no-underline flex items-center gap-0.5"
+                                  rightIcon={
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  }
                                 >
                                   Abrir
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                                  </svg>
-                                </button>
+                                </Button>
                               </div>
                             </div>
                           </div>
@@ -481,28 +496,31 @@ export default function DashboardClient({
                         <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-2xl p-5 flex flex-col items-center justify-center text-center gap-2">
                           <span className="text-xl">🧠</span>
                           <p className="text-xs text-slate-400 font-medium">¿Listo para más conocimiento?</p>
-                          <button
+                          <Button
                             onClick={() => router.push('/brains/new')}
-                            className="text-[10px] font-bold text-blue-600 hover:underline"
+                            variant="link"
+                            className="text-[10px] font-bold"
                           >
                             + Crear otro cerebro
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
 
                     {/* Right arrow */}
                     {brains.length > visibleCount && (
-                      <button
+                      <Button
                         onClick={handleNext}
                         disabled={carouselIndex >= maxIndex}
-                        className="p-2 rounded-xl bg-white border border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                        variant="secondary"
+                        size="icon"
+                        className="p-2 text-slate-600 disabled:opacity-30 shrink-0"
                         aria-label="Siguiente"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>

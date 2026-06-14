@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NodeTreeItem, Node } from '@/types';
 import { BrainSearchResult } from '../BrainEditorClient';
+import { Button } from '@/components/ui/Button';
 
 interface EditorTopbarProps {
   brainName: string;
@@ -287,24 +288,32 @@ export default function EditorTopbar({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
+        <Button
           onClick={onNavigateToDashboard}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-800 transition-all flex items-center gap-1.5 shadow-sm"
+          variant="ghost"
+          size="sm"
+          className="text-xs font-semibold text-slate-600 hover:text-slate-800 flex items-center gap-1.5"
+          leftIcon={
+            <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          }
         >
-          <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
           Dashboard
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onLogout}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-200 transition-all flex items-center gap-1.5 shadow-sm"
+          variant="secondary"
+          size="sm"
+          className="text-xs font-semibold bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-200 active:bg-slate-100 flex items-center gap-1.5 shadow-sm"
+          leftIcon={
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          }
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
           Cerrar sesión
-        </button>
+        </Button>
       </div>
     </header>
   );

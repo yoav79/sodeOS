@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
 
 interface SafeUser {
   id: string;
@@ -365,15 +366,17 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
               <span className="text-xs text-slate-400 block font-semibold -mt-1 uppercase tracking-wider">Empresarial</span>
             </div>
           </div>
-          <button
+          <Button
             onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm shadow-sm transition-colors flex items-center gap-2"
+            variant="secondary"
+            leftIcon={
+              <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            }
           >
-            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
             Volver al Dashboard
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -425,7 +428,7 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
                   />
                 </label>
                 {(avatarUrl || previewUrl) && (
-                  <button
+                  <Button
                     id="avatar-delete-button"
                     type="button"
                     onClick={() => {
@@ -438,13 +441,17 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
                       setImageError(false);
                     }}
                     disabled={savingProfile}
-                    className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                    variant="danger"
+                    size="sm"
+                    className="w-full text-xs font-semibold py-2"
+                    leftIcon={
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    }
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
                     Eliminar Foto
-                  </button>
+                  </Button>
                 )}
               </div>
               <p className="text-[10px] text-slate-400">JPEG, PNG, GIF o WEBP. Máx 2 MB.</p>
@@ -607,20 +614,13 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
                 </div>
 
                 <div className="pt-2 flex justify-end">
-                  <button
+                  <Button
                     type="submit"
-                    disabled={savingProfile}
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-500 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-2"
+                    loading={savingProfile}
+                    variant="primary"
                   >
-                    {savingProfile ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Guardando...
-                      </>
-                    ) : (
-                      'Guardar Cambios'
-                    )}
-                  </button>
+                    Guardar Cambios
+                  </Button>
                 </div>
               </form>
             </div>
@@ -699,20 +699,13 @@ export default function ProfileClient({ user: initialUser }: ProfileClientProps)
                 </div>
 
                 <div className="pt-2 flex justify-end">
-                  <button
+                  <Button
                     type="submit"
-                    disabled={savingPassword}
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-500 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-blue-500/10 flex items-center gap-2"
+                    loading={savingPassword}
+                    variant="primary"
                   >
-                    {savingPassword ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Actualizando...
-                      </>
-                    ) : (
-                      'Actualizar Contraseña'
-                    )}
-                  </button>
+                    Actualizar Contraseña
+                  </Button>
                 </div>
               </form>
             </div>
