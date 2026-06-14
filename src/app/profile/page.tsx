@@ -16,6 +16,10 @@ export default async function ProfilePage() {
     name: currentUser.name,
     email: currentUser.email,
     avatarUrl: currentUser.avatarUrl,
+    phone: currentUser.phone,
+    company: currentUser.company,
+    department: currentUser.department,
+    jobTitle: currentUser.jobTitle,
     createdAt: currentUser.createdAt.toISOString(),
     updatedAt: currentUser.updatedAt.toISOString(),
   };

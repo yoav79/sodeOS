@@ -87,6 +87,10 @@ export async function getCurrentUser(): Promise<User | null> {
       email: session.user.email,
       name: session.user.name,
       avatarUrl: session.user.avatarUrl,
+      phone: session.user.phone,
+      company: session.user.company,
+      department: session.user.department,
+      jobTitle: session.user.jobTitle,
       createdAt: session.user.createdAt,
       updatedAt: session.user.updatedAt,
     };

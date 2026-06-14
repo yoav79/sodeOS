@@ -8,6 +8,10 @@ interface SafeUser {
   name: string;
   email: string;
   avatarUrl: string | null;
+  phone: string | null;
+  company: string | null;
+  department: string | null;
+  jobTitle: string | null;
   createdAt: string;
   updatedAt: string;
 }

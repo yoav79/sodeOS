@@ -34,8 +34,12 @@ model User {
   id        String   @id @db.Uuid
   email     String   @unique
   name      String
-  avatarUrl String?  @map("avatar_url")
-  createdAt DateTime @default(now()) @map("created_at")
+  avatarUrl  String?  @map("avatar_url")
+  phone      String?
+  company    String?
+  department String?
+  jobTitle   String?  @map("job_title")
+  createdAt  DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations

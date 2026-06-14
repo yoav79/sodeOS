@@ -24,7 +24,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { name, avatarUrl } = body;
+    const { name, avatarUrl, phone, company, department, jobTitle } = body;
 
     // 3. Validate name (required)
     if (name === undefined || name === null || typeof name !== 'string') {
@@ -42,8 +42,15 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // 4. Validate avatarUrl (optional)
-    const updateData: { name: string; avatarUrl?: string | null } = {
+    // 4. Validate avatarUrl (optional) and new fields
+    const updateData: {
+      name: string;
+      avatarUrl?: string | null;
+      phone?: string | null;
+      company?: string | null;
+      department?: string | null;
+      jobTitle?: string | null;
+    } = {
       name: trimmedName,
     };
 
@@ -78,6 +85,109 @@ export async function PATCH(request: Request) {
       updateData.avatarUrl = normalizedAvatarUrl;
     }
 
+    // Validate and normalize phone (optional)
+    if (phone !== undefined) {
+      let normalizedPhone: string | null = null;
+      if (phone !== null) {
+        if (typeof phone !== 'string') {
+          return NextResponse.json(
+            { error: 'El teléfono debe ser una cadena de texto o null.' },
+            { status: 400 }
+          );
+        }
+        const trimmedPhone = phone.trim();
+        if (trimmedPhone !== '') {
+          if (trimmedPhone.length > 32) {
+            return NextResponse.json(
+              { error: 'El teléfono no puede exceder los 32 caracteres.' },
+              { status: 400 }
+            );
+          }
+          const phoneRegex = /^[+0-9\s\-()]*$/;
+          if (!phoneRegex.test(trimmedPhone)) {
+            return NextResponse.json(
+              { error: 'El teléfono contiene caracteres no válidos.' },
+              { status: 400 }
+            );
+          }
+          normalizedPhone = trimmedPhone;
+        }
+      }
+      updateData.phone = normalizedPhone;
+    }
+
+    // Validate and normalize company (optional)
+    if (company !== undefined) {
+      let normalizedCompany: string | null = null;
+      if (company !== null) {
+        if (typeof company !== 'string') {
+          return NextResponse.json(
+            { error: 'La empresa debe ser una cadena de texto o null.' },
+            { status: 400 }
+          );
+        }
+        const trimmedCompany = company.trim();
+        if (trimmedCompany !== '') {
+          if (trimmedCompany.length > 100) {
+            return NextResponse.json(
+              { error: 'La empresa no puede exceder los 100 caracteres.' },
+              { status: 400 }
+            );
+          }
+          normalizedCompany = trimmedCompany;
+        }
+      }
+      updateData.company = normalizedCompany;
+    }
+
+    // Validate and normalize department (optional)
+    if (department !== undefined) {
+      let normalizedDept: string | null = null;
+      if (department !== null) {
+        if (typeof department !== 'string') {
+          return NextResponse.json(
+            { error: 'El departamento debe ser una cadena de texto o null.' },
+            { status: 400 }
+          );
+        }
+        const trimmedDept = department.trim();
+        if (trimmedDept !== '') {
+          if (trimmedDept.length > 100) {
+            return NextResponse.json(
+              { error: 'El departamento no puede exceder los 100 caracteres.' },
+              { status: 400 }
+            );
+          }
+          normalizedDept = trimmedDept;
+        }
+      }
+      updateData.department = normalizedDept;
+    }
+
+    // Validate and normalize jobTitle (optional)
+    if (jobTitle !== undefined) {
+      let normalizedJob: string | null = null;
+      if (jobTitle !== null) {
+        if (typeof jobTitle !== 'string') {
+          return NextResponse.json(
+            { error: 'El cargo debe ser una cadena de texto o null.' },
+            { status: 400 }
+          );
+        }
+        const trimmedJob = jobTitle.trim();
+        if (trimmedJob !== '') {
+          if (trimmedJob.length > 100) {
+            return NextResponse.json(
+              { error: 'El cargo no puede exceder los 100 caracteres.' },
+              { status: 400 }
+            );
+          }
+          normalizedJob = trimmedJob;
+        }
+      }
+      updateData.jobTitle = normalizedJob;
+    }
+
     // 5. Update user in DB
     const updatedUser = await db.user.update({
       where: { id: currentUser.id },
@@ -92,6 +202,10 @@ export async function PATCH(request: Request) {
           email: updatedUser.email,
           name: updatedUser.name,
           avatarUrl: updatedUser.avatarUrl,
+          phone: updatedUser.phone,
+          company: updatedUser.company,
+          department: updatedUser.department,
+          jobTitle: updatedUser.jobTitle,
           createdAt: updatedUser.createdAt,
           updatedAt: updatedUser.updatedAt,
         },
