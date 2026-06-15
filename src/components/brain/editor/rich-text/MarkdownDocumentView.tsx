@@ -9,6 +9,7 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
+import Image from '@tiptap/extension-image';
 
 interface MarkdownDocumentViewProps {
   content: string;
@@ -53,6 +54,11 @@ export default function MarkdownDocumentView({
       TableRow,
       TableHeader,
       TableCell,
+      Image.configure({
+        HTMLAttributes: {
+          class: 'max-w-full h-auto rounded-xl border border-slate-200/60 shadow-xs my-6 mx-auto block',
+        },
+      }),
       Markdown.configure({
         html: false, // Restrict raw HTML
         linkify: true,
