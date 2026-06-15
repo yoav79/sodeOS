@@ -75,6 +75,7 @@ export default function RichMarkdownEditor({
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const highlightPickerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Close pickers on click outside
   useEffect(() => {
@@ -291,7 +292,7 @@ export default function RichMarkdownEditor({
   };
 
   return (
-    <div className={`rich-markdown-editor rich-markdown-content flex flex-col border border-slate-200 bg-white rounded-xl overflow-hidden shadow-inner focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-all ${className}`}>
+    <div className={`rich-markdown-editor rich-markdown-content flex flex-col border border-slate-200 bg-white rounded-xl overflow-hidden shadow-inner focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-all ${className} ${isFullscreen ? 'fixed inset-0 z-50 bg-white p-6 overflow-auto' : ''}`}>
       {/* Encapsulated styles for Tiptap content */}
       <style>{`
         .rich-markdown-editor .ProseMirror p.is-editor-empty:first-child::before {
@@ -487,6 +488,19 @@ export default function RichMarkdownEditor({
           H2
         </button>
 
+        {/* Heading 3 */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          disabled={disabled}
+          className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
+            editor.isActive('heading', { level: 3 }) ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
+          }`}
+          title="Título 3"
+        >
+          H3
+        </button>
+
         <div className="w-px h-4 bg-slate-300 mx-1" />
 
         {/* Bullet List */}
@@ -558,6 +572,19 @@ export default function RichMarkdownEditor({
 
         <div className="w-px h-4 bg-slate-300 mx-1" />
 
+        {/* Limpiar formato */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+          disabled={disabled}
+          className="px-2 py-1 rounded text-xs text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-40 font-semibold"
+          title="Limpiar formato"
+        >
+          Limpiar formato
+        </button>
+
+        <div className="w-px h-4 bg-slate-300 mx-1" />
+
         {/* Horizontal Rule */}
         <button
           type="button"
@@ -622,10 +649,101 @@ export default function RichMarkdownEditor({
             Quitar
           </button>
         )}
+
+        {/* Pantalla Completa */}
+        <button
+          type="button"
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          className={`px-2 py-1 rounded text-xs font-semibold transition-colors ml-auto ${
+            isFullscreen ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'
+          }`}
+          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+        >
+          {isFullscreen ? "Salir Completa" : "Pantalla Completa"}
+        </button>
       </div>
 
+      {/* Advanced Table Controls Sub-Toolbar */}
+      {editor.isActive('table') && (
+        <div className="flex flex-wrap items-center gap-1.5 bg-blue-50/60 border-b border-slate-200 p-1.5 select-none text-[11px]">
+          <span className="text-blue-700 font-semibold px-1.5 mr-1 border-r border-blue-200">Tabla:</span>
+          
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addRowBefore().run()}
+            disabled={disabled}
+            className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-40"
+            title="Añadir fila arriba"
+          >
+            Fila Arriba
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+            disabled={disabled}
+            className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-40"
+            title="Añadir fila abajo"
+          >
+            Fila Abajo
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addColumnBefore().run()}
+            disabled={disabled}
+            className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-40"
+            title="Añadir columna izquierda"
+          >
+            Col. Izquierda
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+            disabled={disabled}
+            className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-40"
+            title="Añadir columna derecha"
+          >
+            Col. Derecha
+          </button>
+          
+          <div className="w-px h-3 bg-slate-300 mx-1" />
+          
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteRow().run()}
+            disabled={disabled}
+            className="px-2 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-40"
+            title="Eliminar fila"
+          >
+            Eliminar Fila
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+            disabled={disabled}
+            className="px-2 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-40"
+            title="Eliminar columna"
+          >
+            Eliminar Columna
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteTable().run()}
+            disabled={disabled}
+            className="px-2 py-0.5 rounded bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-40"
+            title="Eliminar tabla completa"
+          >
+            Eliminar Tabla
+          </button>
+        </div>
+      )}
+
       {/* Editor Content Area */}
-      <div className="flex-1 overflow-y-auto min-h-[300px]">
+      <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'h-[calc(100vh-120px)]' : ''}`} style={{ minHeight: isFullscreen ? 'auto' : minHeight }}>
         <EditorContent editor={editor} />
       </div>
     </div>
