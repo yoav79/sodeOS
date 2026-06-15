@@ -129,6 +129,7 @@ export default function BrainEditorClient({
   const [editDescription, setEditDescription] = useState<string>('');
   const [editContent, setEditContent] = useState<string>('');
   const [editStatus, setEditStatus] = useState<string>('active');
+  const [editCategory, setEditCategory] = useState<string>('');
   const [editChangeNote, setEditChangeNote] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -140,8 +141,9 @@ export default function BrainEditorClient({
     const descChanged = editDescription.trim() !== (nodeDetail.description || '').trim();
     const contentChanged = editContent !== (nodeDetail.contentMarkdown || '');
     const statusChanged = editStatus !== (nodeDetail.status || '');
-    return titleChanged || descChanged || contentChanged || statusChanged;
-  }, [isEditing, nodeDetail, editTitle, editDescription, editContent, editStatus]);
+    const categoryChanged = (editCategory || '').trim() !== (nodeDetail.category || '').trim();
+    return titleChanged || descChanged || contentChanged || statusChanged || categoryChanged;
+  }, [isEditing, nodeDetail, editTitle, editDescription, editContent, editStatus, editCategory]);
 
   // Alert on tab close or reload when changes are unsaved
   useEffect(() => {
@@ -1265,6 +1267,7 @@ export default function BrainEditorClient({
       setEditDescription(nodeDetail.description || '');
       setEditContent(nodeDetail.contentMarkdown);
       setEditStatus(nodeDetail.status);
+      setEditCategory(nodeDetail.category || '');
       setEditChangeNote('');
       setSaveError(null);
       setIsEditing(true);
@@ -1300,6 +1303,7 @@ export default function BrainEditorClient({
           status: editStatus,
           changeNote: editChangeNote,
           description: editDescription.trim() || null,
+          category: editCategory.trim() || null,
         }),
       });
 
@@ -1670,6 +1674,7 @@ ${nodeDetail.contentMarkdown}`;
                   editDescription={editDescription}
                   editContent={editContent}
                   editStatus={editStatus}
+                  editCategory={editCategory}
                   editChangeNote={editChangeNote}
                   saveError={saveError}
                   isSaving={isSaving}
@@ -1677,6 +1682,7 @@ ${nodeDetail.contentMarkdown}`;
                   onEditDescriptionChange={setEditDescription}
                   onEditContentChange={setEditContent}
                   onEditStatusChange={setEditStatus}
+                  onEditCategoryChange={setEditCategory}
                   onEditChangeNoteChange={setEditChangeNote}
                   isDirty={isDirty}
                   onSave={handleSave}

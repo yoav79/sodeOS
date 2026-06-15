@@ -63,6 +63,7 @@ interface EditorDocumentFormProps {
   editDescription: string;
   editContent: string;
   editStatus: string;
+  editCategory: string;
   editChangeNote: string;
   saveError: string | null;
   isSaving: boolean;
@@ -71,6 +72,7 @@ interface EditorDocumentFormProps {
   onEditDescriptionChange: (val: string) => void;
   onEditContentChange: (val: string) => void;
   onEditStatusChange: (val: string) => void;
+  onEditCategoryChange: (val: string) => void;
   onEditChangeNoteChange: (val: string) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -82,6 +84,7 @@ export default function EditorDocumentForm({
   editDescription,
   editContent,
   editStatus,
+  editCategory,
   editChangeNote,
   saveError,
   isSaving,
@@ -90,6 +93,7 @@ export default function EditorDocumentForm({
   onEditDescriptionChange,
   onEditContentChange,
   onEditStatusChange,
+  onEditCategoryChange,
   onEditChangeNoteChange,
   onSave,
   onCancel,
@@ -348,9 +352,14 @@ export default function EditorDocumentForm({
               {/* Categoría */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Categoría</label>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-500 font-semibold h-[34px] flex items-center">
-                  {nodeDetail.category || 'Sin categoría'}
-                </div>
+                <input
+                  type="text"
+                  value={editCategory}
+                  onChange={(e) => onEditCategoryChange(e.target.value)}
+                  maxLength={50}
+                  className="bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors w-full"
+                  placeholder="Ej: Infraestructura, Recursos Humanos..."
+                />
               </div>
 
               {/* Nota de cambios */}

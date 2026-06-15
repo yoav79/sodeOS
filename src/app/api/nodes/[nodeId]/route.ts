@@ -64,7 +64,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { title, contentMarkdown, status, changeNote, description } = body;
+    const { title, contentMarkdown, status, changeNote, description, category } = body;
 
     // Payload validation
     if (title === undefined || typeof title !== 'string' || title.trim() === '') {
@@ -115,6 +115,32 @@ export async function PATCH(
       }
     }
 
+    // Validate and normalize category
+    let normalizedCategory: string | null | undefined = undefined;
+    if (category !== undefined) {
+      if (category !== null && typeof category !== 'string') {
+        return NextResponse.json(
+          { error: 'El campo "category" debe ser un string o null.' },
+          { status: 400 }
+        );
+      }
+      if (typeof category === 'string') {
+        const trimmed = category.trim();
+        if (trimmed.length === 0) {
+          normalizedCategory = null;
+        } else if (trimmed.length > 50) {
+          return NextResponse.json(
+            { error: 'La categoría no puede superar los 50 caracteres.' },
+            { status: 400 }
+          );
+        } else {
+          normalizedCategory = trimmed;
+        }
+      } else {
+        normalizedCategory = null;
+      }
+    }
+
     // 1. Authenticate user
     const currentUser = await getCurrentUser();
     if (!currentUser) {
@@ -150,6 +176,7 @@ export async function PATCH(
       changeNote,
       userId: currentUser.id,
       description: normalizedDescription,
+      category: normalizedCategory,
     });
 
     if (!result.node) {

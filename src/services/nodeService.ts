@@ -127,6 +127,7 @@ export interface UpdateNodeInput {
   changeNote?: string;
   userId: string;
   description?: string | null;
+  category?: string | null;
 }
 
 /**
@@ -156,8 +157,9 @@ export async function updateNodeContent(
     const hasContentChange = currentNode.contentMarkdown !== input.contentMarkdown;
     const hasStatusChange = input.status !== undefined && currentNode.status !== input.status;
     const hasDescriptionChange = input.description !== undefined && currentNode.description !== input.description;
+    const hasCategoryChange = input.category !== undefined && currentNode.category !== input.category;
 
-    if (!hasTitleChange && !hasContentChange && !hasStatusChange && !hasDescriptionChange) {
+    if (!hasTitleChange && !hasContentChange && !hasStatusChange && !hasDescriptionChange && !hasCategoryChange) {
       return {
         node: {
           id: currentNode.id,
@@ -200,6 +202,10 @@ export async function updateNodeContent(
 
     if (input.description !== undefined) {
       updateData.description = input.description;
+    }
+
+    if (input.category !== undefined) {
+      updateData.category = input.category;
     }
 
     // 3. Update the node
