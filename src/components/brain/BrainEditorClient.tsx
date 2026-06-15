@@ -158,6 +158,16 @@ export default function BrainEditorClient({
     }
   }, [isEditing, isDirty]);
 
+  // Helper to confirm discard unsaved changes before navigation
+  const confirmDiscardUnsavedChanges = (): boolean => {
+    if (isEditing && isDirty) {
+      return window.confirm(
+        'Tienes cambios sin guardar. Si continúas, se perderán. ¿Quieres salir de todos modos?'
+      );
+    }
+    return true;
+  };
+
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
   const handleCopyId = (text: string) => {
@@ -1060,6 +1070,7 @@ export default function BrainEditorClient({
   };
 
   const handleLogout = async () => {
+    if (!confirmDiscardUnsavedChanges()) return;
     try {
       const res = await fetch('/api/auth/logout', {
         method: 'POST',
@@ -1557,12 +1568,23 @@ ${nodeDetail.contentMarkdown}`;
         breadcrumbPath={breadcrumbPath}
         nodeDetail={nodeDetail}
         onSelectNode={selectNodeHandler}
-        onNavigateToBrains={() => router.push('/brains')}
-        onNavigateToBrain={() => {
-          setSelectedNodeId(null);
-          setNodeDetail(null);
+        onNavigateToBrains={() => {
+          if (confirmDiscardUnsavedChanges()) {
+            router.push('/brains');
+          }
         }}
-        onNavigateToDashboard={() => router.push('/dashboard')}
+        onNavigateToBrain={() => {
+          if (confirmDiscardUnsavedChanges()) {
+            setSelectedNodeId(null);
+            setNodeDetail(null);
+            setIsEditing(false);
+          }
+        }}
+        onNavigateToDashboard={() => {
+          if (confirmDiscardUnsavedChanges()) {
+            router.push('/dashboard');
+          }
+        }}
         onLogout={handleLogout}
         remoteSearchQuery={remoteSearchQuery}
         remoteSearchResults={remoteSearchResults}
