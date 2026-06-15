@@ -44,6 +44,7 @@ export default function RichMarkdownEditor({
 
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const uploadAndInsertImageRef = useRef<((file: File, pos?: number) => Promise<void>) | undefined>(undefined);
 
   const editor = useEditor({
     extensions: [
@@ -94,6 +95,31 @@ export default function RichMarkdownEditor({
         style: `min-h: ${minHeight};`,
         'aria-label': ariaLabel,
       },
+      handleDrop(view, event, _slice, moved) {
+        void _slice;
+        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+          const imageFiles = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+          if (imageFiles.length > 0) {
+            event.preventDefault();
+            const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            const pos = coordinates ? coordinates.pos : undefined;
+            uploadAndInsertImageRef.current?.(imageFiles[0], pos);
+            return true;
+          }
+        }
+        return false;
+      },
+      handlePaste(view, event) {
+        if (event.clipboardData && event.clipboardData.files && event.clipboardData.files.length > 0) {
+          const imageFiles = Array.from(event.clipboardData.files).filter(f => f.type.startsWith('image/'));
+          if (imageFiles.length > 0) {
+            event.preventDefault();
+            uploadAndInsertImageRef.current?.(imageFiles[0]);
+            return true;
+          }
+        }
+        return false;
+      },
     },
   });
 
@@ -113,6 +139,67 @@ export default function RichMarkdownEditor({
     editor.setEditable(!disabled);
   }, [disabled, editor]);
 
+  // Assign/update the ref to ensure it has latest state/props/editor references in a render-safe way
+  useEffect(() => {
+    uploadAndInsertImageRef.current = async (file: File, pos?: number) => {
+      if (!nodeId) return;
+
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor, selecciona un archivo de tipo imagen.');
+        return;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        alert('La imagen excede el límite de tamaño permitido de 20 MB.');
+        return;
+      }
+      if (uploadingImage) {
+        alert('Ya hay una subida de imagen en curso.');
+        return;
+      }
+
+      try {
+        setUploadingImage(true);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch(`/api/nodes/${nodeId}/attachments`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Error al subir la imagen.');
+        }
+
+        const attachmentId = data.attachment?.id;
+        if (!attachmentId) {
+          throw new Error('La respuesta del servidor no contiene el identificador de la imagen.');
+        }
+
+        const src = `/api/attachments/${attachmentId}/download`;
+        
+        if (editor && !editor.isDestroyed) {
+          if (typeof pos === 'number') {
+            editor.chain().focus().setTextSelection(pos).setImage({ src, alt: file.name }).run();
+          } else {
+            editor.chain().focus().setImage({ src, alt: file.name }).run();
+          }
+        }
+
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Error desconocido al subir la imagen.';
+        alert(msg);
+      } finally {
+        setUploadingImage(false);
+        if (imageInputRef.current) {
+          imageInputRef.current.value = '';
+        }
+      }
+    };
+  }, [nodeId, uploadingImage, editor]);
+
   const triggerImageUpload = () => {
     if (imageInputRef.current) {
       imageInputRef.current.click();
@@ -121,54 +208,8 @@ export default function RichMarkdownEditor({
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || !nodeId) return;
-
-    const file = files[0];
-    if (!file.type.startsWith('image/')) {
-      alert('Por favor, selecciona un archivo de tipo imagen.');
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      alert('La imagen excede el límite de tamaño permitido de 20 MB.');
-      return;
-    }
-
-    try {
-      setUploadingImage(true);
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch(`/api/nodes/${nodeId}/attachments`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al subir la imagen.');
-      }
-
-      const attachmentId = data.attachment?.id;
-      if (!attachmentId) {
-        throw new Error('La respuesta del servidor no contiene el identificador de la imagen.');
-      }
-
-      const src = `/api/attachments/${attachmentId}/download`;
-      
-      if (editor && !editor.isDestroyed) {
-        editor.chain().focus().setImage({ src, alt: file.name }).run();
-      }
-
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error desconocido al subir la imagen.';
-      alert(msg);
-    } finally {
-      setUploadingImage(false);
-      if (imageInputRef.current) {
-        imageInputRef.current.value = '';
-      }
-    }
+    if (!files || files.length === 0) return;
+    await uploadAndInsertImageRef.current?.(files[0]);
   };
 
   if (!editor) {
