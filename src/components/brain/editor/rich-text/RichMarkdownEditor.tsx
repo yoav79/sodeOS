@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -18,6 +18,7 @@ interface RichMarkdownEditorProps {
   minHeight?: string;
   className?: string;
   ariaLabel?: string;
+  nodeId?: string;
 }
 
 /**
@@ -38,7 +39,11 @@ export default function RichMarkdownEditor({
   minHeight = '300px',
   className = '',
   ariaLabel = 'Editor de texto enriquecido',
+  nodeId,
 }: RichMarkdownEditorProps) {
+
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -107,6 +112,64 @@ export default function RichMarkdownEditor({
     if (!editor || editor.isDestroyed) return;
     editor.setEditable(!disabled);
   }, [disabled, editor]);
+
+  const triggerImageUpload = () => {
+    if (imageInputRef.current) {
+      imageInputRef.current.click();
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !nodeId) return;
+
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecciona un archivo de tipo imagen.');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      alert('La imagen excede el límite de tamaño permitido de 20 MB.');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(`/api/nodes/${nodeId}/attachments`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al subir la imagen.');
+      }
+
+      const attachmentId = data.attachment?.id;
+      if (!attachmentId) {
+        throw new Error('La respuesta del servidor no contiene el identificador de la imagen.');
+      }
+
+      const src = `/api/attachments/${attachmentId}/download`;
+      
+      if (editor && !editor.isDestroyed) {
+        editor.chain().focus().setImage({ src, alt: file.name }).run();
+      }
+
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido al subir la imagen.';
+      alert(msg);
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    }
+  };
 
   if (!editor) {
     return (
@@ -298,7 +361,7 @@ export default function RichMarkdownEditor({
         <button
           type="button"
           onClick={setLink}
-          disabled={disabled}
+          disabled={disabled || uploadingImage}
           className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
             editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
           }`}
@@ -306,6 +369,35 @@ export default function RichMarkdownEditor({
         >
           Enlace
         </button>
+
+        {/* Imagen */}
+        {nodeId && (
+          <>
+            <input
+              type="file"
+              ref={imageInputRef}
+              onChange={handleImageUpload}
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={triggerImageUpload}
+              disabled={disabled || uploadingImage}
+              className="px-2 py-1 rounded text-xs font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40 transition-colors flex items-center gap-1"
+              title="Insertar Imagen"
+            >
+              {uploadingImage ? (
+                <>
+                  <span className="w-3 h-3 border border-slate-600 border-t-transparent rounded-full animate-spin shrink-0"></span>
+                  <span>Subiendo...</span>
+                </>
+              ) : (
+                <span>Imagen</span>
+              )}
+            </button>
+          </>
+        )}
 
         {editor.isActive('link') && (
           <button

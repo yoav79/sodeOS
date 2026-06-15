@@ -337,6 +337,7 @@ export default function EditorDocumentForm({
               value={editContent}
               onChange={onEditContentChange}
               disabled={isSaving}
+              nodeId={nodeDetail.id}
             />
           ) : (
             <textarea
