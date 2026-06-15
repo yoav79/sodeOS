@@ -11,6 +11,29 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import Image from '@tiptap/extension-image';
 import { sanitizeHtml } from '@/lib/content/sanitizeHtml';
+import Underline from '@tiptap/extension-underline';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
+
+const colors = [
+  { name: 'Negro', value: '#0f172a', bg: 'bg-[#0f172a]' },
+  { name: 'Gris', value: '#475569', bg: 'bg-[#475569]' },
+  { name: 'Rojo', value: '#ef4444', bg: 'bg-[#ef4444]' },
+  { name: 'Naranja', value: '#f97316', bg: 'bg-[#f97316]' },
+  { name: 'Amarillo', value: '#ca8a04', bg: 'bg-[#ca8a04]' },
+  { name: 'Verde', value: '#16a34a', bg: 'bg-[#16a34a]' },
+  { name: 'Azul', value: '#2563eb', bg: 'bg-[#2563eb]' },
+  { name: 'Violeta', value: '#7c3aed', bg: 'bg-[#7c3aed]' },
+];
+
+const highlights = [
+  { name: 'Amarillo', value: '#fef3c7', bg: 'bg-[#fef3c7] border-amber-200 text-amber-800' },
+  { name: 'Verde', value: '#dcfce7', bg: 'bg-[#dcfce7] border-emerald-200 text-emerald-800' },
+  { name: 'Azul', value: '#dbeafe', bg: 'bg-[#dbeafe] border-blue-200 text-blue-800' },
+  { name: 'Violeta', value: '#ede9fe', bg: 'bg-[#ede9fe] border-violet-200 text-violet-800' },
+  { name: 'Rojo', value: '#fee2e2', bg: 'bg-[#fee2e2] border-red-200 text-red-800' },
+];
 
 interface RichMarkdownEditorProps {
   value: string;
@@ -48,6 +71,27 @@ export default function RichMarkdownEditor({
   const uploadAndInsertImageRef = useRef<((file: File, pos?: number) => Promise<void>) | undefined>(undefined);
   const lastSentMarkdownRef = useRef<string>(sanitizeHtml(value));
 
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+  const highlightPickerRef = useRef<HTMLDivElement>(null);
+
+  // Close pickers on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(event.target as Node)) {
+        setShowColorPicker(false);
+      }
+      if (highlightPickerRef.current && !highlightPickerRef.current.contains(event.target as Node)) {
+        setShowHighlightPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -79,6 +123,12 @@ export default function RichMarkdownEditor({
         HTMLAttributes: {
           class: 'max-w-full h-auto rounded-xl border border-slate-200/60 shadow-xs my-6 mx-auto block',
         },
+      }),
+      Underline,
+      TextStyle,
+      Color,
+      Highlight.configure({
+        multicolor: true,
       }),
       Markdown.configure({
         html: true, // Enable controlled HTML support
@@ -281,6 +331,19 @@ export default function RichMarkdownEditor({
           I
         </button>
 
+        {/* Underline */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          disabled={disabled || !editor.can().chain().focus().toggleUnderline().run()}
+          className={`px-2 py-1 rounded text-xs underline transition-colors ${
+            editor.isActive('underline') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
+          }`}
+          title="Subrayado"
+        >
+          U
+        </button>
+
         {/* Strike */}
         <button
           type="button"
@@ -293,6 +356,108 @@ export default function RichMarkdownEditor({
         >
           S
         </button>
+
+        <div className="w-px h-4 bg-slate-300 mx-1" />
+
+        {/* Color de texto */}
+        <div className="relative" ref={colorPickerRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowColorPicker(!showColorPicker);
+              setShowHighlightPicker(false);
+            }}
+            disabled={disabled}
+            className={`px-2 py-1 rounded text-xs transition-colors flex items-center gap-1 text-slate-600 hover:bg-slate-200 disabled:opacity-40`}
+            title="Color de texto"
+          >
+            <span
+              className="w-3 h-3 rounded-full border border-slate-300"
+              style={{
+                backgroundColor: (editor.getAttributes('textStyle').color as string) || '#0f172a',
+              }}
+            />
+            <span>A</span>
+          </button>
+          {showColorPicker && (
+            <div className="absolute left-0 mt-1 p-2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex flex-col gap-2 min-w-[120px]">
+              <div className="grid grid-cols-4 gap-1.5">
+                {colors.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => {
+                      editor.chain().focus().setColor(c.value).run();
+                      setShowColorPicker(false);
+                    }}
+                    className={`w-5 h-5 rounded-full ${c.bg} border border-slate-200 cursor-pointer hover:scale-110 transition-transform`}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().unsetColor().run();
+                  setShowColorPicker(false);
+                }}
+                className="text-[10px] text-slate-500 hover:text-slate-800 text-left border-t border-slate-100 pt-1.5"
+              >
+                Quitar color
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Fondo / Resaltado */}
+        <div className="relative" ref={highlightPickerRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowHighlightPicker(!showHighlightPicker);
+              setShowColorPicker(false);
+            }}
+            disabled={disabled}
+            className={`px-2 py-1 rounded text-xs transition-colors flex items-center gap-1 text-slate-600 hover:bg-slate-200 disabled:opacity-40`}
+            title="Resaltado de texto"
+          >
+            <span
+              className="w-3 h-3 rounded-sm border border-slate-300"
+              style={{
+                backgroundColor: (editor.getAttributes('highlight').color as string) || 'transparent',
+              }}
+            />
+            <span>Resaltar</span>
+          </button>
+          {showHighlightPicker && (
+            <div className="absolute left-0 mt-1 p-2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex flex-col gap-2 min-w-[120px]">
+              <div className="grid grid-cols-5 gap-1.5">
+                {highlights.map((h) => (
+                  <button
+                    key={h.value}
+                    type="button"
+                    onClick={() => {
+                      editor.chain().focus().toggleHighlight({ color: h.value }).run();
+                      setShowHighlightPicker(false);
+                    }}
+                    className={`w-5 h-5 rounded-sm ${h.bg} border cursor-pointer hover:scale-110 transition-transform`}
+                    title={h.name}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().unsetHighlight().run();
+                  setShowHighlightPicker(false);
+                }}
+                className="text-[10px] text-slate-500 hover:text-slate-800 text-left border-t border-slate-100 pt-1.5"
+              >
+                Quitar resaltado
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="w-px h-4 bg-slate-300 mx-1" />
 

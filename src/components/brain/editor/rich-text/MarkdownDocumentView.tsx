@@ -11,6 +11,10 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import Image from '@tiptap/extension-image';
 import { sanitizeHtml } from '@/lib/content/sanitizeHtml';
+import Underline from '@tiptap/extension-underline';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
 
 interface MarkdownDocumentViewProps {
   content: string;
@@ -59,6 +63,12 @@ export default function MarkdownDocumentView({
         HTMLAttributes: {
           class: 'max-w-full h-auto rounded-xl border border-slate-200/60 shadow-xs my-6 mx-auto block',
         },
+      }),
+      Underline,
+      TextStyle,
+      Color,
+      Highlight.configure({
+        multicolor: true,
       }),
       Markdown.configure({
         html: true, // Enable controlled HTML support

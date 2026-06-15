@@ -6,44 +6,75 @@ function registerHooks() {
   if (isHookRegistered) return;
   isHookRegistered = true;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  DOMPurify.addHook('uponSanitizeAttribute', (node, data: any) => {
-    // 1. Enforce strict CSS styling whitelist
-    if (data.attrName === 'style') {
-      const styleValue = data.attrValue;
-      const declarations = styleValue.split(';');
-      const cleanedDeclarations: string[] = [];
+const ALLOWED_COLORS = [
+  '#0f172a', 'rgb(15,23,42)',
+  '#475569', 'rgb(71,85,105)',
+  '#ef4444', 'rgb(239,68,68)',
+  '#f97316', 'rgb(249,115,22)',
+  '#ca8a04', 'rgb(202,138,4)',
+  '#16a34a', 'rgb(22,163,74)',
+  '#2563eb', 'rgb(37,99,235)',
+  '#7c3aed', 'rgb(124,58,237)'
+];
 
-      const allowedStyles = ['color', 'background-color', 'text-decoration'];
+const ALLOWED_BACKGROUND_COLORS = [
+  '#fef3c7', 'rgb(254,243,199)',
+  '#dcfce7', 'rgb(220,252,231)',
+  '#dbeafe', 'rgb(219,234,254)',
+  '#ede9fe', 'rgb(237,233,254)',
+  '#fee2e2', 'rgb(254,226,226)'
+];
 
-      for (const decl of declarations) {
-        if (!decl.trim()) continue;
-        const parts = decl.split(':');
-        if (parts.length < 2) continue;
-        const key = parts[0].trim().toLowerCase();
-        const val = parts.slice(1).join(':').trim();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+DOMPurify.addHook('uponSanitizeAttribute', (node, data: any) => {
+  // 1. Enforce strict CSS styling whitelist
+  if (data.attrName === 'style') {
+    const styleValue = data.attrValue;
+    const declarations = styleValue.split(';');
+    const cleanedDeclarations: string[] = [];
 
-        if (allowedStyles.includes(key)) {
-          const lowerVal = val.toLowerCase();
-          if (
-            !lowerVal.includes('url(') &&
-            !lowerVal.includes('expression(') &&
-            !lowerVal.includes('javascript:') &&
-            !lowerVal.includes('<') &&
-            !lowerVal.includes('>')
-          ) {
-            cleanedDeclarations.push(`${key}: ${val}`);
+    const allowedStyles = ['color', 'background-color', 'text-decoration'];
+
+    for (const decl of declarations) {
+      if (!decl.trim()) continue;
+      const parts = decl.split(':');
+      if (parts.length < 2) continue;
+      const key = parts[0].trim().toLowerCase();
+      const val = parts.slice(1).join(':').trim();
+
+      if (allowedStyles.includes(key)) {
+        const lowerVal = val.toLowerCase().replace(/\s+/g, '');
+        if (
+          !lowerVal.includes('url(') &&
+          !lowerVal.includes('expression(') &&
+          !lowerVal.includes('javascript:') &&
+          !lowerVal.includes('<') &&
+          !lowerVal.includes('>')
+        ) {
+          if (key === 'color') {
+            if (ALLOWED_COLORS.includes(lowerVal)) {
+              cleanedDeclarations.push(`${key}: ${val}`);
+            }
+          } else if (key === 'background-color') {
+            if (ALLOWED_BACKGROUND_COLORS.includes(lowerVal)) {
+              cleanedDeclarations.push(`${key}: ${val}`);
+            }
+          } else if (key === 'text-decoration') {
+            if (lowerVal === 'underline') {
+              cleanedDeclarations.push(`${key}: ${val}`);
+            }
           }
         }
       }
-
-      if (cleanedDeclarations.length > 0) {
-        data.attrValue = cleanedDeclarations.join('; ');
-      } else {
-        node.removeAttribute('style');
-        data.keepAttr = false;
-      }
     }
+
+    if (cleanedDeclarations.length > 0) {
+      data.attrValue = cleanedDeclarations.join('; ');
+    } else {
+      node.removeAttribute('style');
+      data.keepAttr = false;
+    }
+  }
 
     // 2. Restrict img[src] strictly to internal node attachments
     if (data.attrName === 'src' && node.tagName === 'IMG') {
