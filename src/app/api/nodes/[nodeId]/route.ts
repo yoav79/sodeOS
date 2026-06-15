@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getNodeDetail, updateNodeContent, archiveNodeTree } from '@/services/nodeService';
 import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
+import { sanitizeHtml } from '@/lib/content/sanitizeHtml';
 
 export async function GET(
   request: Request,
@@ -216,7 +217,7 @@ export async function PATCH(
 
     const result = await updateNodeContent(nodeId, {
       title,
-      contentMarkdown,
+      contentMarkdown: sanitizeHtml(contentMarkdown),
       status: status,
       changeNote,
       userId: currentUser.id,

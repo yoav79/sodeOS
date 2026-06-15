@@ -10,6 +10,7 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import Image from '@tiptap/extension-image';
+import { sanitizeHtml } from '@/lib/content/sanitizeHtml';
 
 interface MarkdownDocumentViewProps {
   content: string;
@@ -60,11 +61,11 @@ export default function MarkdownDocumentView({
         },
       }),
       Markdown.configure({
-        html: false, // Restrict raw HTML
+        html: true, // Enable controlled HTML support
         linkify: true,
       }),
     ],
-    content: content,
+    content: sanitizeHtml(content),
     editable: false,
     editorProps: {
       attributes: {
@@ -83,8 +84,9 @@ export default function MarkdownDocumentView({
     const markdownStorage = storage?.markdown as { getMarkdown?: () => string } | undefined;
     const currentMarkdown = markdownStorage?.getMarkdown?.() || '';
 
-    if (content !== currentMarkdown) {
-      editor.commands.setContent(content);
+    const sanitizedContent = sanitizeHtml(content);
+    if (sanitizedContent !== currentMarkdown) {
+      editor.commands.setContent(sanitizedContent);
     }
   }, [content, editor, isContentEmpty]);
 

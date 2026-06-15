@@ -10,6 +10,7 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import Image from '@tiptap/extension-image';
+import { sanitizeHtml } from '@/lib/content/sanitizeHtml';
 
 interface RichMarkdownEditorProps {
   value: string;
@@ -45,7 +46,7 @@ export default function RichMarkdownEditor({
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const uploadAndInsertImageRef = useRef<((file: File, pos?: number) => Promise<void>) | undefined>(undefined);
-  const lastSentMarkdownRef = useRef<string>(value);
+  const lastSentMarkdownRef = useRef<string>(sanitizeHtml(value));
 
   const editor = useEditor({
     extensions: [
@@ -80,11 +81,11 @@ export default function RichMarkdownEditor({
         },
       }),
       Markdown.configure({
-        html: false, // Restrict raw HTML
+        html: true, // Enable controlled HTML support
         linkify: true,
       }),
     ],
-    content: value,
+    content: sanitizeHtml(value),
     editable: !disabled,
     onUpdate: ({ editor: editorInstance }) => {
       const md = getEditorMarkdown(editorInstance);
@@ -129,11 +130,12 @@ export default function RichMarkdownEditor({
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
 
-    if (value !== lastSentMarkdownRef.current) {
+    const sanitizedValue = sanitizeHtml(value);
+    if (sanitizedValue !== lastSentMarkdownRef.current) {
       if (!editor.isFocused) {
-        editor.commands.setContent(value);
+        editor.commands.setContent(sanitizedValue);
       }
-      lastSentMarkdownRef.current = value;
+      lastSentMarkdownRef.current = sanitizedValue;
     }
   }, [value, editor]);
 
