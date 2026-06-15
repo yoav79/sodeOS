@@ -45,6 +45,7 @@ export default function RichMarkdownEditor({
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const uploadAndInsertImageRef = useRef<((file: File, pos?: number) => Promise<void>) | undefined>(undefined);
+  const lastSentMarkdownRef = useRef<string>(value);
 
   const editor = useEditor({
     extensions: [
@@ -87,6 +88,7 @@ export default function RichMarkdownEditor({
     editable: !disabled,
     onUpdate: ({ editor: editorInstance }) => {
       const md = getEditorMarkdown(editorInstance);
+      lastSentMarkdownRef.current = md;
       onChange(md);
     },
     editorProps: {
@@ -127,9 +129,11 @@ export default function RichMarkdownEditor({
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
 
-    const currentMarkdown = getEditorMarkdown(editor);
-    if (value !== currentMarkdown && !editor.isFocused) {
-      editor.commands.setContent(value);
+    if (value !== lastSentMarkdownRef.current) {
+      if (!editor.isFocused) {
+        editor.commands.setContent(value);
+      }
+      lastSentMarkdownRef.current = value;
     }
   }, [value, editor]);
 
