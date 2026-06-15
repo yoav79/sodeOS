@@ -64,6 +64,7 @@ interface EditorDocumentFormProps {
   editContent: string;
   editStatus: string;
   editCategory: string;
+  editTags: string[];
   editChangeNote: string;
   saveError: string | null;
   isSaving: boolean;
@@ -73,6 +74,7 @@ interface EditorDocumentFormProps {
   onEditContentChange: (val: string) => void;
   onEditStatusChange: (val: string) => void;
   onEditCategoryChange: (val: string) => void;
+  onEditTagsChange: (tags: string[]) => void;
   onEditChangeNoteChange: (val: string) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -85,6 +87,7 @@ export default function EditorDocumentForm({
   editContent,
   editStatus,
   editCategory,
+  editTags,
   editChangeNote,
   saveError,
   isSaving,
@@ -94,15 +97,56 @@ export default function EditorDocumentForm({
   onEditContentChange,
   onEditStatusChange,
   onEditCategoryChange,
+  onEditTagsChange,
   onEditChangeNoteChange,
   onSave,
   onCancel,
- }: EditorDocumentFormProps) {
+}: EditorDocumentFormProps) {
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
+  const [tagInput, setTagInput] = useState<string>('');
   const [editorMode, setEditorMode] = useState<'visual' | 'markdown'>(() => {
     const isAdvanced = detectAdvancedMarkdown(nodeDetail.contentMarkdown || '');
     return isAdvanced ? 'markdown' : 'visual';
   });
+
+  const addTag = (val: string) => {
+    const normalized = val.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!normalized) return;
+
+    if (normalized.length > 35) {
+      alert('La etiqueta no puede superar los 35 caracteres.');
+      return;
+    }
+
+    if (editTags.includes(normalized)) {
+      setTagInput('');
+      return;
+    }
+
+    if (editTags.length >= 15) {
+      alert('Un nodo no puede tener más de 15 etiquetas.');
+      return;
+    }
+
+    onEditTagsChange([...editTags, normalized]);
+    setTagInput('');
+  };
+
+  const removeTag = (indexToRemove: number) => {
+    onEditTagsChange(editTags.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addTag(tagInput);
+    } else if (e.key === ',') {
+      e.preventDefault();
+      addTag(tagInput);
+    } else if (e.key === 'Backspace' && !tagInput && editTags.length > 0) {
+      removeTag(editTags.length - 1);
+    }
+  };
 
   // Detect advanced Markdown in live content
   const hasAdvancedMarkdown = detectAdvancedMarkdown(editContent);
@@ -360,6 +404,40 @@ export default function EditorDocumentForm({
                   className="bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors w-full"
                   placeholder="Ej: Infraestructura, Recursos Humanos..."
                 />
+              </div>
+
+              {/* Etiquetas (Tags) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Etiquetas (Tags)</label>
+                <div className="border border-slate-200 rounded-xl p-2 bg-white focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-colors w-full min-h-[42px] flex flex-wrap gap-1.5 items-center">
+                  {editTags.map((tag, idx) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 rounded-lg px-2 py-0.5 text-[11px] font-semibold"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(idx)}
+                        className="text-slate-400 hover:text-slate-600 focus:outline-none ml-0.5 text-xs font-bold"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagInputKeyDown}
+                    onBlur={() => addTag(tagInput)}
+                    className="flex-1 min-w-[120px] bg-transparent text-xs text-slate-700 font-medium focus:outline-none py-0.5"
+                    placeholder={editTags.length === 0 ? "Ej: seguridad, wiki..." : ""}
+                  />
+                </div>
+                <span className="text-[9px] text-slate-400 font-medium">
+                  Enter o coma para agregar. Máximo 15 etiquetas de hasta 35 caracteres.
+                </span>
               </div>
 
               {/* Nota de cambios */}

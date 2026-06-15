@@ -88,6 +88,33 @@ export default function EditorMetadataTab({
             <span className="font-semibold text-slate-700">{nodeDetail.category || 'Ninguna'}</span>
           </div>
 
+          {/* Etiquetas */}
+          <div className="flex flex-col gap-1.5 py-0.5 border-t border-slate-100/60 pt-2">
+            <div className="flex items-center gap-2.5 text-slate-500">
+              <div className="w-5 h-5 rounded-md bg-violet-50/80 flex items-center justify-center border border-violet-100/60 text-violet-600 shrink-0">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581a1.5 1.5 0 0 0 2.122 0l4.318-4.318a1.5 1.5 0 0 0 0-2.122L11.159 3.659A2.25 2.25 0 0 0 9.568 3Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
+                </svg>
+              </div>
+              <span className="font-medium text-[11px]">Etiquetas</span>
+            </div>
+            {nodeDetail.tags && nodeDetail.tags.length > 0 ? (
+              <div className="flex flex-wrap gap-1 mt-0.5 pl-[30px]">
+                {nodeDetail.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center bg-slate-50 border border-slate-200/60 text-slate-600 rounded-lg px-2 py-0.5 text-[10px] font-semibold"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="text-[10px] text-slate-400 italic pl-[30px] mt-0.5">Sin etiquetas</span>
+            )}
+          </div>
+
           {/* Responsable */}
           <div className="flex items-center justify-between text-xs py-0.5">
             <div className="flex items-center gap-2.5 text-slate-500">

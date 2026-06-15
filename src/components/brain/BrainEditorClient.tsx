@@ -130,6 +130,7 @@ export default function BrainEditorClient({
   const [editContent, setEditContent] = useState<string>('');
   const [editStatus, setEditStatus] = useState<string>('active');
   const [editCategory, setEditCategory] = useState<string>('');
+  const [editTags, setEditTags] = useState<string[]>([]);
   const [editChangeNote, setEditChangeNote] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -142,8 +143,21 @@ export default function BrainEditorClient({
     const contentChanged = editContent !== (nodeDetail.contentMarkdown || '');
     const statusChanged = editStatus !== (nodeDetail.status || '');
     const categoryChanged = (editCategory || '').trim() !== (nodeDetail.category || '').trim();
-    return titleChanged || descChanged || contentChanged || statusChanged || categoryChanged;
-  }, [isEditing, nodeDetail, editTitle, editDescription, editContent, editStatus, editCategory]);
+    
+    const currentSet = new Set((nodeDetail.tags || []).map(t => t.trim().toLowerCase()).filter(Boolean));
+    const editSet = new Set(editTags.map(t => t.trim().toLowerCase()).filter(Boolean));
+    let tagsChanged = currentSet.size !== editSet.size;
+    if (!tagsChanged) {
+      for (const t of editSet) {
+        if (!currentSet.has(t)) {
+          tagsChanged = true;
+          break;
+        }
+      }
+    }
+    
+    return titleChanged || descChanged || contentChanged || statusChanged || categoryChanged || tagsChanged;
+  }, [isEditing, nodeDetail, editTitle, editDescription, editContent, editStatus, editCategory, editTags]);
 
   // Alert on tab close or reload when changes are unsaved
   useEffect(() => {
@@ -1268,6 +1282,7 @@ export default function BrainEditorClient({
       setEditContent(nodeDetail.contentMarkdown);
       setEditStatus(nodeDetail.status);
       setEditCategory(nodeDetail.category || '');
+      setEditTags(nodeDetail.tags || []);
       setEditChangeNote('');
       setSaveError(null);
       setIsEditing(true);
@@ -1304,6 +1319,7 @@ export default function BrainEditorClient({
           changeNote: editChangeNote,
           description: editDescription.trim() || null,
           category: editCategory.trim() || null,
+          tags: editTags,
         }),
       });
 
@@ -1675,6 +1691,7 @@ ${nodeDetail.contentMarkdown}`;
                   editContent={editContent}
                   editStatus={editStatus}
                   editCategory={editCategory}
+                  editTags={editTags}
                   editChangeNote={editChangeNote}
                   saveError={saveError}
                   isSaving={isSaving}
@@ -1683,6 +1700,7 @@ ${nodeDetail.contentMarkdown}`;
                   onEditContentChange={setEditContent}
                   onEditStatusChange={setEditStatus}
                   onEditCategoryChange={setEditCategory}
+                  onEditTagsChange={setEditTags}
                   onEditChangeNoteChange={setEditChangeNote}
                   isDirty={isDirty}
                   onSave={handleSave}
