@@ -4,58 +4,7 @@ import React, { useState } from 'react';
 import { Node } from '@/types';
 import RichMarkdownEditor from './rich-text/RichMarkdownEditor';
 
-const hasComplexTable = (content: string): boolean => {
-  // Check for HTML table tags (to be doubly sure, although also caught by HTML regex)
-  if (/<(table|thead|tbody|tfoot|tr|th|td)\b/i.test(content)) return true;
 
-  // Check for colspan/rowspan attributes
-  if (/\b(colspan|rowspan)\b/i.test(content)) return true;
-
-  // If there's no table separator row, we don't even have a table
-  const hasTableSeparator = /\|?\s*:?-+:?\s*\|(\s*:?-+:?\s*\|)*/.test(content);
-  if (!hasTableSeparator) return false;
-
-  // Let's check the lines containing table markup for block-level elements or multiline cells.
-  // Standard GFM tables have rows separated by newlines, with each row on a single line containing '|'.
-  const lines = content.split('\n');
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line.includes('|')) {
-      // Check if this row contains nested block elements inside cells:
-      // - Blockquotes (e.g. | > quote |)
-      // - List items (e.g. | - list | or | * list | or | 1. list |)
-      // - Headers (e.g. | # header |)
-      // - Fenced code blocks (e.g. | ``` |)
-      if (/\|\s*(>|-|\*|\d+\.)\s/.test(line) || /\|\s*#+\s/.test(line) || line.includes('```')) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-};
-
-const detectAdvancedMarkdown = (content: string): boolean => {
-  if (!content) return false;
-
-  // 1. Images: presence of "!["
-  if (content.includes('![')) return true;
-
-  // 2. Mermaid blocks: "```mermaid"
-  if (content.includes('```mermaid')) return true;
-
-  // 3. Task lists: "- [ ]" or "- [x]"
-  if (/-\s*\[[ xX]\]/.test(content)) return true;
-
-  // 4. HTML tags: common tags like <div, <span, <table, <iframe, <script, <img, including table sub-elements
-  if (/<(div|span|table|thead|tbody|tfoot|tr|th|td|iframe|script|img|br|p|h[1-6]|ul|ol|li)\b/i.test(content)) return true;
-
-  // 5. Complex tables: tables containing HTML, colspan, rowspan, or nested blocks inside cells
-  if (hasComplexTable(content)) return true;
-
-  return false;
-};
 
 interface EditorDocumentFormProps {
   nodeDetail: Node;
@@ -104,10 +53,6 @@ export default function EditorDocumentForm({
 }: EditorDocumentFormProps) {
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
   const [tagInput, setTagInput] = useState<string>('');
-  const [editorMode, setEditorMode] = useState<'visual' | 'markdown'>(() => {
-    const isAdvanced = detectAdvancedMarkdown(nodeDetail.contentMarkdown || '');
-    return isAdvanced ? 'markdown' : 'visual';
-  });
 
   const addTag = (val: string) => {
     const normalized = val.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -148,18 +93,7 @@ export default function EditorDocumentForm({
     }
   };
 
-  // Detect advanced Markdown in live content
-  const hasAdvancedMarkdown = detectAdvancedMarkdown(editContent);
 
-  const handleSetEditorMode = (mode: 'visual' | 'markdown') => {
-    if (mode === 'visual' && hasAdvancedMarkdown) {
-      const confirmSwitch = window.confirm(
-        'Este documento contiene Markdown avanzado (imágenes, Mermaid, HTML o tablas complejas) que no está soportado por el editor visual. Cambiar a modo Visual eliminará este formato al guardar.\n\n¿Estás seguro de que deseas continuar?'
-      );
-      if (!confirmSwitch) return;
-    }
-    setEditorMode(mode);
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -288,66 +222,14 @@ export default function EditorDocumentForm({
           </div>
         </div>
 
-        {/* Selector de modo Visual/Markdown */}
-        <div className="flex flex-col gap-2 border-b border-slate-100 pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 w-fit">
-              <button
-                type="button"
-                onClick={() => handleSetEditorMode('visual')}
-                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                  editorMode === 'visual'
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Visual
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetEditorMode('markdown')}
-                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                  editorMode === 'markdown'
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Markdown
-              </button>
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium sm:text-right">
-              {hasAdvancedMarkdown 
-                ? 'Advertencia: Sintaxis avanzada detectada en el documento.' 
-                : 'Usa Markdown si el documento contiene tablas complejas, Mermaid, HTML o sintaxis avanzada.'}
-            </span>
-          </div>
-
-          {hasAdvancedMarkdown && (
-            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-semibold flex items-center gap-1.5 animate-fade-in">
-              <span>⚠️</span>
-              <span>Este documento contiene Markdown avanzado. Edita en modo Markdown para evitar pérdida de formato especial (como imágenes, Mermaid, HTML o tablas complejas).</span>
-            </div>
-          )}
-        </div>
-
         {/* Editor */}
         <div className="flex flex-col gap-2">
-          {editorMode === 'visual' ? (
-            <RichMarkdownEditor
-              value={editContent}
-              onChange={onEditContentChange}
-              disabled={isSaving}
-              nodeId={nodeDetail.id}
-            />
-          ) : (
-            <textarea
-              value={editContent}
-              onChange={(e) => onEditContentChange(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl p-5 text-slate-800 font-sans text-sm leading-relaxed focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 min-h-[460px] resize-y shadow-inner transition-colors"
-              placeholder="Comienza a escribir en Markdown aquí..."
-              disabled={isSaving}
-            />
-          )}
+          <RichMarkdownEditor
+            value={editContent}
+            onChange={onEditContentChange}
+            disabled={isSaving}
+            nodeId={nodeDetail.id}
+          />
         </div>
       </div>
 
