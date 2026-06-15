@@ -101,6 +101,7 @@ export interface Node {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  tags?: string[];
 }
 
 /**

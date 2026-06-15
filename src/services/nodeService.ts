@@ -90,9 +90,21 @@ export async function getNodeDetail(nodeId: string): Promise<Node | null> {
       id: nodeId,
       deletedAt: null,
     },
+    include: {
+      nodeTags: {
+        include: {
+          tag: true,
+        },
+      },
+    },
   });
 
   if (!node) return null;
+
+  // Map and sort tags alphabetically
+  const tags = node.nodeTags
+    ? node.nodeTags.map((nt) => nt.tag.name).sort((a, b) => a.localeCompare(b))
+    : [];
 
   return {
     id: node.id,
@@ -117,6 +129,7 @@ export async function getNodeDetail(nodeId: string): Promise<Node | null> {
     createdAt: node.createdAt,
     updatedAt: node.updatedAt,
     deletedAt: node.deletedAt,
+    tags,
   };
 }
 
@@ -128,6 +141,7 @@ export interface UpdateNodeInput {
   userId: string;
   description?: string | null;
   category?: string | null;
+  tags?: string[];
 }
 
 /**
@@ -146,6 +160,13 @@ export async function updateNodeContent(
         id: nodeId,
         deletedAt: null,
       },
+      include: {
+        nodeTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
     });
 
     if (!currentNode) {
@@ -159,7 +180,28 @@ export async function updateNodeContent(
     const hasDescriptionChange = input.description !== undefined && currentNode.description !== input.description;
     const hasCategoryChange = input.category !== undefined && currentNode.category !== input.category;
 
-    if (!hasTitleChange && !hasContentChange && !hasStatusChange && !hasDescriptionChange && !hasCategoryChange) {
+    const currentTags = currentNode.nodeTags
+      ? currentNode.nodeTags.map((nt) => nt.tag.name).sort((a, b) => a.localeCompare(b))
+      : [];
+
+    let hasTagsChange = false;
+    if (input.tags !== undefined) {
+      const currentSet = new Set(currentTags.map(t => t.toLowerCase().trim()));
+      const inputSet = new Set(input.tags.map(t => t.toLowerCase().trim()));
+      
+      if (currentSet.size !== inputSet.size) {
+        hasTagsChange = true;
+      } else {
+        for (const tag of inputSet) {
+          if (!currentSet.has(tag)) {
+            hasTagsChange = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!hasTitleChange && !hasContentChange && !hasStatusChange && !hasDescriptionChange && !hasCategoryChange && !hasTagsChange) {
       return {
         node: {
           id: currentNode.id,
@@ -184,6 +226,7 @@ export async function updateNodeContent(
           createdAt: currentNode.createdAt,
           updatedAt: currentNode.updatedAt,
           deletedAt: currentNode.deletedAt,
+          tags: currentTags,
         },
         unchanged: true,
       };
@@ -213,6 +256,84 @@ export async function updateNodeContent(
       where: { id: nodeId },
       data: updateData,
     });
+
+    // 3.5 Sincronizar tags si han cambiado
+    if (input.tags !== undefined && hasTagsChange) {
+      const targetNames = Array.from(
+        new Set(input.tags.map((t) => t.trim().toLowerCase()).filter(Boolean))
+      );
+
+      if (targetNames.length > 0) {
+        // Find existing tags in this brain
+        const existingTags = await tx.tag.findMany({
+          where: {
+            brainId: currentNode.brainId,
+            name: { in: targetNames },
+          },
+        });
+
+        const existingNames = existingTags.map((t) => t.name.toLowerCase().trim());
+        const namesToCreate = targetNames.filter(
+          (name) => !existingNames.includes(name)
+        );
+
+        // Create missing tags
+        if (namesToCreate.length > 0) {
+          await tx.tag.createMany({
+            data: namesToCreate.map((name) => ({
+              brainId: currentNode.brainId,
+              name: name,
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        // Re-fetch all target tags
+        const allTags = await tx.tag.findMany({
+          where: {
+            brainId: currentNode.brainId,
+            name: { in: targetNames },
+          },
+        });
+
+        const targetTagIds = allTags.map((t) => t.id);
+
+        // Sincronizar NodeTag relations
+        await tx.nodeTag.deleteMany({
+          where: {
+            nodeId: nodeId,
+            tagId: { notIn: targetTagIds },
+          },
+        });
+
+        const existingRelations = await tx.nodeTag.findMany({
+          where: {
+            nodeId: nodeId,
+          },
+        });
+        const existingRelationTagIds = existingRelations.map((r) => r.tagId);
+        const tagIdsToAdd = targetTagIds.filter(
+          (id) => !existingRelationTagIds.includes(id)
+        );
+
+        if (tagIdsToAdd.length > 0) {
+          await tx.nodeTag.createMany({
+            data: tagIdsToAdd.map((tagId) => ({
+              nodeId: nodeId,
+              tagId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      } else {
+        // Delete all tag relations for this node if array is empty
+        await tx.nodeTag.deleteMany({
+          where: {
+            nodeId: nodeId,
+          },
+        });
+      }
+    }
 
     // 4. Create the NodeVersion only if title, contentMarkdown, or status changed
     if (hasTitleChange || hasContentChange || hasStatusChange) {
@@ -252,6 +373,7 @@ export async function updateNodeContent(
         createdAt: updatedNode.createdAt,
         updatedAt: updatedNode.updatedAt,
         deletedAt: updatedNode.deletedAt,
+        tags: input.tags !== undefined ? input.tags.sort((a, b) => a.localeCompare(b)) : currentTags,
       },
       unchanged: false,
     };

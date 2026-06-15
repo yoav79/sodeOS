@@ -64,7 +64,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { title, contentMarkdown, status, changeNote, description, category } = body;
+    const { title, contentMarkdown, status, changeNote, description, category, tags } = body;
 
     // Payload validation
     if (title === undefined || typeof title !== 'string' || title.trim() === '') {
@@ -141,6 +141,51 @@ export async function PATCH(
       }
     }
 
+    // Validate and normalize tags
+    let normalizedTags: string[] | undefined = undefined;
+    if (tags !== undefined) {
+      if (!Array.isArray(tags)) {
+        return NextResponse.json(
+          { error: 'El campo "tags" debe ser un array de strings.' },
+          { status: 400 }
+        );
+      }
+
+      for (let i = 0; i < tags.length; i++) {
+        if (typeof tags[i] !== 'string') {
+          return NextResponse.json(
+            { error: 'Todos los elementos del campo "tags" deben ser strings.' },
+            { status: 400 }
+          );
+        }
+      }
+
+      const processedTags: string[] = [];
+      for (const rawTag of tags) {
+        const normalized = rawTag.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (normalized.length > 0) {
+          if (normalized.length > 35) {
+            return NextResponse.json(
+              { error: `La etiqueta "${normalized}" supera el límite de 35 caracteres.` },
+              { status: 400 }
+            );
+          }
+          if (!processedTags.includes(normalized)) {
+            processedTags.push(normalized);
+          }
+        }
+      }
+
+      if (processedTags.length > 15) {
+        return NextResponse.json(
+          { error: 'Un nodo no puede tener más de 15 etiquetas.' },
+          { status: 400 }
+        );
+      }
+
+      normalizedTags = processedTags;
+    }
+
     // 1. Authenticate user
     const currentUser = await getCurrentUser();
     if (!currentUser) {
@@ -177,6 +222,7 @@ export async function PATCH(
       userId: currentUser.id,
       description: normalizedDescription,
       category: normalizedCategory,
+      tags: normalizedTags,
     });
 
     if (!result.node) {
