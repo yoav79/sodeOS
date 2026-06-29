@@ -638,6 +638,17 @@ export default function RichMarkdownEditor({
           </>
         )}
 
+        {/* Tabla */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+          disabled={disabled}
+          className="px-2 py-1 rounded text-xs font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40 transition-colors"
+          title="Insertar tabla 3x3"
+        >
+          Tabla
+        </button>
+
         {editor.isActive('link') && (
           <button
             type="button"
@@ -745,6 +756,18 @@ export default function RichMarkdownEditor({
       {/* Editor Content Area */}
       <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'h-[calc(100vh-120px)]' : ''}`} style={{ minHeight: isFullscreen ? 'auto' : minHeight }}>
         <EditorContent editor={editor} />
+      </div>
+
+      {/* Ayuda visual discreta para Markdown rápido */}
+      <div className="bg-slate-50/60 border-t border-slate-200/60 px-4 py-1.5 flex items-center justify-between text-[11px] text-slate-400 select-none">
+        <div className="flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5 text-slate-400/80 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>
+            <strong className="text-slate-500 font-semibold">Markdown rápido:</strong> <code>###</code> título, <code>-</code> lista, <code>&gt;</code> cita, <code>**</code><strong>negrita</strong><code>**</code>, <code>`</code><code>código</code><code>`</code>
+          </span>
+        </div>
       </div>
     </div>
   );
