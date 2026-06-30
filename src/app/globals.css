@@ -47,21 +47,46 @@ body {
   margin-bottom: 1rem !important;
 }
 
-.rich-markdown-content .ProseMirror li[data-type="taskItem"] {
+.rich-markdown-content .ProseMirror li[data-type="taskItem"],
+.rich-markdown-content .ProseMirror li[data-checked],
+.rich-markdown-content .ProseMirror li.task-list-item,
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"]) {
   display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: flex-start !important;
   gap: 0.5rem !important;
   margin-bottom: 0.375rem !important;
+  padding-left: 0 !important;
 }
 
-.rich-markdown-content .ProseMirror li[data-type="taskItem"] > label {
+.rich-markdown-content .ProseMirror li[data-type="taskItem"]::before,
+.rich-markdown-content .ProseMirror li[data-checked]::before,
+.rich-markdown-content .ProseMirror li.task-list-item::before,
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"])::before {
+  content: none !important;
+  display: none !important;
+}
+
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] > label,
+.rich-markdown-content .ProseMirror li[data-checked] > label,
+.rich-markdown-content .ProseMirror li.task-list-item > label,
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"]) > label,
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] label,
+.rich-markdown-content .ProseMirror li[data-checked] label,
+.rich-markdown-content .ProseMirror li.task-list-item label,
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"]) label {
   user-select: none !important;
   margin-top: 0.25rem !important;
   display: flex !important;
   align-items: center !important;
+  flex-shrink: 0 !important;
 }
 
-.rich-markdown-content .ProseMirror li[data-type="taskItem"] input[type="checkbox"] {
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] input[type="checkbox"],
+.rich-markdown-content .ProseMirror li[data-checked] input[type="checkbox"],
+.rich-markdown-content .ProseMirror li.task-list-item input[type="checkbox"],
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"]) input[type="checkbox"] {
   cursor: pointer !important;
   margin: 0 !important;
   width: 1rem !important;
@@ -69,15 +94,29 @@ body {
   accent-color: #2563eb !important;
 }
 
-.rich-markdown-content .ProseMirror li[data-type="taskItem"] > div {
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] > div,
+.rich-markdown-content .ProseMirror li[data-checked] > div,
+.rich-markdown-content .ProseMirror li.task-list-item > div,
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"]) > div,
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] div,
+.rich-markdown-content .ProseMirror li[data-checked] div,
+.rich-markdown-content .ProseMirror li.task-list-item div,
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"]) div {
   flex: 1 !important;
 }
 
-.rich-markdown-content .ProseMirror li[data-type="taskItem"] p {
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] p,
+.rich-markdown-content .ProseMirror li[data-checked] p,
+.rich-markdown-content .ProseMirror li.task-list-item p,
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"]) p {
   margin: 0 !important;
+  padding: 0 !important;
 }
 
-.rich-markdown-content .ProseMirror li[data-type="taskItem"][data-checked="true"] > div {
+.rich-markdown-content .ProseMirror li[data-type="taskItem"][data-checked="true"] > div,
+.rich-markdown-content .ProseMirror li[data-checked="true"] > div,
+.rich-markdown-content .ProseMirror li.task-list-item[data-checked="true"] > div,
+.rich-markdown-content .ProseMirror li:has(input[type="checkbox"])[data-checked="true"] > div {
   text-decoration: line-through !important;
   color: #94a3b8 !important;
 }
