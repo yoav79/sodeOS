@@ -262,6 +262,7 @@ export default function EditorRightPanel({
           ) : (
             /* IA Tab */
             <EditorAITab
+              brainId={nodeDetail.brainId}
               nodeId={nodeDetail.id}
               nodeTitle={nodeDetail.title}
               contentMarkdown={contentMarkdown}
