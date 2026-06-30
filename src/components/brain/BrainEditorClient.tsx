@@ -1322,11 +1322,6 @@ export default function BrainEditorClient({
     if (!proposal.trim()) return;
     if (!selectedNodeId || !nodeDetail) return;
 
-    const confirm = window.confirm(
-      '¿Estás seguro de que deseas reemplazar todo el contenido de este documento con la propuesta de la IA? Esta acción no se guardará hasta que presiones Guardar, pero reemplazará el contenido actual en edición.'
-    );
-    if (!confirm) return;
-
     if (!isEditing) {
       setEditTitle(nodeDetail.title);
       setEditDescription(nodeDetail.description || '');

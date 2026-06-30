@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import ConfirmModal from './modals/ConfirmModal';
 
 interface EditorAITabProps {
   brainId: string | null;
@@ -28,6 +29,7 @@ export default function EditorAITab({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiCopied, setAiCopied] = useState<boolean>(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = useState<boolean>(false);
 
   if (!brainId || !nodeId || !nodeTitle) {
     return (
@@ -123,15 +125,8 @@ export default function EditorAITab({
   };
 
   const handleReplaceClick = () => {
-    if (!aiProposal.trim() || aiLoading) return;
-    if (onReplaceWithAIProposal) {
-      onReplaceWithAIProposal(aiProposal);
-      setFeedbackMessage('Aplicado al editor. Revisa y presiona Guardar para persistir.');
-      setTimeout(() => setFeedbackMessage(null), 6000);
-    } else {
-      setFeedbackMessage('Acción no disponible en este momento.');
-      setTimeout(() => setFeedbackMessage(null), 5000);
-    }
+    if (!aiProposal.trim() || aiLoading || !canApply) return;
+    setIsReplaceConfirmOpen(true);
   };
 
   const isButtonsDisabled = !canApply || !aiProposal.trim() || aiLoading;
@@ -282,6 +277,23 @@ export default function EditorAITab({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={isReplaceConfirmOpen}
+        title="Reemplazar documento"
+        message="¿Estás seguro de que deseas reemplazar todo el contenido de este documento con la propuesta de la IA? Esta acción no se guardará hasta que presiones Guardar, pero reemplazará el contenido actual en edición."
+        confirmLabel="Reemplazar borrador"
+        cancelLabel="Cancelar"
+        onConfirm={() => {
+          setIsReplaceConfirmOpen(false);
+          if (onReplaceWithAIProposal) {
+            onReplaceWithAIProposal(aiProposal);
+            setFeedbackMessage('Aplicado al editor. Revisa y presiona Guardar para persistir.');
+            setTimeout(() => setFeedbackMessage(null), 6000);
+          }
+        }}
+        onClose={() => setIsReplaceConfirmOpen(false)}
+      />
     </div>
   );
 }
