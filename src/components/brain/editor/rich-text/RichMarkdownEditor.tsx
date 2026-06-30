@@ -15,6 +15,80 @@ import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+// @ts-expect-error - markdown-it-task-lists does not have typescript declarations
+import taskListPlugin from 'markdown-it-task-lists';
+
+const CustomTaskList = TaskList.extend({
+  priority: 150,
+  addStorage() {
+    return {
+      markdown: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        serialize(state: any, node: any) {
+          state.renderList(node, '  ', () => '- ');
+        },
+        parse: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setup(markdownit: any) {
+            const plugin = typeof taskListPlugin === 'function'
+              ? taskListPlugin
+              : (taskListPlugin as Record<string, unknown>).default || taskListPlugin;
+            markdownit.use(plugin);
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          updateDOM(element: any) {
+            element.querySelectorAll('.contains-task-list').forEach((list: Element) => {
+              list.setAttribute('data-type', 'taskList');
+            });
+          },
+        },
+      },
+    };
+  },
+});
+
+const CustomTaskItem = TaskItem.extend({
+  priority: 150,
+  addStorage() {
+    return {
+      markdown: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        serialize(state: any, node: any) {
+          const check = node.attrs.checked ? '[x]' : '[ ]';
+          state.write(`${check} `);
+          state.renderContent(node);
+        },
+        parse: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          updateDOM(element: any) {
+            element.querySelectorAll('.task-list-item').forEach((item: Element) => {
+              const input = item.querySelector('input') as HTMLInputElement | null;
+              item.setAttribute('data-type', 'taskItem');
+              if (input) {
+                item.setAttribute('data-checked', input.checked ? 'true' : 'false');
+                input.remove();
+              }
+              // Wrap inner contents in a paragraph if no block child exists
+              const hasBlock = Array.from(item.children).some((child: Element) =>
+                ['P', 'DIV', 'UL', 'OL', 'BLOCKQUOTE'].includes(child.tagName)
+              );
+              if (!hasBlock) {
+                const p = document.createElement('p');
+                while (item.firstChild) {
+                  p.appendChild(item.firstChild);
+                }
+                item.appendChild(p);
+              }
+            });
+          },
+        },
+      },
+    };
+  },
+});
+
 
 const colors = [
   { name: 'Negro', value: '#0f172a', bg: 'bg-[#0f172a]' },
@@ -131,6 +205,10 @@ export default function RichMarkdownEditor({
       Highlight.configure({
         multicolor: true,
       }),
+      CustomTaskList,
+      CustomTaskItem.configure({
+        nested: true,
+      }),
       Markdown.configure({
         html: true, // Enable controlled HTML support
         linkify: true,
@@ -194,6 +272,7 @@ export default function RichMarkdownEditor({
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     editor.setEditable(!disabled);
+    (window as Window & { editor?: unknown }).editor = editor;
   }, [disabled, editor]);
 
   // Assign/update the ref to ensure it has latest state/props/editor references in a render-safe way
@@ -527,6 +606,19 @@ export default function RichMarkdownEditor({
           title="Lista Numerada"
         >
           1. Lista
+        </button>
+
+        {/* Task List */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          disabled={disabled}
+          className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
+            editor.isActive('taskList') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
+          }`}
+          title="Lista de Tareas (Checklist)"
+        >
+          ☑ Tareas
         </button>
 
         <div className="w-px h-4 bg-slate-300 mx-1" />

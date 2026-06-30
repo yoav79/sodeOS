@@ -40,6 +40,49 @@ body {
   color: #334155 !important;
 }
 
+/* Estilos para listas de tareas (task-list / checklist) */
+.rich-markdown-content .ProseMirror ul[data-type="taskList"] {
+  list-style-type: none !important;
+  padding-left: 0.5rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.5rem !important;
+  margin-bottom: 0.375rem !important;
+}
+
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] > label {
+  user-select: none !important;
+  margin-top: 0.25rem !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] input[type="checkbox"] {
+  cursor: pointer !important;
+  margin: 0 !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  accent-color: #2563eb !important;
+}
+
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] > div {
+  flex: 1 !important;
+}
+
+.rich-markdown-content .ProseMirror li[data-type="taskItem"] p {
+  margin: 0 !important;
+}
+
+.rich-markdown-content .ProseMirror li[data-type="taskItem"][data-checked="true"] > div {
+  text-decoration: line-through !important;
+  color: #94a3b8 !important;
+}
+
+
 .rich-markdown-content .ProseMirror h1 {
   font-size: 1.5rem !important;
   font-weight: 800 !important;
