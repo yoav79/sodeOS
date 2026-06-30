@@ -1294,6 +1294,55 @@ export default function BrainEditorClient({
     setSaveError(null);
   };
 
+  const handleInsertAIProposal = (proposal: string) => {
+    if (!canEditBrain) return;
+    if (!proposal.trim()) return;
+    if (!selectedNodeId || !nodeDetail) return;
+
+    if (!isEditing) {
+      setEditTitle(nodeDetail.title);
+      setEditDescription(nodeDetail.description || '');
+      setEditStatus(nodeDetail.status);
+      setEditCategory(nodeDetail.category || '');
+      setEditTags(nodeDetail.tags || []);
+      setEditChangeNote('');
+      setSaveError(null);
+      
+      const newContent = nodeDetail.contentMarkdown + (nodeDetail.contentMarkdown ? '\n\n' : '') + proposal;
+      setEditContent(newContent);
+      setIsEditing(true);
+    } else {
+      const newContent = editContent + (editContent ? '\n\n' : '') + proposal;
+      setEditContent(newContent);
+    }
+  };
+
+  const handleReplaceWithAIProposal = (proposal: string) => {
+    if (!canEditBrain) return;
+    if (!proposal.trim()) return;
+    if (!selectedNodeId || !nodeDetail) return;
+
+    const confirm = window.confirm(
+      '¿Estás seguro de que deseas reemplazar todo el contenido de este documento con la propuesta de la IA? Esta acción no se guardará hasta que presiones Guardar, pero reemplazará el contenido actual en edición.'
+    );
+    if (!confirm) return;
+
+    if (!isEditing) {
+      setEditTitle(nodeDetail.title);
+      setEditDescription(nodeDetail.description || '');
+      setEditStatus(nodeDetail.status);
+      setEditCategory(nodeDetail.category || '');
+      setEditTags(nodeDetail.tags || []);
+      setEditChangeNote('');
+      setSaveError(null);
+      
+      setEditContent(proposal);
+      setIsEditing(true);
+    } else {
+      setEditContent(proposal);
+    }
+  };
+
   const handleSave = async () => {
     if (!canEditBrain) return;
     if (!selectedNodeId) return;
@@ -1766,6 +1815,8 @@ ${nodeDetail.contentMarkdown}`;
           onToggleCollapse={() => setIsRightPanelCollapsed(!isRightPanelCollapsed)}
           canEdit={canEditBrain}
           contentMarkdown={isEditing ? editContent : (nodeDetail?.contentMarkdown || '')}
+          onInsertAIProposal={handleInsertAIProposal}
+          onReplaceWithAIProposal={handleReplaceWithAIProposal}
         />
       </div>
 

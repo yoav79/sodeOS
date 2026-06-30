@@ -31,6 +31,8 @@ interface EditorRightPanelProps {
   onToggleCollapse?: () => void;
   canEdit?: boolean;
   contentMarkdown?: string;
+  onInsertAIProposal?: (proposal: string) => void;
+  onReplaceWithAIProposal?: (proposal: string) => void;
 }
 
 export default function EditorRightPanel({
@@ -53,6 +55,8 @@ export default function EditorRightPanel({
   onToggleCollapse,
   canEdit = true,
   contentMarkdown = '',
+  onInsertAIProposal,
+  onReplaceWithAIProposal,
 }: EditorRightPanelProps) {
   if (isCollapsed) {
     return (
@@ -267,6 +271,8 @@ export default function EditorRightPanel({
               nodeTitle={nodeDetail.title}
               contentMarkdown={contentMarkdown}
               canApply={canEdit}
+              onInsertAIProposal={onInsertAIProposal}
+              onReplaceWithAIProposal={onReplaceWithAIProposal}
             />
           )
         ) : (

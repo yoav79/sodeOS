@@ -8,6 +8,8 @@ interface EditorAITabProps {
   nodeTitle: string | null;
   contentMarkdown: string;
   canApply: boolean;
+  onInsertAIProposal?: (proposal: string) => void;
+  onReplaceWithAIProposal?: (proposal: string) => void;
 }
 
 export default function EditorAITab({
@@ -16,6 +18,8 @@ export default function EditorAITab({
   nodeTitle,
   contentMarkdown,
   canApply,
+  onInsertAIProposal,
+  onReplaceWithAIProposal,
 }: EditorAITabProps) {
   const [aiAction, setAiAction] = useState<'create' | 'format' | 'grammar' | 'spelling'>('create');
   const [aiInstruction, setAiInstruction] = useState<string>('');
@@ -69,7 +73,6 @@ export default function EditorAITab({
       const data = await response.json();
 
       if (!response.ok) {
-        // Map backend errors to clean user friendly messages
         let userMessage = data.error || 'Error al procesar la propuesta.';
         if (response.status === 401) {
           userMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
@@ -107,10 +110,31 @@ export default function EditorAITab({
     setFeedbackMessage(null);
   };
 
-  const showFasePosteriorAlert = (actionName: string) => {
-    setFeedbackMessage(`Acción "${actionName}" estará disponible en una fase posterior de integración (AI-5).`);
-    setTimeout(() => setFeedbackMessage(null), 5000);
+  const handleInsertClick = () => {
+    if (!aiProposal.trim() || aiLoading) return;
+    if (onInsertAIProposal) {
+      onInsertAIProposal(aiProposal);
+      setFeedbackMessage('Aplicado al editor. Revisa y presiona Guardar para persistir.');
+      setTimeout(() => setFeedbackMessage(null), 6000);
+    } else {
+      setFeedbackMessage('Acción no disponible en este momento.');
+      setTimeout(() => setFeedbackMessage(null), 5000);
+    }
   };
+
+  const handleReplaceClick = () => {
+    if (!aiProposal.trim() || aiLoading) return;
+    if (onReplaceWithAIProposal) {
+      onReplaceWithAIProposal(aiProposal);
+      setFeedbackMessage('Aplicado al editor. Revisa y presiona Guardar para persistir.');
+      setTimeout(() => setFeedbackMessage(null), 6000);
+    } else {
+      setFeedbackMessage('Acción no disponible en este momento.');
+      setTimeout(() => setFeedbackMessage(null), 5000);
+    }
+  };
+
+  const isButtonsDisabled = !canApply || !aiProposal.trim() || aiLoading;
 
   return (
     <div className="space-y-4 text-slate-700">
@@ -196,7 +220,7 @@ export default function EditorAITab({
 
       {/* Feedback Message */}
       {feedbackMessage && (
-        <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-700 text-[10.5px]">
+        <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100 text-blue-700 text-[10.5px] leading-normal">
           {feedbackMessage}
         </div>
       )}
@@ -233,8 +257,8 @@ export default function EditorAITab({
 
               <button
                 type="button"
-                onClick={() => showFasePosteriorAlert('Insertar al final')}
-                disabled={!canApply}
+                onClick={handleInsertClick}
+                disabled={isButtonsDisabled}
                 className="flex-1 py-1.5 px-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white text-slate-700 font-semibold text-[10.5px] rounded-lg shadow-xs transition-colors"
               >
                 Insertar al final
@@ -243,8 +267,8 @@ export default function EditorAITab({
 
             <button
               type="button"
-              onClick={() => showFasePosteriorAlert('Reemplazar documento')}
-              disabled={!canApply}
+              onClick={handleReplaceClick}
+              disabled={isButtonsDisabled}
               className="w-full py-1.5 px-2 bg-violet-50 hover:bg-violet-100 disabled:opacity-40 disabled:hover:bg-violet-50 text-violet-700 border border-violet-100 font-semibold text-[10.5px] rounded-lg transition-colors"
             >
               Reemplazar documento
