@@ -210,8 +210,9 @@ export default function RichMarkdownEditor({
         nested: true,
       }),
       Markdown.configure({
-        html: true, // Enable controlled HTML support
+        html: true,          // Enable controlled HTML support
         linkify: true,
+        transformPastedText: true, // Parse pasted Markdown (tables, headings, etc.) into Tiptap nodes
       }),
     ],
     content: sanitizeHtml(value),
