@@ -45,6 +45,12 @@ export default function ManageMembersModal({
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState<string | null>(null);
 
+  // States for creating non-existent users
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'editor' | 'reader'>('reader');
+
   // Mutation States
   const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
@@ -88,6 +94,14 @@ export default function ManageMembersModal({
         return;
       }
 
+      // Check if user doesn't exist
+      if (res.status === 404) {
+        setShowCreateForm(true);
+        setNewUserRole(roleInput === 'owner' ? 'reader' : roleInput as 'editor' | 'reader');
+        setAddError('El usuario no está registrado en el sistema. Completa los datos a continuación para crearlo.');
+        return;
+      }
+
       const data = await res.json();
 
       if (!res.ok) {
@@ -97,6 +111,95 @@ export default function ManageMembersModal({
       setAddSuccess(`Usuario ${email} agregado exitosamente como ${getRoleLabel(roleInput)}.`);
       setEmailInput('');
       setRoleInput('reader');
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error de conexión con el servidor.';
+      setAddError(msg);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleCreateAndAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isAdding) return;
+
+    setAddError(null);
+    setAddSuccess(null);
+
+    const email = emailInput.trim().toLowerCase();
+    const name = newUserName.trim();
+    const password = newUserPassword;
+    const role = newUserRole;
+
+    if (!email) {
+      setAddError('El correo electrónico es requerido.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setAddError('Por favor introduce un correo electrónico válido.');
+      return;
+    }
+
+    if (!name) {
+      setAddError('El nombre completo es requerido.');
+      return;
+    }
+    if (name.length < 2 || name.length > 80) {
+      setAddError('El nombre debe tener entre 2 y 80 caracteres.');
+      return;
+    }
+
+    if (!password) {
+      setAddError('La contraseña temporal es requerida.');
+      return;
+    }
+    if (password.length < 12) {
+      setAddError('La contraseña debe tener al menos 12 caracteres.');
+      return;
+    }
+
+    const allowedRoles = ['editor', 'reader'];
+    if (!role || !allowedRoles.includes(role)) {
+      setAddError('El rol especificado es inválido. Solo se permite "editor" o "reader".');
+      return;
+    }
+
+    try {
+      setIsAdding(true);
+      const res = await fetch(`/api/brains/${brainId}/members/create-and-add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, name, password, role }),
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 403) {
+          throw new Error('No autorizado: solo los propietarios pueden crear usuarios.');
+        }
+        if (res.status === 409) {
+          throw new Error(data.error || 'El usuario ya existe o ya es miembro.');
+        }
+        throw new Error(data.error || 'Error al crear y agregar miembro.');
+      }
+
+      setAddSuccess(`Usuario ${email} creado y agregado exitosamente como ${getRoleLabel(role)}.`);
+      setEmailInput('');
+      setNewUserName('');
+      setNewUserPassword('');
+      setShowCreateForm(false);
       if (onRefresh) {
         onRefresh();
       }
@@ -271,8 +374,10 @@ export default function ManageMembersModal({
           )}
 
           {isOwner && (
-            <form onSubmit={handleAddMember} className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col gap-3">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Invitar Miembro</h4>
+            <form onSubmit={showCreateForm ? handleCreateAndAddMember : handleAddMember} className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col gap-3">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                {showCreateForm ? 'Crear y Agregar Nuevo Miembro' : 'Invitar Miembro'}
+              </h4>
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1 flex flex-col gap-1">
                   <input
@@ -283,38 +388,125 @@ export default function ManageMembersModal({
                       setEmailInput(e.target.value);
                       if (addError) setAddError(null);
                       if (addSuccess) setAddSuccess(null);
+                      if (showCreateForm) {
+                        setShowCreateForm(false);
+                        setNewUserName('');
+                        setNewUserPassword('');
+                      }
                     }}
                     disabled={isAdding}
                     className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors placeholder-slate-400 font-medium"
                   />
                 </div>
-                <div className="shrink-0 flex gap-2">
-                  <select
-                    value={roleInput}
-                    onChange={(e) => setRoleInput(e.target.value as 'owner' | 'editor' | 'reader')}
-                    disabled={isAdding}
-                    className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors"
-                  >
-                    <option value="reader">Lector</option>
-                    <option value="editor">Editor</option>
-                    <option value="owner">Propietario</option>
-                  </select>
-                  <button
-                    type="submit"
-                    disabled={isAdding}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shrink-0 shadow-sm shadow-blue-500/10"
-                  >
-                    {isAdding ? (
-                      <>
-                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Agregando...</span>
-                      </>
-                    ) : (
-                      <span>Agregar</span>
-                    )}
-                  </button>
-                </div>
+                {!showCreateForm && (
+                  <div className="shrink-0 flex gap-2">
+                    <select
+                      value={roleInput}
+                      onChange={(e) => setRoleInput(e.target.value as 'owner' | 'editor' | 'reader')}
+                      disabled={isAdding}
+                      className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors"
+                    >
+                      <option value="reader">Lector</option>
+                      <option value="editor">Editor</option>
+                      <option value="owner">Propietario</option>
+                    </select>
+                    <button
+                      type="submit"
+                      disabled={isAdding}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shrink-0 shadow-sm shadow-blue-500/10"
+                    >
+                      {isAdding ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Agregando...</span>
+                        </>
+                      ) : (
+                        <span>Agregar</span>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* Subformulario Inline para crear usuario nuevo */}
+              {showCreateForm && (
+                <div className="border-t border-slate-200 pt-3 flex flex-col gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre Completo</label>
+                      <input
+                        type="text"
+                        placeholder="Nombre de usuario"
+                        value={newUserName}
+                        onChange={(e) => {
+                          setNewUserName(e.target.value);
+                          if (addError) setAddError(null);
+                        }}
+                        disabled={isAdding}
+                        className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors placeholder-slate-400 font-medium"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contraseña Temporal</label>
+                      <input
+                        type="password"
+                        placeholder="Mínimo 12 caracteres"
+                        value={newUserPassword}
+                        onChange={(e) => {
+                          setNewUserPassword(e.target.value);
+                          if (addError) setAddError(null);
+                        }}
+                        disabled={isAdding}
+                        className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors placeholder-slate-400 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rol:</label>
+                      <select
+                        value={newUserRole}
+                        onChange={(e) => setNewUserRole(e.target.value as 'editor' | 'reader')}
+                        disabled={isAdding}
+                        className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors"
+                      >
+                        <option value="reader">Lector</option>
+                        <option value="editor">Editor</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCreateForm(false);
+                          setNewUserName('');
+                          setNewUserPassword('');
+                          setAddError(null);
+                        }}
+                        disabled={isAdding}
+                        className="border border-slate-200 hover:bg-slate-100 disabled:opacity-60 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isAdding}
+                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shadow-sm shadow-blue-500/10"
+                      >
+                        {isAdding ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Creando...</span>
+                          </>
+                        ) : (
+                          <span>Crear usuario y añadir</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {addError && (
                 <p className="text-[11px] text-red-600 font-semibold mt-1 flex items-center gap-1 animate-fade-in">
                   ⚠️ {addError}
