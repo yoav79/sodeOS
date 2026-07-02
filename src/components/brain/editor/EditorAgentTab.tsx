@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import ConfirmModal from './modals/ConfirmModal';
 
 // Local client-safe type definitions to avoid bundling issues with 'server-only' backend types
 export type AgentOutputMode = 'answer' | 'proposal' | 'summary' | 'rewrite' | 'structure';
@@ -97,6 +98,8 @@ interface EditorAgentTabProps {
   selectedNodeTitle: string | null;
   contentMarkdown: string;
   canEdit: boolean;
+  onInsertAIProposal?: (proposal: string) => void;
+  onReplaceWithAIProposal?: (proposal: string) => void;
 }
 
 export default function EditorAgentTab({
@@ -105,9 +108,13 @@ export default function EditorAgentTab({
   selectedNodeTitle,
   contentMarkdown,
   canEdit,
+  onInsertAIProposal,
+  onReplaceWithAIProposal,
 }: EditorAgentTabProps) {
   const [agentQuery, setAgentQuery] = useState<string>('');
   const [agentOutputMode, setAgentOutputMode] = useState<AgentOutputMode>('answer');
+  const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = useState<boolean>(false);
+  const [agentApplyMessage, setAgentApplyMessage] = useState<string | null>(null);
 
   // Outputs
   const [agentPlan, setAgentPlan] = useState<AgentPlan | null>(null);
@@ -120,6 +127,10 @@ export default function EditorAgentTab({
   const [agentWarnings, setAgentWarnings] = useState<string[]>([]);
   const [agentShowPlan, setAgentShowPlan] = useState<boolean>(false);
   const [agentCopied, setAgentCopied] = useState<boolean>(false);
+
+  // Calculations
+  const finalMarkdown = agentFinalResult?.finalMarkdown?.trim() ?? '';
+  const canApplyAgentProposal = canEdit && agentFinalResult?.canApplyToDraft !== false && finalMarkdown.length > 0;
 
   // Error Message mapper
   const getErrorMessage = (status: number, defaultMsg: string): string => {
@@ -261,6 +272,30 @@ export default function EditorAgentTab({
     setAgentError(null);
     setAgentWarnings([]);
     setAgentShowPlan(false);
+    setAgentApplyMessage(null);
+  };
+
+  const handleInsertAgentProposal = () => {
+    if (!finalMarkdown || !canApplyAgentProposal) return;
+    if (onInsertAIProposal) {
+      onInsertAIProposal(finalMarkdown);
+      setAgentApplyMessage('Propuesta del agente insertada en el borrador.');
+      setTimeout(() => setAgentApplyMessage(null), 6000);
+    }
+  };
+
+  const handleReplaceAgentProposal = () => {
+    if (!finalMarkdown || !canApplyAgentProposal) return;
+    setIsReplaceConfirmOpen(true);
+  };
+
+  const handleConfirmReplace = () => {
+    if (onReplaceWithAIProposal) {
+      onReplaceWithAIProposal(finalMarkdown);
+      setAgentApplyMessage('Borrador reemplazado con la propuesta del agente.');
+      setTimeout(() => setAgentApplyMessage(null), 6000);
+    }
+    setIsReplaceConfirmOpen(false);
   };
 
   return (
@@ -465,19 +500,51 @@ export default function EditorAgentTab({
           </div>
 
           <div className="flex flex-col gap-1.5">
+            {agentApplyMessage && (
+              <div className="p-2 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-700 text-[10.5px] text-center font-medium">
+                {agentApplyMessage}
+              </div>
+            )}
+
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="flex-1 py-1.5 px-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-[10.5px] rounded-lg shadow-xs transition-colors"
+              >
+                {agentCopied ? '¡Copiado!' : 'Copiar'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleInsertAgentProposal}
+                disabled={!canApplyAgentProposal || !onInsertAIProposal}
+                className="flex-1 py-1.5 px-2 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white text-slate-700 font-semibold text-[10.5px] rounded-lg shadow-xs transition-colors"
+              >
+                Insertar al final
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={handleCopy}
-              className="w-full py-1.5 px-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-[10.5px] rounded-lg shadow-xs transition-colors"
+              onClick={handleReplaceAgentProposal}
+              disabled={!canApplyAgentProposal || !onReplaceWithAIProposal}
+              className="w-full py-1.5 px-2 bg-violet-50 hover:bg-violet-100 disabled:opacity-40 disabled:hover:bg-violet-50 text-violet-700 border border-violet-100 font-semibold text-[10.5px] rounded-lg transition-colors"
             >
-              {agentCopied ? '¡Copiado!' : 'Copiar propuesta'}
+              Reemplazar documento
             </button>
 
-            <div className="p-2 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 text-center">
-              <span className="text-[10px] text-slate-400 font-medium">
-                ⚡ Aplicar propuesta al documento se habilitará en la siguiente fase.
-              </span>
-            </div>
+            {agentFinalResult?.canApplyToDraft === false && (
+              <p className="text-[9.5px] text-center text-amber-600 leading-normal bg-amber-50 p-1.5 border border-amber-100 rounded-md">
+                ⚠️ La respuesta no está disponible para aplicar al borrador.
+              </p>
+            )}
+
+            {canApplyAgentProposal && (!onInsertAIProposal || !onReplaceWithAIProposal) && (
+              <p className="text-[9.5px] text-center text-slate-400 leading-normal">
+                La acción de aplicación no está disponible en este contexto.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -490,6 +557,16 @@ export default function EditorAgentTab({
           </span>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={isReplaceConfirmOpen}
+        title="Reemplazar borrador"
+        message="¿Estás seguro de que deseas reemplazar todo el borrador actual con la propuesta del agente? Este cambio no se guardará automáticamente en el servidor; debes presionar Guardar en el editor para persistir los cambios."
+        confirmLabel="Reemplazar"
+        cancelLabel="Cancelar"
+        onConfirm={handleConfirmReplace}
+        onClose={() => setIsReplaceConfirmOpen(false)}
+      />
     </div>
   );
 }

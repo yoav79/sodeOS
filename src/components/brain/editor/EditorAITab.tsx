@@ -334,6 +334,8 @@ export default function EditorAITab({
           selectedNodeTitle={nodeTitle}
           contentMarkdown={contentMarkdown}
           canEdit={canApply}
+          onInsertAIProposal={onInsertAIProposal}
+          onReplaceWithAIProposal={onReplaceWithAIProposal}
         />
       )}
     </div>
