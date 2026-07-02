@@ -36,12 +36,12 @@ if [ ! -f ".env.local" ]; then
     exit 1
 fi
 
-# 4. Git fetch y pull de la rama configurada
+# 4. Git fetch y alineación con la rama configurada
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 echo -e "${YELLOW}Actualizando código desde la rama: ${DEPLOY_BRANCH}...${NC}"
 git fetch origin
 git checkout "$DEPLOY_BRANCH"
-git pull origin "$DEPLOY_BRANCH"
+git reset --hard "origin/$DEPLOY_BRANCH"
 echo -e "${GREEN}Código actualizado correctamente.${NC}"
 
 # 5. Instalar dependencias limpias (incluye devDependencies para el build)

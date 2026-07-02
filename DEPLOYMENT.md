@@ -194,3 +194,82 @@ mkdir -p ~/backups/db
 # Comando de respaldo manual
 pg_dump -U sodeos_user -h 127.0.0.1 sodeos_prod > ~/backups/db/sodeos_backup_$(date +%F).sql
 ```
+
+---
+
+## 7. Despliegue Remoto desde Computadora Local
+
+El script `deploy.remote.sh` permite automatizar el ciclo de actualización enviando los cambios locales al repositorio Git remoto y ejecutando el despliegue en el servidor de aplicación vía SSH de manera controlada.
+
+### Configuración del Entorno Local
+
+1. Cree el archivo de configuración `.env.deploy.local` en la raíz de su máquina local de desarrollo:
+   ```bash
+   APP_SSH_HOST=your-app-server-ip-or-domain
+   APP_SSH_USER=ubuntu
+   APP_REMOTE_PATH=/var/www/sodeos
+   DEPLOY_BRANCH=main
+   APP_SSH_PORT=22
+   # APP_SSH_KEY_PATH=/path/to/private/ssh/key  # Opcional si usa ssh-agent
+   ```
+   *Nota: Este archivo está ignorado en `.gitignore` por defecto para evitar subir credenciales.*
+
+2. Otorgue permisos de ejecución al script local:
+   ```bash
+   chmod +x deploy.remote.sh
+   ```
+
+3. Ejecute el despliegue:
+   ```bash
+   ./deploy.remote.sh
+   ```
+
+### Pasos ejecutados por el script local:
+- Carga las variables de `.env.deploy.local`.
+- Valida que Git esté instalado y que se encuentre en la raíz del repositorio.
+- Verifica que el estado de trabajo local esté limpio de cambios sin commit.
+- Valida que la rama local coincida con la rama configurada (`DEPLOY_BRANCH`).
+- Empuja automáticamente los cambios locales al repositorio Git de origen (`git push origin`).
+- Se conecta vía SSH al servidor de aplicación y ejecuta el script local del servidor `./deploy.sh` cargando la rama como variable de entorno.
+
+---
+
+## 8. Arquitectura con Servidor PostgreSQL Separado
+
+Cuando el servidor de aplicación y el servidor de base de datos PostgreSQL corren de forma distribuida en infraestructura separada:
+
+### Configuración en el Servidor de Base de Datos
+
+1. **Configuración de Escucha (`postgresql.conf`)**:
+   Habilite el servicio para escuchar en su dirección IP de red privada (o en todas usando `*` si la red interna es de confianza):
+   ```text
+   listen_addresses = '*'
+   ```
+
+2. **Control de Acceso (`pg_hba.conf`)**:
+   Restrinja el acceso de base de datos a nivel de aplicación agregando una regla específica en el archivo `/etc/postgresql/.../main/pg_hba.conf`. Permita únicamente la IP del servidor de aplicación:
+   ```text
+   # TYPE  DATABASE        USER            ADDRESS                 METHOD
+   host    sodeos_prod     sodeos_user     APP_SERVER_PRIVATE_IP/32  scram-sha-256
+   ```
+
+3. **Firewall del Sistema (UFW / Security Groups)**:
+   Bloquee el puerto `5432` a nivel público. Solo habilite el tráfico de entrada desde la IP del servidor de aplicación:
+   ```bash
+   sudo ufw allow from APP_SERVER_PRIVATE_IP to any port 5432 proto tcp
+   ```
+
+### Configuración en el Servidor de Aplicación
+
+1. **Conexión de Base de Datos (`.env.local`)**:
+   Actualice la cadena de conexión de Prisma para que apunte a la IP o Host privado del servidor PostgreSQL remoto en lugar de `127.0.0.1`:
+   ```bash
+   DATABASE_URL="postgresql://DB_USER:DB_PASSWORD@DB_PRIVATE_HOST:5432/DB_NAME?schema=public"
+   ```
+
+2. **Seguridad y Cifrado (SSL)**:
+   Si la comunicación entre servidores pasa por redes públicas o no seguras, habilite SSL añadiendo el parámetro a la cadena de conexión (ej: `&sslmode=require` o `&sslcert=...`).
+
+3. **Copias de Seguridad (Backups)**:
+   Las copias de seguridad de la base de datos deben configurarse y programarse a nivel del servidor PostgreSQL (mediante un cron job con `pg_dump`) o dirigirse directamente a un almacenamiento en la nube externo e independiente.
+
