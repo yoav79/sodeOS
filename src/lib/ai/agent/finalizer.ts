@@ -226,7 +226,8 @@ function sanitizeData(toolName: string, data: any): any {
 export function buildAgentFinalizerContext(
   runResult: AgentRunResult,
   contentMarkdown?: string,
-  userQuery?: string
+  userQuery?: string,
+  enableWebSearch?: boolean
 ) {
   let contextString = '';
   const sources: AgentFinalizeSource[] = [];
@@ -263,7 +264,11 @@ export function buildAgentFinalizerContext(
   const queryMentionsWeb = /\b(web|buscar\s+en\s+la\s+web|internet|google|buscar\s+online)\b/i.test(queryText);
   const webSearchExecuted = runResult.observations.some(obs => obs.toolName === 'webSearch' && obs.ok);
   if ((planRequestedWeb || queryMentionsWeb) && !webSearchExecuted) {
-    warnings.push('No se realizó búsqueda web en esta fase; la respuesta usa solo información interna.');
+    if (enableWebSearch === false) {
+      warnings.push('La búsqueda web requiere autorización explícita.');
+    } else {
+      warnings.push('No se realizó búsqueda web en esta fase; la respuesta usa solo información interna.');
+    }
   }
 
   // 3.5 Deduce detailed status of webSearch and getAttachmentContext for LLM awareness
@@ -275,33 +280,42 @@ export function buildAgentFinalizerContext(
       const searchData = webSearchObs.data as any;
       const resultsCount = searchData && Array.isArray(searchData.results) ? searchData.results.length : 0;
       if (resultsCount > 0) {
-        webSearchStatus = 'Ejecutado con resultados.';
+        webSearchStatus = 'WebSearch ejecutado con resultados.';
       } else {
-        webSearchStatus = 'Ejecutado sin resultados (no se encontraron páginas web públicas relevantes).';
+        webSearchStatus = 'WebSearch ejecutado sin resultados.';
       }
     } else {
       const errMsg = webSearchObs.errorMessage || '';
       if (
         errMsg.toLowerCase().includes('consent') ||
-        errMsg.toLowerCase().includes('consentimiento')
+        errMsg.toLowerCase().includes('consentimiento') ||
+        enableWebSearch === false
       ) {
-        webSearchStatus = 'WebSearch no autorizado por el usuario (falta de consentimiento).';
+        webSearchStatus = 'La búsqueda web requiere autorización explícita.';
       } else if (
         errMsg.toLowerCase().includes('lector') ||
         errMsg.toLowerCase().includes('reader') ||
         errMsg.toLowerCase().includes('permiso') ||
         webSearchObs.errorCode === 'FORBIDDEN'
       ) {
-        webSearchStatus = 'WebSearch planificado pero bloqueado por permisos (el rol de Lector no autoriza búsquedas externas).';
+        webSearchStatus = 'La búsqueda web requiere permisos de edición.';
       } else {
-        webSearchStatus = `Fallido durante la ejecución: ${errMsg}`;
+        webSearchStatus = `La búsqueda web está disponible pero falló durante la ejecución: ${errMsg}`;
       }
     }
   } else {
     if (planRequestedWeb) {
-      webSearchStatus = 'Planificado pero no ejecutado o saltado durante la ejecución.';
+      if (enableWebSearch === false) {
+        webSearchStatus = 'La búsqueda web requiere autorización explícita.';
+      } else {
+        webSearchStatus = 'No se ejecutó una búsqueda web en este plan.';
+      }
     } else {
-      webSearchStatus = 'No planificado porque la consulta no requería información externa de internet.';
+      if (enableWebSearch === false) {
+        webSearchStatus = 'La búsqueda web requiere autorización explícita.';
+      } else {
+        webSearchStatus = 'La búsqueda web está disponible, pero este plan no la utilizó.';
+      }
     }
   }
 
@@ -314,18 +328,18 @@ export function buildAgentFinalizerContext(
       const attData = attachmentsObs.data as any;
       const resultsCount = attData && Array.isArray(attData.results) ? attData.results.length : 0;
       if (resultsCount > 0) {
-        getAttachmentContextStatus = 'Ejecutado con resultados.';
+        getAttachmentContextStatus = 'getAttachmentContext ejecutado con resultados.';
       } else {
-        getAttachmentContextStatus = 'Ejecutado sin chunks (no se encontraron fragmentos de texto relevantes o no hay archivos de texto (.txt o .md) cargados en este nodo).';
+        getAttachmentContextStatus = 'Solo puedo consultar archivos TXT/MD ya procesados del nodo actual. No se encontraron archivos de texto procesados en este nodo.';
       }
     } else {
-      getAttachmentContextStatus = `Fallido durante la ejecución: ${attachmentsObs.errorMessage || 'Error desconocido'}`;
+      getAttachmentContextStatus = `getAttachmentContext fallido durante la ejecución: ${attachmentsObs.errorMessage || 'Error desconocido'}`;
     }
   } else {
     if (planRequestedAttachments) {
-      getAttachmentContextStatus = 'Planificado pero no ejecutado.';
+      getAttachmentContextStatus = 'getAttachmentContext planificado pero no ejecutado.';
     } else {
-      getAttachmentContextStatus = 'No planificado.';
+      getAttachmentContextStatus = 'getAttachmentContext no planificado.';
     }
   }
 
@@ -339,7 +353,7 @@ export function buildAgentFinalizerContext(
 
   let toolStatusesString = `* Búsqueda Web (webSearch): ${webSearchStatus}\n* Consulta de Adjuntos (getAttachmentContext): ${getAttachmentContextStatus}`;
   if (userAskedForPdfDocx) {
-    toolStatusesString += `\n* Nota de formato: El usuario mencionó formatos como PDF o DOCX en su consulta. Recuerda que en esta fase v1 del Cerebro la extracción de texto está limitada únicamente a archivos planos (.txt y .md); los archivos PDF/DOCX no tienen extracción implementada y no aportarán fragmentos utilizables.`;
+    toolStatusesString += `\n* Nota de formato: PDF/DOCX todavía no tienen extracción de texto implementada.`;
   }
 
   // 4. Serialize and truncate observations
@@ -471,10 +485,10 @@ Reglas fundamentales de comportamiento:
 11. Si en la sección "Estado de las Herramientas y Autorizaciones" se detalla que alguna herramienta no fue ejecutada o que no hay datos disponibles (como archivos PDF/DOCX no soportados, búsqueda web no autorizada, o falta de chunks), explícaselo al usuario de forma precisa y profesional cuando sea relevante para su consulta.
     NUNCA utilices frases genéricas incorrectas como "no tengo acceso a internet en esta fase" cuando la herramienta sí existe pero fue bloqueada, no planificada o saltada. En su lugar, explica con precisión la situación real de acuerdo con las siguientes directrices:
     - Si la búsqueda web no fue autorizada por el usuario: "La búsqueda web requiere autorización explícita."
-    - Si la búsqueda web fue autorizada pero no se planificó: "La búsqueda web está disponible, pero este plan no la utilizó por no considerarse necesaria."
+    - Si la búsqueda web fue autorizada pero no se planificó o no se ejecutó: "No se ejecutó una búsqueda web en este plan." o "La búsqueda web está disponible, pero este plan no la utilizó."
     - Si la búsqueda web fue bloqueada por permisos: "La búsqueda web requiere permisos de edición."
-    - Si getAttachmentContext se ejecutó sin chunks: "Solo puedo consultar archivos TXT/MD ya procesados del nodo actual. No se encontraron archivos de texto procesados en este nodo."
-    - Si se pregunta por PDF/DOCX: "Los archivos PDF y DOCX todavía no tienen extracción de texto implementada en esta fase."`;
+    - Si getAttachmentContext se ejecutó sin chunks: "Solo puedo consultar archivos TXT/MD ya procesados del nodo actual."
+    - Si se pregunta por PDF/DOCX: "PDF/DOCX todavía no tienen extracción de texto implementada."`;
 }
 
 /**
@@ -533,6 +547,7 @@ export async function generateAgentFinalResponse(args: {
   userQuery: string;
   outputMode?: AgentOutputMode;
   contentMarkdown?: string;
+  enableWebSearch?: boolean;
 }): Promise<AgentFinalizeResult> {
   const outputMode = args.outputMode || 'answer';
   const provider = process.env.AI_PROVIDER || 'openai';
@@ -551,7 +566,7 @@ export async function generateAgentFinalResponse(args: {
 
   // 1. Build prompts and context
   const { contextString, sources, warnings, contextChars, observationsUsedCount, toolStatusesString } =
-    buildAgentFinalizerContext(args.runResult, args.contentMarkdown, args.userQuery);
+    buildAgentFinalizerContext(args.runResult, args.contentMarkdown, args.userQuery, args.enableWebSearch);
 
   const systemPrompt = getAgentFinalizerSystemPrompt(outputMode);
   const userPrompt = buildAgentFinalizerUserPrompt({

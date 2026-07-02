@@ -188,6 +188,7 @@ export default function EditorAgentTab({
         runResult: run,
         outputMode: agentOutputMode,
         contentMarkdown,
+        enableWebSearch: agentEnableWebSearch,
       }),
     });
     const data = await res.json();

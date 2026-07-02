@@ -6,7 +6,6 @@ import {
   AgentIntent,
   AgentToolName,
   AGENT_INTENTS,
-  AGENT_TOOL_NAMES,
   MAX_AGENT_PLAN_STEPS,
   isValidAgentIntent,
   isValidAgentToolName,
@@ -49,24 +48,27 @@ INTENCIONES PERMITIDAS (intent):
 ${AGENT_INTENTS.map(i => `  - "${i}"`).join('\n')}
 
 HERRAMIENTAS PERMITIDAS (estimatedTool por paso) Y SUS DESCRIPCIONES:
-  - "getCurrentDocument": Permite leer el contenido Markdown del documento/nodo actual en edición. Usar para obtener el contexto inmediato.
-  - "getBrainTree": Permite obtener la estructura completa o mapa jerárquico de nodos de la base de conocimiento actual.
-  - "searchBrain": Permite buscar nodos de la base de conocimiento por coincidencia de texto en título o descripción. Nota: no busca en los archivos adjuntos.
-  - "getNodeById": Permite leer el contenido detallado de un nodo específico de la base de conocimiento usando su ID.
-  - "getRecentNodeVersions": Permite listar el historial de versiones guardadas y metadatos de cambios del nodo actual.
-  - "webSearch": Busca información pública externa en internet usando un motor de búsqueda. Usar SOLO si la petición requiere datos externos, actuales o verificables fuera del Cerebro. Requiere consentimiento explícito. NUNCA envíes fragmentos del documento ni contenido interno confidencial en la consulta de búsqueda.
-  - "getAttachmentContext": Busca y recupera fragmentos de texto (chunks) indexados de archivos adjuntos (.txt y .md) del nodo actual. Usar obligatoriamente si el usuario pregunta por archivos adjuntos, documentos cargados o contenido de los attachments asociados.
+  - "getCurrentDocument": leer el documento/nodo actual.
+  - "getBrainTree": obtener estructura del cerebro.
+  - "searchBrain": buscar nodos/contenido interno del cerebro, no archivos adjuntos.
+  - "getNodeById": leer un nodo específico por ID.
+  - "getRecentNodeVersions": consultar versiones recientes del nodo.
+  - "webSearch": buscar información pública externa en internet; usar solo si el usuario pide datos actuales, externos o verificables fuera del cerebro; requiere consentimiento y no debe recibir contenido interno.
+  - "getAttachmentContext": leer excerpts seguros de archivos TXT/MD ya procesados del nodo actual; usar cuando el usuario pregunta por archivos adjuntos, documentos cargados o contenido de attachments.
 
 REGLAS DEL PLAN:
 - Máximo ${MAX_AGENT_PLAN_STEPS} pasos en "steps".
-- Si la consulta del usuario requiere búsqueda web externa, marca "requiresWebSearch": true. Si no es necesaria, marca "requiresWebSearch": false.
-- Si el plan requiere búsqueda web o implica aplicar propuestas de cambios al borrador del documento, marca "requiresUserConfirmation": true.
 - Cada paso DEBE tener un campo "estimatedTool" del listado permitido arriba.
 - Si ninguna herramienta encaja perfectamente, elige la más cercana.
 - "estimatedTools" en la raíz es la lista deduplicada de tools usadas en steps.
-- Si el usuario pregunta por archivos adjuntos, documentos subidos o contenido de adjuntos del nodo actual, planifica "getAttachmentContext".
-- Si el usuario pregunta por archivos de formato complejo como PDF o DOCX, planifica "getAttachmentContext" pero ten en cuenta que la extracción de texto en esta fase v1 solo soporta archivos planos (.txt y .md). Los PDF y DOCX no tienen extracción implementada y no tendrán fragmentos (chunks) utilizables.
-- No uses "webSearch" de forma decorativa. Solo planifícala si la petición requiere datos externos concretos que no están en el Cerebro.
+- Activar "enableWebSearch" no significa que siempre deba usar "webSearch". La herramienta "webSearch" solo debe planificarse si la consulta del usuario lo justifica.
+- Si el usuario pide explícitamente buscar en internet (datos actuales, externos o verificables fuera del cerebro) y "enableWebSearch" está permitido, debe planificar "webSearch".
+- Si el usuario pregunta por archivos adjuntos del nodo actual (documentos cargados o contenido de attachments), debe planificar "getAttachmentContext".
+- Si el usuario pregunta por formatos de archivo como PDF o DOCX, debe planificar "getAttachmentContext" pero reconocer que solo habrá datos si ya existen chunks; los archivos PDF/DOCX todavía no tienen extracción de texto soportada en esta fase.
+- No debes inventar capacidades o herramientas no implementadas en el sistema.
+- No debes usar "webSearch" para enviar contenido interno del cerebro (extractos de documentos, datos privados) a internet.
+- Si la consulta del usuario requiere búsqueda web externa, marca "requiresWebSearch": true. Si no es necesaria, marca "requiresWebSearch": false.
+- Si el plan requiere búsqueda web o implica aplicar propuestas de cambios al borrador del documento, marca "requiresUserConfirmation": true.
 
 FORMATO DE RESPUESTA:
 Responde ÚNICAMENTE con un JSON válido que siga este esquema exacto, sin texto adicional antes ni después:

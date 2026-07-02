@@ -21,6 +21,7 @@ interface RawFinalizeRequestBody {
   };
   outputMode?: unknown;
   contentMarkdown?: unknown;
+  enableWebSearch?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Payload JSON inválido.' }, { status: 400 });
     }
 
-    const { brainId, nodeId, userQuery, runResult, outputMode, contentMarkdown } = body;
+    const { brainId, nodeId, userQuery, runResult, outputMode, contentMarkdown, enableWebSearch } = body;
 
     // 3. Validate required fields
     if (!brainId || typeof brainId !== 'string' || brainId.trim() === '') {
@@ -91,6 +92,10 @@ export async function POST(request: Request) {
       }
     }
 
+    if (enableWebSearch !== undefined && typeof enableWebSearch !== 'boolean') {
+      return NextResponse.json({ error: 'El campo "enableWebSearch" debe ser un booleano.' }, { status: 400 });
+    }
+
     // 5. Verify node existence and association to the brain
     const node = await db.node.findFirst({
       where: {
@@ -124,6 +129,7 @@ export async function POST(request: Request) {
       userQuery,
       outputMode: outputMode as AgentOutputMode,
       contentMarkdown: contentMarkdown as string,
+      enableWebSearch: enableWebSearch !== undefined ? Boolean(enableWebSearch) : undefined,
     });
 
     return NextResponse.json(result, { status: 200 });
