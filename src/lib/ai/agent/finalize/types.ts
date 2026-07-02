@@ -14,13 +14,16 @@ export type AgentFinalizeSourceType =
   | 'brain_tree'
   | 'brain_search'
   | 'node'
-  | 'node_version';
+  | 'node_version'
+  | 'web_search';
 
 export interface AgentFinalizeSource {
   toolName: AgentToolName;
   type: AgentFinalizeSourceType;
   label: string;
   truncated?: boolean;
+  url?: string;
+  snippet?: string;
 }
 
 export interface AgentFinalizeResult {

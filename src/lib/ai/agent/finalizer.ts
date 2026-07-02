@@ -59,6 +59,15 @@ export function mapObservationToSource(observation: AgentObservation): AgentFina
         truncated: observation.meta?.truncated,
       };
     }
+    case 'webSearch': {
+      const searchData = observation.data as { query?: string } | null;
+      return {
+        toolName: observation.toolName,
+        type: 'web_search',
+        label: `Búsqueda Web: ${searchData?.query || 'Internet'}`,
+        truncated: observation.meta?.truncated,
+      };
+    }
     default:
       return null;
   }
@@ -156,6 +165,26 @@ function sanitizeData(toolName: string, data: any): any {
     return res;
   }
 
+  if (toolName === 'webSearch') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = {};
+    if (data && typeof data.query === 'string') res.query = data.query;
+    if (data && typeof data.provider === 'string') res.provider = data.provider;
+    if (data && Array.isArray(data.results)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      res.results = data.results.map((item: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const itemRes: any = {};
+        if (typeof item.title === 'string') itemRes.title = item.title;
+        if (typeof item.url === 'string') itemRes.url = item.url;
+        if (typeof item.snippet === 'string') itemRes.snippet = item.snippet;
+        if (typeof item.publishedAt === 'string') itemRes.publishedAt = item.publishedAt;
+        return itemRes;
+      });
+    }
+    return res;
+  }
+
   return data;
 }
 
@@ -200,7 +229,8 @@ export function buildAgentFinalizerContext(
   const queryText = userQuery || '';
   const planRequestedWeb = runResult.steps.some((s) => s.estimatedTool === 'webSearch');
   const queryMentionsWeb = /\b(web|buscar\s+en\s+la\s+web|internet|google|buscar\s+online)\b/i.test(queryText);
-  if (planRequestedWeb || queryMentionsWeb) {
+  const webSearchExecuted = runResult.observations.some(obs => obs.toolName === 'webSearch' && obs.ok);
+  if ((planRequestedWeb || queryMentionsWeb) && !webSearchExecuted) {
     warnings.push('No se realizó búsqueda web en esta fase; la respuesta usa solo información interna.');
   }
 
@@ -232,7 +262,28 @@ export function buildAgentFinalizerContext(
     }
 
     source.truncated = source.truncated || isTruncated;
-    sources.push(source);
+    
+    // For webSearch observations, register each result as a separate cited source
+    if (obs.toolName === 'webSearch') {
+      const searchData = cleanData as { results?: Array<{ title?: string; url?: string; snippet?: string }> } | null;
+      if (searchData && Array.isArray(searchData.results) && searchData.results.length > 0) {
+        for (const item of searchData.results) {
+          sources.push({
+            toolName: obs.toolName,
+            type: 'web_search',
+            label: item.title || 'Resultado Web',
+            url: item.url || '',
+            snippet: item.snippet || '',
+            truncated: source.truncated,
+          });
+        }
+      } else {
+        sources.push(source);
+      }
+    } else {
+      sources.push(source);
+    }
+    
     observationsUsedCount++;
 
     const section = `\n### Paso ${obs.stepNumber}: ${obs.toolName} (${source.label})\n\`\`\`json\n${serializedData}\n\`\`\`\n`;
@@ -295,12 +346,12 @@ export function getAgentFinalizerSystemPrompt(outputMode: AgentOutputMode): stri
       break;
   }
 
-  return `Eres un asistente de redacción y conocimiento empresarial experto. Tu objetivo es generar una respuesta estructurada en Markdown basándote exclusivamente en la información interna provista.
+  return `Eres un asistente de redacción y conocimiento empresarial experto. Tu objetivo es generar una respuesta estructurada en Markdown basándote en la información interna provista y opcionalmente en los resultados de búsqueda web externa de 'webSearch'.
 
 Reglas fundamentales de comportamiento:
-1. Usa ÚNICAMENTE la información contenida en las observaciones provistas. No inventes hechos, datos de contacto ni detalles empresariales no especificados.
+1. Usa ÚNICAMENTE la información contenida en las observaciones provistas (tanto internas de la base de conocimiento como externas de búsqueda web). No inventes hechos, datos de contacto ni detalles empresariales no especificados.
 2. Si la información provista es insuficiente para responder a la petición, indícalo claramente detallando qué datos faltan.
-3. NO afirmes haber realizado búsquedas web o consultas en tiempo real en internet a menos que se te proporcionen explícitamente observaciones del tipo 'webSearch' (en esta fase no se realizan búsquedas externas).
+3. NO afirmes haber realizado búsquedas web o consultas en tiempo real en internet a menos que se te proporcionen explícitamente observaciones de la herramienta 'webSearch'. Distingue claramente la información interna factual de la obtenida vía webSearch.
 4. NO incluyas en la respuesta IDs técnicos del sistema (como UUIDs, nodeId, brainId o userId). Úsalos solo de forma interna si es necesario, pero nunca los expongas en el texto final.
 5. NO menciones correos electrónicos personales ni datos de auditoría interna a menos que estén explícitamente en el texto que se te pide formatear.
 6. NO propongas ejecutar acciones en la base de datos ni simules guardar o modificar archivos. Eres un generador de propuestas de texto.
@@ -347,11 +398,11 @@ export function buildAgentFinalizerUserPrompt(args: {
 - Pasos ejecutados exitosamente: ${args.runResult.summary.executedSteps}
 - Herramientas utilizadas: ${executedTools}
 ${docBlock}
-## Observaciones internas del Cerebro
+## Observaciones internas del Cerebro y Búsquedas Web
 ${args.observationsPrompt}
 ## Instrucción de salida
 Por favor, genera la respuesta final en Markdown según el modo de salida '${args.outputMode}'.
-Al final de la respuesta, incluye un apartado de referencias titulado "## Fuentes consultadas" enumerando de forma amigable los documentos o secciones internas que aportaron información.`;
+Al final de la respuesta, incluye un apartado de referencias titulado "## Fuentes consultadas" enumerando de forma amigable los documentos o secciones internas y las fuentes web externas (con sus respectivos enlaces URL) que aportaron información.`;
 }
 
 /**

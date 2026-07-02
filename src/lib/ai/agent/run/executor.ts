@@ -18,6 +18,7 @@ const ALLOWED_RUN_TOOLS = new Set<AgentToolName>([
   'searchBrain',
   'getNodeById',
   'getRecentNodeVersions',
+  'webSearch',
 ]);
 
 function resolveToolInput(
@@ -48,6 +49,22 @@ function resolveToolInput(
         limit = Math.min(Math.max(1, stepInput.limit), 10);
       }
       return { query, limit };
+    }
+
+    case 'webSearch': {
+      let query = '';
+      if (stepInput && typeof stepInput.query === 'string') {
+        query = stepInput.query;
+      } else {
+        query = userQuery;
+      }
+      query = query.trim().slice(0, 200); // limit to 200 chars for webSearch query (strict privacy)
+
+      let maxResults = 5;
+      if (stepInput && typeof stepInput.maxResults === 'number' && !isNaN(stepInput.maxResults)) {
+        maxResults = Math.min(Math.max(1, stepInput.maxResults), 5);
+      }
+      return { query, maxResults };
     }
 
     case 'getNodeById': {

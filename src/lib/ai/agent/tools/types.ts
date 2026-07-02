@@ -12,6 +12,7 @@ export interface AgentToolContext {
   role: BrainRole;
   requestId?: string;
   maxSteps: number;
+  enableWebSearch?: boolean;
 }
 
 export interface AgentToolResult<T = unknown> {

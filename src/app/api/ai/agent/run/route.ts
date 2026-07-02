@@ -114,6 +114,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
     }
 
+    // Role check for external web search
+    if (enableWebSearch === true && membership.role === 'reader') {
+      return NextResponse.json(
+        { error: 'Los usuarios con rol de lector no están autorizados a realizar búsquedas web.' },
+        { status: 403 }
+      );
+    }
+
     // 7. Construct AgentToolContext server-side
     const context: AgentToolContext = {
       userId: currentUser.id,
@@ -121,6 +129,7 @@ export async function POST(request: Request) {
       nodeId,
       role: membership.role,
       maxSteps: (maxSteps as number) ?? 5,
+      enableWebSearch: Boolean(enableWebSearch),
     };
 
     // 8. Execute the agent plan sequentially

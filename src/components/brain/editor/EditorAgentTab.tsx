@@ -67,6 +67,8 @@ export interface AgentFinalizeSource {
   type: string;
   label: string;
   truncated?: boolean;
+  url?: string;
+  snippet?: string;
 }
 
 export interface AgentFinalizeResult {
@@ -115,6 +117,7 @@ export default function EditorAgentTab({
   const [agentOutputMode, setAgentOutputMode] = useState<AgentOutputMode>('answer');
   const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = useState<boolean>(false);
   const [agentApplyMessage, setAgentApplyMessage] = useState<string | null>(null);
+  const [agentEnableWebSearch, setAgentEnableWebSearch] = useState<boolean>(false);
 
   // Outputs
   const [agentPlan, setAgentPlan] = useState<AgentPlan | null>(null);
@@ -158,7 +161,14 @@ export default function EditorAgentTab({
     const res = await fetch('/api/ai/agent/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ brainId, nodeId, userQuery: agentQuery, approvedPlan: plan, contentMarkdown }),
+      body: JSON.stringify({
+        brainId,
+        nodeId,
+        userQuery: agentQuery,
+        approvedPlan: plan,
+        contentMarkdown,
+        enableWebSearch: agentEnableWebSearch,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -273,6 +283,7 @@ export default function EditorAgentTab({
     setAgentWarnings([]);
     setAgentShowPlan(false);
     setAgentApplyMessage(null);
+    setAgentEnableWebSearch(false);
   };
 
   const handleInsertAgentProposal = () => {
@@ -424,9 +435,34 @@ export default function EditorAgentTab({
           </div>
 
           {agentPlan.requiresWebSearch && (
-            <p className="text-[9.5px] text-amber-600 bg-amber-50/60 border border-amber-100/50 p-1.5 rounded-md leading-normal">
-              ℹ️ Este plan solicitaba búsqueda web, pero en esta fase solo se procesará información interna.
-            </p>
+            <div className="space-y-2 p-2.5 rounded-lg border border-amber-200 bg-amber-50/70 text-[10.5px] leading-relaxed text-amber-800">
+              <span className="font-semibold block">🌐 Búsqueda web externa requerida</span>
+              <p className="text-[10px] text-amber-700 leading-normal">
+                Este plan propone consultar internet. La consulta externa enviará únicamente tu pregunta al proveedor (Serper) para encontrar resultados públicos, sin revelar el contenido de tu documento ni datos de tu cuenta.
+              </p>
+              <label className="flex items-center gap-2 mt-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={agentEnableWebSearch}
+                  disabled={!canEdit}
+                  onChange={(e) => setAgentEnableWebSearch(e.target.checked)}
+                  className="rounded border-slate-350 text-violet-600 focus:ring-violet-500 w-3.5 h-3.5"
+                />
+                <span className="font-semibold text-slate-700">
+                  Autorizo buscar en internet usando mi petición.
+                </span>
+              </label>
+              {!canEdit && (
+                <p className="text-[9px] text-red-600 font-medium">
+                  🔒 Solo editores u owners pueden habilitar búsqueda web.
+                </p>
+              )}
+              {canEdit && !agentEnableWebSearch && (
+                <p className="text-[9px] text-amber-600 font-semibold bg-white/50 px-1 py-0.5 rounded border border-amber-100/50">
+                  ⚠️ Advertencia: Se ejecutará el plan omitiendo la búsqueda web externa (solo información interna).
+                </p>
+              )}
+            </div>
           )}
 
           {agentLoadingStage === 'idle' && (
@@ -498,6 +534,51 @@ export default function EditorAgentTab({
           <div className="w-full h-44 overflow-y-auto p-2.5 border border-slate-200/80 rounded-lg bg-slate-50 font-mono text-[10.5px] whitespace-pre-wrap select-text leading-relaxed">
             {agentFinalResult.finalMarkdown}
           </div>
+
+          {/* Listado de fuentes consultadas */}
+          {agentFinalResult.sources && agentFinalResult.sources.length > 0 && (
+            <div className="space-y-1.5 border border-slate-100 rounded-lg p-2.5 bg-slate-50/30">
+              <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">
+                Fuentes Citadas ({agentFinalResult.sources.length})
+              </span>
+              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                {agentFinalResult.sources.map((src, idx) => {
+                  const isWeb = src.type === 'web_search';
+                  return (
+                    <div key={idx} className="text-[10px] bg-white border border-slate-200 p-1.5 rounded-md leading-normal space-y-0.5">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span className="font-semibold text-slate-700 truncate max-w-[180px]">
+                          {src.label}
+                        </span>
+                        <span className={`text-[8.5px] px-1 py-0.2 rounded border font-semibold ${
+                          isWeb 
+                            ? 'bg-sky-50 text-sky-700 border-sky-100' 
+                            : 'bg-violet-50 text-violet-700 border-violet-100'
+                        }`}>
+                          {isWeb ? 'Web' : 'Interno'}
+                        </span>
+                      </div>
+                      {isWeb && src.url && (
+                        <a
+                          href={src.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[9.5px] text-sky-600 hover:underline truncate block font-medium"
+                        >
+                          🔗 {src.url}
+                        </a>
+                      )}
+                      {src.snippet && (
+                        <p className="text-[9px] text-slate-400 italic line-clamp-2">
+                          &quot;{src.snippet}&quot;
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             {agentApplyMessage && (
