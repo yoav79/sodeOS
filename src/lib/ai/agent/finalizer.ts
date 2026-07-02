@@ -2,11 +2,13 @@ import 'server-only';
 import { AgentObservation, AgentRunResult } from './run/types';
 import {
   AgentFinalizeSource,
+  AgentFinalizeResult,
   AgentOutputMode,
   MAX_AGENT_FINALIZER_CONTEXT_CHARS,
   MAX_AGENT_FINALIZER_CONTENT_CHARS,
   MAX_AGENT_FINALIZER_QUERY_CHARS,
 } from './finalize/types';
+import { OpenAIResponse } from '../types';
 
 /**
  * Maps a single tool execution observation to a structured finalize source type.
@@ -350,4 +352,111 @@ ${args.observationsPrompt}
 ## Instrucción de salida
 Por favor, genera la respuesta final en Markdown según el modo de salida '${args.outputMode}'.
 Al final de la respuesta, incluye un apartado de referencias titulado "## Fuentes consultadas" enumerando de forma amigable los documentos o secciones internas que aportaron información.`;
+}
+
+/**
+ * Executes the LLM call to finalize the response using observations context.
+ */
+export async function generateAgentFinalResponse(args: {
+  runResult: AgentRunResult;
+  userQuery: string;
+  outputMode?: AgentOutputMode;
+  contentMarkdown?: string;
+}): Promise<AgentFinalizeResult> {
+  const outputMode = args.outputMode || 'answer';
+  const provider = process.env.AI_PROVIDER || 'openai';
+  const apiKey = process.env.AI_PROVIDER_API_KEY;
+  const model = process.env.AI_MODEL || 'gpt-4o-mini';
+  const maxTokensStr = process.env.AI_AGENT_MAX_TOKENS || process.env.AI_MAX_TOKENS;
+  const maxTokens = maxTokensStr ? parseInt(maxTokensStr, 10) : 2000;
+
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('El proveedor de IA no está configurado (falta API Key).');
+  }
+
+  if (provider !== 'openai') {
+    throw new Error(`Proveedor de IA no soportado: ${provider}`);
+  }
+
+  // 1. Build prompts and context
+  const { contextString, sources, warnings, contextChars, observationsUsedCount } =
+    buildAgentFinalizerContext(args.runResult, args.contentMarkdown, args.userQuery);
+
+  const systemPrompt = getAgentFinalizerSystemPrompt(outputMode);
+  const userPrompt = buildAgentFinalizerUserPrompt({
+    userQuery: args.userQuery,
+    outputMode,
+    runResult: args.runResult,
+    observationsPrompt: contextString,
+    contentMarkdown: args.contentMarkdown,
+  });
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.3,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error response from OpenAI API:', errorText);
+    throw new Error(`Error de comunicación con el proveedor de IA: ${response.statusText}`);
+  }
+
+  const data: OpenAIResponse = await response.json();
+
+  if (data.error) {
+    throw new Error(data.error.message);
+  }
+
+  let finalMarkdown = data.choices[0]?.message?.content || '';
+
+  // Clean markdown block enclosure if LLM returns it wrapped in ```markdown ... ```
+  if (finalMarkdown.startsWith('```markdown')) {
+    finalMarkdown = finalMarkdown.replace(/^```markdown\n/, '').replace(/\n```$/, '');
+  } else if (finalMarkdown.startsWith('```')) {
+    finalMarkdown = finalMarkdown.replace(/^```\n/, '').replace(/\n```$/, '');
+  }
+
+  finalMarkdown = finalMarkdown.trim();
+
+  // If response is empty, adjust canApplyToDraft and append a warning
+  const isEmpty = finalMarkdown.length === 0;
+  if (isEmpty) {
+    warnings.push('El modelo de lenguaje devolvió una respuesta vacía.');
+  }
+
+  return {
+    success: !isEmpty,
+    finalMarkdown,
+    outputMode,
+    sources,
+    warnings,
+    metadata: {
+      model: data.model || model,
+      tokensUsed: data.usage
+        ? {
+            promptTokens: data.usage.prompt_tokens,
+            completionTokens: data.usage.completion_tokens,
+            totalTokens: data.usage.total_tokens,
+          }
+        : undefined,
+      runId: args.runResult.runId,
+      runStatus: args.runResult.status,
+      observationsUsed: observationsUsedCount,
+      contextChars,
+    },
+    canApplyToDraft: !isEmpty,
+  };
 }
