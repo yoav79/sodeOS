@@ -3,6 +3,8 @@ import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 import { getNodeDetail } from '@/services/nodeService';
 import { putAttachmentFile, deleteAttachmentFile } from '@/lib/storage/files';
 import db from '@/lib/db';
+import { processAttachmentExtraction } from '@/lib/attachments/textExtraction';
+
 
 export const runtime = 'nodejs';
 
@@ -81,6 +83,8 @@ export async function GET(
       size: att.size,
       createdAt: att.createdAt,
       uploadedBy: att.uploadedBy,
+      extractionStatus: att.extractionStatus,
+      extractionError: att.extractionError,
     }));
 
     return NextResponse.json({ attachments: mappedAttachments }, { status: 200 });
@@ -211,6 +215,16 @@ export async function POST(
         }
       });
 
+      // Trigger plain text extraction and chunking in the background (non-blocking)
+      void processAttachmentExtraction(
+        attachment.id,
+        node.id,
+        node.brainId,
+        file.name,
+        file.type,
+        buffer
+      );
+
       // Respond with 201 (exclude r2Key for security)
       const responseAttachment = {
         id: attachment.id,
@@ -222,6 +236,8 @@ export async function POST(
         size: attachment.size,
         createdAt: attachment.createdAt,
         uploadedBy: attachment.uploadedBy,
+        extractionStatus: attachment.extractionStatus,
+        extractionError: attachment.extractionError,
       };
 
       return NextResponse.json({ attachment: responseAttachment }, { status: 201 });
