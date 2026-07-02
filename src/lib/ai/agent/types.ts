@@ -41,6 +41,7 @@ export type AgentToolName =
   | 'getRecentNodeVersions'
   | 'generateMarkdownProposal'
   | 'webSearch'
+  | 'getAttachmentContext'
   | 'fetchWebPageSummary'
   | 'citeSources';
 
@@ -52,6 +53,7 @@ export const AGENT_TOOL_NAMES: AgentToolName[] = [
   'getRecentNodeVersions',
   'generateMarkdownProposal',
   'webSearch',
+  'getAttachmentContext',
   'fetchWebPageSummary',
   'citeSources',
 ];

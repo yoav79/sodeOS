@@ -68,6 +68,16 @@ export function mapObservationToSource(observation: AgentObservation): AgentFina
         truncated: observation.meta?.truncated,
       };
     }
+    case 'getAttachmentContext': {
+      const attData = observation.data as { results?: Array<{ filename: string }> } | null;
+      const firstFilename = attData?.results?.[0]?.filename;
+      return {
+        toolName: observation.toolName,
+        type: 'attachment_text',
+        label: firstFilename ? `Archivo adjunto: ${firstFilename}` : 'Archivos adjuntos',
+        truncated: observation.meta?.truncated,
+      };
+    }
     default:
       return null;
   }
@@ -179,6 +189,28 @@ function sanitizeData(toolName: string, data: any): any {
         if (typeof item.url === 'string') itemRes.url = item.url;
         if (typeof item.snippet === 'string') itemRes.snippet = item.snippet;
         if (typeof item.publishedAt === 'string') itemRes.publishedAt = item.publishedAt;
+        return itemRes;
+      });
+    }
+    return res;
+  }
+
+  if (toolName === 'getAttachmentContext') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = {};
+    if (data && typeof data.query === 'string') res.query = data.query;
+    if (data && typeof data.nodeId === 'string') res.nodeId = data.nodeId;
+    if (data && typeof data.totalFilesFound === 'number') res.totalFilesFound = data.totalFilesFound;
+    if (data && Array.isArray(data.results)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      res.results = data.results.map((item: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const itemRes: any = {};
+        if (typeof item.filename === 'string') itemRes.filename = item.filename;
+        if (typeof item.contentType === 'string') itemRes.contentType = item.contentType;
+        if (typeof item.chunkIndex === 'number') itemRes.chunkIndex = item.chunkIndex;
+        if (typeof item.excerpt === 'string') itemRes.excerpt = item.excerpt;
+        if (typeof item.truncated === 'boolean') itemRes.truncated = item.truncated;
         return itemRes;
       });
     }

@@ -6,6 +6,7 @@ import { searchBrain } from './searchBrain';
 import { getNodeById } from './getNodeById';
 import { getRecentNodeVersions } from './getRecentNodeVersions';
 import { webSearch } from './webSearch';
+import { getAttachmentContext } from './getAttachmentContext';
 
 // Re-export all tools and types
 export * from './types';
@@ -15,6 +16,7 @@ export { searchBrain } from './searchBrain';
 export { getNodeById } from './getNodeById';
 export { getRecentNodeVersions } from './getRecentNodeVersions';
 export { webSearch } from './webSearch';
+export { getAttachmentContext } from './getAttachmentContext';
 
 /**
  * Registro unificado de herramientas de lectura interna del agente.
@@ -28,4 +30,5 @@ export const TOOL_REGISTRY: AgentToolRegistry = new Map<string, AgentToolDefinit
   [getNodeById.name, getNodeById],
   [getRecentNodeVersions.name, getRecentNodeVersions],
   [webSearch.name, webSearch],
+  [getAttachmentContext.name, getAttachmentContext],
 ]);

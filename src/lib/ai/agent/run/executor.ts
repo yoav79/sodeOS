@@ -19,6 +19,7 @@ const ALLOWED_RUN_TOOLS = new Set<AgentToolName>([
   'getNodeById',
   'getRecentNodeVersions',
   'webSearch',
+  'getAttachmentContext',
 ]);
 
 function resolveToolInput(
@@ -65,6 +66,30 @@ function resolveToolInput(
         maxResults = Math.min(Math.max(1, stepInput.maxResults), 5);
       }
       return { query, maxResults };
+    }
+
+    case 'getAttachmentContext': {
+      let query: string | undefined = undefined;
+      if (stepInput && typeof stepInput.query === 'string') {
+        query = stepInput.query.trim().slice(0, 200);
+      }
+
+      let maxFiles = 3;
+      if (stepInput && typeof stepInput.maxFiles === 'number' && !isNaN(stepInput.maxFiles)) {
+        maxFiles = Math.min(Math.max(1, stepInput.maxFiles), 5);
+      }
+
+      let maxChunksPerFile = 2;
+      if (stepInput && typeof stepInput.maxChunksPerFile === 'number' && !isNaN(stepInput.maxChunksPerFile)) {
+        maxChunksPerFile = Math.min(Math.max(1, stepInput.maxChunksPerFile), 5);
+      }
+
+      let maxTotalChars = 3000;
+      if (stepInput && typeof stepInput.maxTotalChars === 'number' && !isNaN(stepInput.maxTotalChars)) {
+        maxTotalChars = Math.min(Math.max(100, stepInput.maxTotalChars), 5000);
+      }
+
+      return { query, maxFiles, maxChunksPerFile, maxTotalChars };
     }
 
     case 'getNodeById': {

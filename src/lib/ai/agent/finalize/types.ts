@@ -15,7 +15,8 @@ export type AgentFinalizeSourceType =
   | 'brain_search'
   | 'node'
   | 'node_version'
-  | 'web_search';
+  | 'web_search'
+  | 'attachment_text';
 
 export interface AgentFinalizeSource {
   toolName: AgentToolName;
