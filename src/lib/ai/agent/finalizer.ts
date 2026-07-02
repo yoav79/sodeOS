@@ -1,0 +1,353 @@
+import 'server-only';
+import { AgentObservation, AgentRunResult } from './run/types';
+import {
+  AgentFinalizeSource,
+  AgentOutputMode,
+  MAX_AGENT_FINALIZER_CONTEXT_CHARS,
+  MAX_AGENT_FINALIZER_CONTENT_CHARS,
+  MAX_AGENT_FINALIZER_QUERY_CHARS,
+} from './finalize/types';
+
+/**
+ * Maps a single tool execution observation to a structured finalize source type.
+ */
+export function mapObservationToSource(observation: AgentObservation): AgentFinalizeSource | null {
+  if (!observation.ok) return null;
+
+  switch (observation.toolName) {
+    case 'getCurrentDocument': {
+      const doc = observation.data as { title?: string } | null;
+      return {
+        toolName: observation.toolName,
+        type: 'current_document',
+        label: doc?.title || 'Documento actual',
+        truncated: observation.meta?.truncated,
+      };
+    }
+    case 'getBrainTree':
+      return {
+        toolName: observation.toolName,
+        type: 'brain_tree',
+        label: 'Estructura general del Cerebro',
+        truncated: observation.meta?.truncated,
+      };
+    case 'searchBrain':
+      return {
+        toolName: observation.toolName,
+        type: 'brain_search',
+        label: 'Resultados de búsqueda en Cerebro',
+        truncated: observation.meta?.truncated,
+      };
+    case 'getNodeById': {
+      const node = observation.data as { title?: string } | null;
+      return {
+        toolName: observation.toolName,
+        type: 'node',
+        label: node?.title || 'Documento específico',
+        truncated: observation.meta?.truncated,
+      };
+    }
+    case 'getRecentNodeVersions': {
+      const nodeInfo = observation.data as { node?: { title?: string } } | null;
+      const title = nodeInfo?.node?.title || 'Documento';
+      return {
+        toolName: observation.toolName,
+        type: 'node_version',
+        label: `Historial de versiones: ${title}`,
+        truncated: observation.meta?.truncated,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Filters out database/server internal IDs, audit metadata, and sensitive tokens
+ * to reduce prompt tokens and protect system structure.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sanitizeData(toolName: string, data: any): any {
+  if (!data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sanitizeNode = (n: any): any => {
+    if (!n) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = {};
+    if (typeof n.title === 'string') res.title = n.title;
+    if (typeof n.status === 'string') res.status = n.status;
+    if (typeof n.description === 'string') res.description = n.description;
+    if (Array.isArray(n.children)) {
+      res.children = n.children.map(sanitizeNode).filter(Boolean);
+    }
+    return res;
+  };
+
+  if (toolName === 'getCurrentDocument' || toolName === 'getNodeById') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = {};
+    if (typeof data.title === 'string') res.title = data.title;
+    if (typeof data.description === 'string') res.description = data.description;
+    if (typeof data.contentMarkdown === 'string') res.contentMarkdown = data.contentMarkdown;
+    if (typeof data.status === 'string') res.status = data.status;
+    if (typeof data.category === 'string') res.category = data.category;
+    if (Array.isArray(data.tags)) res.tags = data.tags;
+    return res;
+  }
+
+  if (toolName === 'getBrainTree') {
+    if (Array.isArray(data)) {
+      return data.map(sanitizeNode).filter(Boolean);
+    }
+    return sanitizeNode(data);
+  }
+
+  if (toolName === 'searchBrain') {
+    if (Array.isArray(data)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return data.map((item: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res: any = {};
+        if (typeof item.title === 'string') res.title = item.title;
+        if (typeof item.status === 'string') res.status = item.status;
+        if (typeof item.matchedField === 'string') res.matchedField = item.matchedField;
+        if (typeof item.snippet === 'string') res.snippet = item.snippet;
+        if (typeof item.updatedAt === 'string') res.updatedAt = item.updatedAt;
+        return res;
+      });
+    }
+    return data;
+  }
+
+  if (toolName === 'getRecentNodeVersions') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = {};
+    if (data && data.node) {
+      if (typeof data.node.title === 'string') res.title = data.node.title;
+    }
+    if (data && Array.isArray(data.versions)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      res.versions = data.versions.map((v: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const versionRes: any = {};
+        if (typeof v.title === 'string') versionRes.title = v.title;
+        if (typeof v.contentMarkdown === 'string') versionRes.contentMarkdown = v.contentMarkdown;
+        if (typeof v.status === 'string') versionRes.status = v.status;
+        if (typeof v.changeNote === 'string') versionRes.changeNote = v.changeNote;
+        if (typeof v.createdAt === 'string') versionRes.createdAt = v.createdAt;
+        return versionRes;
+      });
+    } else if (Array.isArray(data)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return data.map((v: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const versionRes: any = {};
+        if (typeof v.title === 'string') versionRes.title = v.title;
+        if (typeof v.contentMarkdown === 'string') versionRes.contentMarkdown = v.contentMarkdown;
+        if (typeof v.status === 'string') versionRes.status = v.status;
+        if (typeof v.changeNote === 'string') versionRes.changeNote = v.changeNote;
+        if (typeof v.createdAt === 'string') versionRes.createdAt = v.createdAt;
+        return versionRes;
+      });
+    }
+    return res;
+  }
+
+  return data;
+}
+
+/**
+ * Builds the filtered observations context, maps the sources, and populates step warning messages.
+ */
+export function buildAgentFinalizerContext(
+  runResult: AgentRunResult,
+  contentMarkdown?: string,
+  userQuery?: string
+) {
+  let contextString = '';
+  const sources: AgentFinalizeSource[] = [];
+  const warnings: string[] = [];
+  let accumulatedChars = 0;
+  let observationsUsedCount = 0;
+
+  // 1. Process run status warnings
+  if (runResult.status === 'partial_success') {
+    warnings.push('La ejecución del plan fue parcialmente exitosa; algunos pasos fallaron.');
+  }
+
+  // 2. Process steps execution warnings
+  for (const step of runResult.steps) {
+    if (step.status === 'skipped') {
+      if (step.skippedReason === 'unsupported_tool') {
+        warnings.push(
+          `El paso ${step.stepNumber} (${step.estimatedTool}) fue omitido por no estar soportado en esta fase.`
+        );
+      } else if (step.skippedReason === 'max_steps_limit') {
+        warnings.push(
+          `El paso ${step.stepNumber} (${step.estimatedTool}) fue omitido porque se alcanzó el límite máximo de pasos ejecutados.`
+        );
+      }
+    } else if (step.status === 'failed') {
+      const errMessage = step.observation?.errorMessage || 'Error desconocido en la herramienta';
+      warnings.push(`El paso ${step.stepNumber} (${step.estimatedTool}) falló: ${errMessage}`);
+    }
+  }
+
+  // 3. Process web search requests mismatch
+  const queryText = userQuery || '';
+  const planRequestedWeb = runResult.steps.some((s) => s.estimatedTool === 'webSearch');
+  const queryMentionsWeb = /\b(web|buscar\s+en\s+la\s+web|internet|google|buscar\s+online)\b/i.test(queryText);
+  if (planRequestedWeb || queryMentionsWeb) {
+    warnings.push('No se realizó búsqueda web en esta fase; la respuesta usa solo información interna.');
+  }
+
+  // 4. Serialize and truncate observations
+  for (const obs of runResult.observations) {
+    if (!obs.ok) continue;
+
+    const source = mapObservationToSource(obs);
+    if (!source) continue;
+
+    const cleanData = sanitizeData(obs.toolName, obs.data);
+    let serializedData = JSON.stringify(cleanData, null, 2);
+
+    let isTruncated = false;
+    if (accumulatedChars + serializedData.length > MAX_AGENT_FINALIZER_CONTEXT_CHARS) {
+      isTruncated = true;
+      const remainingBudget = MAX_AGENT_FINALIZER_CONTEXT_CHARS - accumulatedChars;
+      if (remainingBudget > 200) {
+        serializedData =
+          serializedData.slice(0, remainingBudget - 100) +
+          '\n... [OBSERVACIÓN TRUNCADA POR LÍMITE DE CONTEXTO] ...';
+      } else {
+        serializedData = '[OBSERVACIÓN OMITIDA POR LÍMITE DE CONTEXTO]';
+      }
+      source.truncated = true;
+      warnings.push(
+        `La observación del paso ${obs.stepNumber} (${obs.toolName}) fue truncada para respetar el límite de contexto del LLM.`
+      );
+    }
+
+    source.truncated = source.truncated || isTruncated;
+    sources.push(source);
+    observationsUsedCount++;
+
+    const section = `\n### Paso ${obs.stepNumber}: ${obs.toolName} (${source.label})\n\`\`\`json\n${serializedData}\n\`\`\`\n`;
+    contextString += section;
+    accumulatedChars += section.length;
+
+    if (accumulatedChars >= MAX_AGENT_FINALIZER_CONTEXT_CHARS) {
+      break;
+    }
+  }
+
+  // 5. Check if any observations were left out entirely due to limit
+  for (let i = observationsUsedCount; i < runResult.observations.length; i++) {
+    const obs = runResult.observations[i];
+    if (!obs.ok) continue;
+    const source = mapObservationToSource(obs);
+    if (source) {
+      source.truncated = true;
+      sources.push(source);
+      warnings.push(
+        `La observación del paso ${obs.stepNumber} (${obs.toolName}) no se incluyó en el contexto por límite de capacidad.`
+      );
+    }
+  }
+
+  return {
+    contextString,
+    sources,
+    warnings,
+    contextChars: accumulatedChars,
+    observationsUsedCount,
+  };
+}
+
+/**
+ * Generates system prompt instruction with safety and formatting rules.
+ */
+export function getAgentFinalizerSystemPrompt(outputMode: AgentOutputMode): string {
+  let modeInstruction = '';
+  switch (outputMode) {
+    case 'answer':
+      modeInstruction =
+        'Responde a la pregunta del usuario de forma directa y clara en Markdown, usando la información interna disponible.';
+      break;
+    case 'proposal':
+      modeInstruction =
+        'Genera una propuesta de contenido nuevo y detallado para expandir o crear el documento solicitado, estructurado en secciones lógicas.';
+      break;
+    case 'summary':
+      modeInstruction =
+        'Genera un resumen analítico y estructurado de la información interna encontrada en las observaciones, destacando los puntos clave.';
+      break;
+    case 'rewrite':
+      modeInstruction =
+        'Propón una versión reescrita y mejorada del documento actual, incorporando la información de las observaciones de forma fluida y profesional.';
+      break;
+    case 'structure':
+      modeInstruction =
+        'Genera una propuesta de estructura o índice detallado (outline) para organizar el documento, con explicaciones breves de qué incluir en cada sección.';
+      break;
+  }
+
+  return `Eres un asistente de redacción y conocimiento empresarial experto. Tu objetivo es generar una respuesta estructurada en Markdown basándote exclusivamente en la información interna provista.
+
+Reglas fundamentales de comportamiento:
+1. Usa ÚNICAMENTE la información contenida en las observaciones provistas. No inventes hechos, datos de contacto ni detalles empresariales no especificados.
+2. Si la información provista es insuficiente para responder a la petición, indícalo claramente detallando qué datos faltan.
+3. NO afirmes haber realizado búsquedas web o consultas en tiempo real en internet a menos que se te proporcionen explícitamente observaciones del tipo 'webSearch' (en esta fase no se realizan búsquedas externas).
+4. NO incluyas en la respuesta IDs técnicos del sistema (como UUIDs, nodeId, brainId o userId). Úsalos solo de forma interna si es necesario, pero nunca los expongas en el texto final.
+5. NO menciones correos electrónicos personales ni datos de auditoría interna a menos que estén explícitamente en el texto que se te pide formatear.
+6. NO propongas ejecutar acciones en la base de datos ni simules guardar o modificar archivos. Eres un generador de propuestas de texto.
+7. Devuelve ÚNICAMENTE el código Markdown limpio de la respuesta.
+8. NO envuelvas toda tu respuesta en un bloque de código Markdown (evita colocar \`\`\`markdown al inicio y \`\`\` al final). Devuelve el texto listo para el editor.
+9. Distingue claramente en tu redacción la información interna factual observada de tus inferencias o conclusiones derivadas.
+10. ${modeInstruction}`;
+}
+
+/**
+ * Builds user prompt for LLM consumption containing original query, execution overview,
+ * observations and document context.
+ */
+export function buildAgentFinalizerUserPrompt(args: {
+  userQuery: string;
+  outputMode: AgentOutputMode;
+  runResult: AgentRunResult;
+  observationsPrompt: string;
+  contentMarkdown?: string;
+}): string {
+  const queryTruncated = args.userQuery.slice(0, MAX_AGENT_FINALIZER_QUERY_CHARS);
+
+  let docBlock = '';
+  if (
+    args.contentMarkdown &&
+    (args.outputMode === 'rewrite' || args.outputMode === 'proposal' || args.outputMode === 'structure')
+  ) {
+    const docTruncated = args.contentMarkdown.slice(0, MAX_AGENT_FINALIZER_CONTENT_CHARS);
+    docBlock = `\n## Documento actual (Contexto en edición, solo lectura)\n\`\`\`markdown\n${docTruncated}\n\`\`\`\n`;
+  }
+
+  const executedTools =
+    args.runResult.steps
+      .filter((s) => s.status === 'executed')
+      .map((s) => s.estimatedTool)
+      .join(', ') || 'ninguna';
+
+  return `## Petición del usuario
+"${queryTruncated}"
+
+## Resumen de la ejecución
+- Estado general: ${args.runResult.status}
+- Pasos en el plan: ${args.runResult.summary.totalSteps}
+- Pasos ejecutados exitosamente: ${args.runResult.summary.executedSteps}
+- Herramientas utilizadas: ${executedTools}
+${docBlock}
+## Observaciones internas del Cerebro
+${args.observationsPrompt}
+## Instrucción de salida
+Por favor, genera la respuesta final en Markdown según el modo de salida '${args.outputMode}'.
+Al final de la respuesta, incluye un apartado de referencias titulado "## Fuentes consultadas" enumerando de forma amigable los documentos o secciones internas que aportaron información.`;
+}

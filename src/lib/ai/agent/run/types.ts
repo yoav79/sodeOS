@@ -40,6 +40,7 @@ export interface AgentRunStepResult {
   estimatedTool: AgentToolName;
   status: AgentStepStatus;
   observation?: AgentObservation;
+  skippedReason?: 'unsupported_tool' | 'max_steps_limit';
 }
 
 export interface AgentRunResult {

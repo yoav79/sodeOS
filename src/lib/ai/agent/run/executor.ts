@@ -101,6 +101,7 @@ export async function executeAgentPlan(
         description,
         estimatedTool,
         status: 'skipped',
+        skippedReason: 'unsupported_tool',
       });
       skippedCount++;
       continue;
@@ -113,6 +114,7 @@ export async function executeAgentPlan(
         description,
         estimatedTool,
         status: 'skipped',
+        skippedReason: 'max_steps_limit',
       });
       skippedCount++;
       continue;
