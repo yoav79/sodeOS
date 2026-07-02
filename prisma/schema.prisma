@@ -30,6 +30,15 @@ enum TemplateType {
   structure
 }
 
+enum AttachmentExtractionStatus {
+  pending
+  processing
+  done
+  failed
+  unsupported
+}
+
+
 model User {
   id        String   @id @db.Uuid
   email     String   @unique
@@ -76,6 +85,7 @@ model Brain {
   nodes     Node[]
   tags      Tag[]
   attachments NodeAttachment[]
+  attachmentChunks NodeAttachmentChunk[]
 
   @@map("brains")
 }
@@ -154,6 +164,7 @@ model Node {
   versions    NodeVersion[]
   nodeTags    NodeTag[]
   attachments NodeAttachment[]
+  attachmentChunks NodeAttachmentChunk[]
 
   @@unique([brainId, parentId, slug])
   @@index([brainId, parentId, position])
@@ -244,13 +255,38 @@ model NodeAttachment {
   size         Int
   createdAt    DateTime @default(now()) @map("created_at")
 
+  // Extraction status fields
+  extractionStatus AttachmentExtractionStatus @default(pending) @map("extraction_status")
+  extractionError  String?                    @map("extraction_error")
+
   // Relations
-  node       Node  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
-  brain      Brain @relation(fields: [brainId], references: [id], onDelete: Cascade)
-  uploadedBy User  @relation("UploadedAttachments", fields: [uploadedById], references: [id], onDelete: Restrict)
+  node       Node                  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  brain      Brain                 @relation(fields: [brainId], references: [id], onDelete: Cascade)
+  uploadedBy User                  @relation("UploadedAttachments", fields: [uploadedById], references: [id], onDelete: Restrict)
+  chunks     NodeAttachmentChunk[]
 
   @@index([nodeId, createdAt(sort: Desc)])
   @@index([brainId])
   @@map("node_attachments")
+}
+
+model NodeAttachmentChunk {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attachmentId String   @map("attachment_id") @db.Uuid
+  nodeId       String   @map("node_id") @db.Uuid
+  brainId      String   @map("brain_id") @db.Uuid
+  chunkIndex   Int      @map("chunk_index")
+  content      String   @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  attachment   NodeAttachment @relation(fields: [attachmentId], references: [id], onDelete: Cascade)
+  node         Node           @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  brain        Brain          @relation(fields: [brainId], references: [id], onDelete: Cascade)
+
+  @@unique([attachmentId, chunkIndex])
+  @@index([brainId])
+  @@index([nodeId])
+  @@map("node_attachment_chunks")
 }
 
