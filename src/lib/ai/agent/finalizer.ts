@@ -266,6 +266,82 @@ export function buildAgentFinalizerContext(
     warnings.push('No se realizó búsqueda web en esta fase; la respuesta usa solo información interna.');
   }
 
+  // 3.5 Deduce detailed status of webSearch and getAttachmentContext for LLM awareness
+  let webSearchStatus = '';
+  const webSearchObs = runResult.observations.find((o) => o.toolName === 'webSearch');
+  if (webSearchObs) {
+    if (webSearchObs.ok) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const searchData = webSearchObs.data as any;
+      const resultsCount = searchData && Array.isArray(searchData.results) ? searchData.results.length : 0;
+      if (resultsCount > 0) {
+        webSearchStatus = 'Ejecutado con resultados.';
+      } else {
+        webSearchStatus = 'Ejecutado sin resultados (no se encontraron páginas web públicas relevantes).';
+      }
+    } else {
+      const errMsg = webSearchObs.errorMessage || '';
+      if (
+        errMsg.toLowerCase().includes('consent') ||
+        errMsg.toLowerCase().includes('consentimiento')
+      ) {
+        webSearchStatus = 'WebSearch no autorizado por el usuario (falta de consentimiento).';
+      } else if (
+        errMsg.toLowerCase().includes('lector') ||
+        errMsg.toLowerCase().includes('reader') ||
+        errMsg.toLowerCase().includes('permiso') ||
+        webSearchObs.errorCode === 'FORBIDDEN'
+      ) {
+        webSearchStatus = 'WebSearch planificado pero bloqueado por permisos (el rol de Lector no autoriza búsquedas externas).';
+      } else {
+        webSearchStatus = `Fallido durante la ejecución: ${errMsg}`;
+      }
+    }
+  } else {
+    if (planRequestedWeb) {
+      webSearchStatus = 'Planificado pero no ejecutado o saltado durante la ejecución.';
+    } else {
+      webSearchStatus = 'No planificado porque la consulta no requería información externa de internet.';
+    }
+  }
+
+  let getAttachmentContextStatus = '';
+  const planRequestedAttachments = runResult.steps.some((s) => s.estimatedTool === 'getAttachmentContext');
+  const attachmentsObs = runResult.observations.find((o) => o.toolName === 'getAttachmentContext');
+  if (attachmentsObs) {
+    if (attachmentsObs.ok) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const attData = attachmentsObs.data as any;
+      const resultsCount = attData && Array.isArray(attData.results) ? attData.results.length : 0;
+      if (resultsCount > 0) {
+        getAttachmentContextStatus = 'Ejecutado con resultados.';
+      } else {
+        getAttachmentContextStatus = 'Ejecutado sin chunks (no se encontraron fragmentos de texto relevantes o no hay archivos de texto (.txt o .md) cargados en este nodo).';
+      }
+    } else {
+      getAttachmentContextStatus = `Fallido durante la ejecución: ${attachmentsObs.errorMessage || 'Error desconocido'}`;
+    }
+  } else {
+    if (planRequestedAttachments) {
+      getAttachmentContextStatus = 'Planificado pero no ejecutado.';
+    } else {
+      getAttachmentContextStatus = 'No planificado.';
+    }
+  }
+
+  const queryLower = queryText.toLowerCase();
+  const userAskedForPdfDocx =
+    queryLower.includes('pdf') ||
+    queryLower.includes('docx') ||
+    queryLower.includes('word') ||
+    queryLower.includes('powerpoint') ||
+    queryLower.includes('excel');
+
+  let toolStatusesString = `* Búsqueda Web (webSearch): ${webSearchStatus}\n* Consulta de Adjuntos (getAttachmentContext): ${getAttachmentContextStatus}`;
+  if (userAskedForPdfDocx) {
+    toolStatusesString += `\n* Nota de formato: El usuario mencionó formatos como PDF o DOCX en su consulta. Recuerda que en esta fase v1 del Cerebro la extracción de texto está limitada únicamente a archivos planos (.txt y .md); los archivos PDF/DOCX no tienen extracción implementada y no aportarán fragmentos utilizables.`;
+  }
+
   // 4. Serialize and truncate observations
   for (const obs of runResult.observations) {
     if (!obs.ok) continue;
@@ -347,6 +423,7 @@ export function buildAgentFinalizerContext(
     warnings,
     contextChars: accumulatedChars,
     observationsUsedCount,
+    toolStatusesString,
   };
 }
 
@@ -390,7 +467,14 @@ Reglas fundamentales de comportamiento:
 7. Devuelve ÚNICAMENTE el código Markdown limpio de la respuesta.
 8. NO envuelvas toda tu respuesta en un bloque de código Markdown (evita colocar \`\`\`markdown al inicio y \`\`\` al final). Devuelve el texto listo para el editor.
 9. Distingue claramente en tu redacción la información interna factual observada de tus inferencias o conclusiones derivadas.
-10. ${modeInstruction}`;
+10. ${modeInstruction}
+11. Si en la sección "Estado de las Herramientas y Autorizaciones" se detalla que alguna herramienta no fue ejecutada o que no hay datos disponibles (como archivos PDF/DOCX no soportados, búsqueda web no autorizada, o falta de chunks), explícaselo al usuario de forma precisa y profesional cuando sea relevante para su consulta.
+    NUNCA utilices frases genéricas incorrectas como "no tengo acceso a internet en esta fase" cuando la herramienta sí existe pero fue bloqueada, no planificada o saltada. En su lugar, explica con precisión la situación real de acuerdo con las siguientes directrices:
+    - Si la búsqueda web no fue autorizada por el usuario: "La búsqueda web requiere autorización explícita."
+    - Si la búsqueda web fue autorizada pero no se planificó: "La búsqueda web está disponible, pero este plan no la utilizó por no considerarse necesaria."
+    - Si la búsqueda web fue bloqueada por permisos: "La búsqueda web requiere permisos de edición."
+    - Si getAttachmentContext se ejecutó sin chunks: "Solo puedo consultar archivos TXT/MD ya procesados del nodo actual. No se encontraron archivos de texto procesados en este nodo."
+    - Si se pregunta por PDF/DOCX: "Los archivos PDF y DOCX todavía no tienen extracción de texto implementada en esta fase."`;
 }
 
 /**
@@ -402,6 +486,7 @@ export function buildAgentFinalizerUserPrompt(args: {
   outputMode: AgentOutputMode;
   runResult: AgentRunResult;
   observationsPrompt: string;
+  toolStatuses: string;
   contentMarkdown?: string;
 }): string {
   const queryTruncated = args.userQuery.slice(0, MAX_AGENT_FINALIZER_QUERY_CHARS);
@@ -430,6 +515,9 @@ export function buildAgentFinalizerUserPrompt(args: {
 - Pasos ejecutados exitosamente: ${args.runResult.summary.executedSteps}
 - Herramientas utilizadas: ${executedTools}
 ${docBlock}
+## Estado de las Herramientas y Autorizaciones
+${args.toolStatuses}
+
 ## Observaciones internas del Cerebro y Búsquedas Web
 ${args.observationsPrompt}
 ## Instrucción de salida
@@ -462,7 +550,7 @@ export async function generateAgentFinalResponse(args: {
   }
 
   // 1. Build prompts and context
-  const { contextString, sources, warnings, contextChars, observationsUsedCount } =
+  const { contextString, sources, warnings, contextChars, observationsUsedCount, toolStatusesString } =
     buildAgentFinalizerContext(args.runResult, args.contentMarkdown, args.userQuery);
 
   const systemPrompt = getAgentFinalizerSystemPrompt(outputMode);
@@ -472,6 +560,7 @@ export async function generateAgentFinalResponse(args: {
     runResult: args.runResult,
     observationsPrompt: contextString,
     contentMarkdown: args.contentMarkdown,
+    toolStatuses: toolStatusesString,
   });
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {

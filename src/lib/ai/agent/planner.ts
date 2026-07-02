@@ -48,16 +48,25 @@ RESTRICCIONES ABSOLUTAS — NUNCA las ignores:
 INTENCIONES PERMITIDAS (intent):
 ${AGENT_INTENTS.map(i => `  - "${i}"`).join('\n')}
 
-HERRAMIENTAS PERMITIDAS (estimatedTool por paso):
-${AGENT_TOOL_NAMES.map(t => `  - "${t}"`).join('\n')}
+HERRAMIENTAS PERMITIDAS (estimatedTool por paso) Y SUS DESCRIPCIONES:
+  - "getCurrentDocument": Permite leer el contenido Markdown del documento/nodo actual en edición. Usar para obtener el contexto inmediato.
+  - "getBrainTree": Permite obtener la estructura completa o mapa jerárquico de nodos de la base de conocimiento actual.
+  - "searchBrain": Permite buscar nodos de la base de conocimiento por coincidencia de texto en título o descripción. Nota: no busca en los archivos adjuntos.
+  - "getNodeById": Permite leer el contenido detallado de un nodo específico de la base de conocimiento usando su ID.
+  - "getRecentNodeVersions": Permite listar el historial de versiones guardadas y metadatos de cambios del nodo actual.
+  - "webSearch": Busca información pública externa en internet usando un motor de búsqueda. Usar SOLO si la petición requiere datos externos, actuales o verificables fuera del Cerebro. Requiere consentimiento explícito. NUNCA envíes fragmentos del documento ni contenido interno confidencial en la consulta de búsqueda.
+  - "getAttachmentContext": Busca y recupera fragmentos de texto (chunks) indexados de archivos adjuntos (.txt y .md) del nodo actual. Usar obligatoriamente si el usuario pregunta por archivos adjuntos, documentos cargados o contenido de los attachments asociados.
 
 REGLAS DEL PLAN:
 - Máximo ${MAX_AGENT_PLAN_STEPS} pasos en "steps".
-- Si el plan requiere búsqueda web, marca "requiresWebSearch": true pero NO la ejecutes.
-- Si el plan implica aplicar cambios al borrador o web search, marca "requiresUserConfirmation": true.
-- Cada paso DEBE tener un campo "estimatedTool" de la lista permitida.
+- Si la consulta del usuario requiere búsqueda web externa, marca "requiresWebSearch": true. Si no es necesaria, marca "requiresWebSearch": false.
+- Si el plan requiere búsqueda web o implica aplicar propuestas de cambios al borrador del documento, marca "requiresUserConfirmation": true.
+- Cada paso DEBE tener un campo "estimatedTool" del listado permitido arriba.
 - Si ninguna herramienta encaja perfectamente, elige la más cercana.
 - "estimatedTools" en la raíz es la lista deduplicada de tools usadas en steps.
+- Si el usuario pregunta por archivos adjuntos, documentos subidos o contenido de adjuntos del nodo actual, planifica "getAttachmentContext".
+- Si el usuario pregunta por archivos de formato complejo como PDF o DOCX, planifica "getAttachmentContext" pero ten en cuenta que la extracción de texto en esta fase v1 solo soporta archivos planos (.txt y .md). Los PDF y DOCX no tienen extracción implementada y no tendrán fragmentos (chunks) utilizables.
+- No uses "webSearch" de forma decorativa. Solo planifícala si la petición requiere datos externos concretos que no están en el Cerebro.
 
 FORMATO DE RESPUESTA:
 Responde ÚNICAMENTE con un JSON válido que siga este esquema exacto, sin texto adicional antes ni después:
@@ -88,9 +97,9 @@ function buildPlannerUserPrompt(input: AgentRequest): string {
   parts.push(`NodeId: ${input.nodeId}`);
 
   if (input.enableWebSearch) {
-    parts.push('El usuario ha indicado que se permite búsqueda web si es necesario.');
+    parts.push('El usuario ha autorizado búsquedas web en internet si el plan lo considera necesario.');
   } else {
-    parts.push('El usuario NO ha habilitado búsqueda web. Si la petición la requiere, marca requiresWebSearch: true y requiresUserConfirmation: true, pero no la planifiques como un paso ejecutable.');
+    parts.push('El usuario NO ha autorizado búsquedas web. Si la petición requiere buscar en internet, marca "requiresWebSearch": true y "requiresUserConfirmation": true, pero NO programes un paso con "webSearch" en la lista de steps ejecutables.');
   }
 
   if (input.contentMarkdown && input.contentMarkdown.trim().length > 0) {
