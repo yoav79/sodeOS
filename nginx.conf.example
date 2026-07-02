@@ -1,0 +1,77 @@
+# ==============================================================================
+# CONFIGURACIÓN DE NGINX REVERSE PROXY - PLANILLA DE PRODUCCIÓN
+# ==============================================================================
+# INSTRUCCIONES: Copiar este archivo a /etc/nginx/sites-available/sodeos,
+# reemplazar los placeholders de dominio y rutas de certificados, y crear el enlace simbólico.
+
+# 1. Redirección de HTTP (Puerto 80) a HTTPS (Puerto 443)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name tu-dominio.com www.tu-dominio.com;
+
+    # Ruta para validaciones de Let's Encrypt / Certbot
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# 2. Servidor Seguro HTTPS (Puerto 443)
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name tu-dominio.com www.tu-dominio.com;
+
+    # Configuración de Certificados SSL (Reemplazar con rutas reales de Certbot/Let's Encrypt)
+    ssl_certificate /etc/letsencrypt/live/tu-dominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tu-dominio.com/privkey.pem;
+
+    # Parámetros recomendados de seguridad SSL
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # Límite máximo de subida de archivos (Recomendado para NodeAttachment upload en R2)
+    client_max_body_size 50M;
+
+    # Compresión Gzip para mejorar rendimiento de Next.js
+    gzip on;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_vary on;
+
+    # Cache de Archivos Estáticos generados por Next.js
+    location /_next/static/ {
+        alias /var/www/sodeos/.next/static/;
+        expires 365d;
+        access_log off;
+    }
+
+    # Proxy reverso principal hacia la aplicación Next.js local
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        # Soporte para WebSockets (Necesario para Hot Reload en dev o conexiones persistentes)
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        
+        # Headers del cliente y proxy
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Tiempos de espera de conexión
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
