@@ -2,10 +2,11 @@ import 'server-only';
 import db from '@/lib/db';
 import { AttachmentExtractionStatus } from '@prisma/client';
 import { PDFParse } from 'pdf-parse';
+import * as mammoth from 'mammoth';
 
 /**
- * Checks if the file is a supported plain text format (TXT or MD)
- * or PDF based on its extension and MIME type.
+ * Checks if the file is a supported plain text format (TXT or MD),
+ * PDF, or DOCX based on its extension and MIME type.
  */
 export function isSupportedTextFormat(filename: string, contentType: string): boolean {
   const ext = filename.split('.').pop()?.toLowerCase();
@@ -18,8 +19,11 @@ export function isSupportedTextFormat(filename: string, contentType: string): bo
     ext === 'md' || 
     ext === 'markdown';
   const isPdf = mime === 'application/pdf' || ext === 'pdf';
+  const isDocx = 
+    mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+    ext === 'docx';
 
-  return isTxt || isMd || isPdf;
+  return isTxt || isMd || isPdf || isDocx;
 }
 
 /**
@@ -101,17 +105,25 @@ export async function processAttachmentExtraction(
   const ext = filename.split('.').pop()?.toLowerCase();
   const mime = contentType.toLowerCase();
   const isPdf = mime === 'application/pdf' || ext === 'pdf';
+  const isDocx = 
+    mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+    ext === 'docx';
 
-  // 2. Validate size limit for processing (2 MB for TXT/MD, 5 MB for PDF)
-  const MAX_EXTRACT_SIZE_BYTES = isPdf ? 5 * 1024 * 1024 : 2 * 1024 * 1024;
+  // 2. Validate size limit for processing (2 MB for TXT/MD, 5 MB for PDF/DOCX)
+  const MAX_EXTRACT_SIZE_BYTES = (isPdf || isDocx) ? 5 * 1024 * 1024 : 2 * 1024 * 1024;
   if (buffer.length > MAX_EXTRACT_SIZE_BYTES) {
+    let sizeError = 'El archivo supera el límite de extracción de texto de 2 MB.';
+    if (isPdf) {
+      sizeError = 'El archivo PDF supera el límite de extracción de 5 MB.';
+    } else if (isDocx) {
+      sizeError = 'El archivo DOCX supera el límite de extracción de 5 MB.';
+    }
+
     await db.nodeAttachment.update({
       where: { id: attachmentId },
       data: {
         extractionStatus: AttachmentExtractionStatus.failed,
-        extractionError: isPdf 
-          ? 'El archivo PDF supera el límite de extracción de 5 MB.' 
-          : 'El archivo supera el límite de extracción de texto de 2 MB.',
+        extractionError: sizeError,
       },
     });
     return;
@@ -148,8 +160,26 @@ export async function processAttachmentExtraction(
         });
         return;
       }
+    } else if (isDocx) {
+      // 3b. Extract text from DOCX buffer
+      try {
+        const result = await mammoth.extractRawText({ buffer });
+        rawText = result.value || '';
+      } catch (docxErr: unknown) {
+        console.error(`Error parsing DOCX for attachment ${attachmentId}:`, docxErr);
+        const rawErr = docxErr instanceof Error ? docxErr.message : 'Error desconocido';
+        const safeErrorMsg = rawErr.substring(0, 500);
+        await db.nodeAttachment.update({
+          where: { id: attachmentId },
+          data: {
+            extractionStatus: AttachmentExtractionStatus.failed,
+            extractionError: `Error al procesar el archivo DOCX: ${safeErrorMsg}`,
+          },
+        });
+        return;
+      }
     } else {
-      // 3b. Decode buffer as UTF-8 for plain text / markdown
+      // 3c. Decode buffer as UTF-8 for plain text / markdown
       rawText = buffer.toString('utf8');
     }
 
@@ -164,13 +194,18 @@ export async function processAttachmentExtraction(
 
     // 6. Validate minimum content length
     if (text.length < 3) {
+      let emptyError = 'No se pudo extraer texto útil del archivo.';
+      if (isPdf) {
+        emptyError = 'El archivo PDF no contiene texto extraíble.';
+      } else if (isDocx) {
+        emptyError = 'El archivo DOCX no contiene texto extraíble.';
+      }
+
       await db.nodeAttachment.update({
         where: { id: attachmentId },
         data: {
           extractionStatus: AttachmentExtractionStatus.failed,
-          extractionError: isPdf 
-            ? 'El archivo PDF no contiene texto extraíble.' 
-            : 'No se pudo extraer texto útil del archivo.',
+          extractionError: emptyError,
         },
       });
       return;
