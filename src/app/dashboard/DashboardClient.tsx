@@ -258,33 +258,35 @@ export default function DashboardClient({
               Bienvenido de vuelta. Hoy es <span className="capitalize">{todayStr}</span>.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => router.push('/brains/new')}
-              variant="secondary"
-              className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-none shadow-none font-semibold text-sm transition-colors flex items-center gap-2"
-              leftIcon={
-                <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              }
-            >
-              + Nuevo Cerebro
-            </Button>
-            <Button
-              onClick={() => router.push('/brains')}
-              variant="secondary"
-              className="bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-800 border-none shadow-none font-semibold text-sm transition-colors flex items-center gap-2"
-              leftIcon={
-                <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              }
-            >
-              Ver mis Cerebros
-            </Button>
-          </div>
+          {brains.length > 0 && (
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={() => router.push('/brains/new')}
+                variant="secondary"
+                className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-none shadow-none font-semibold text-sm transition-colors flex items-center gap-2"
+                leftIcon={
+                  <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                }
+              >
+                + Nuevo Cerebro
+              </Button>
+              <Button
+                onClick={() => router.push('/brains')}
+                variant="secondary"
+                className="bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-800 border-none shadow-none font-semibold text-sm transition-colors flex items-center gap-2"
+                leftIcon={
+                  <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                }
+              >
+                Ver mis Cerebros
+              </Button>
+            </div>
+          )}
         </div>
 
         {brains.length === 0 ? (
@@ -304,24 +306,32 @@ export default function DashboardClient({
                 <circle cx="6.5" cy="17.5" r="1.75" fill="currentColor" />
               </svg>
             </div>
-            <div className="space-y-1">
-              <h2 className="text-lg font-bold text-slate-800">Aún no tienes cerebros</h2>
+            <div className="space-y-3">
+              <h2 className="text-lg font-bold text-slate-800">Tu cuenta aún no tiene acceso a ningún cerebro</h2>
               <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
-                Crea tu primer espacio de conocimiento.
+                Pide a un propietario que te agregue a un cerebro usando tu correo electrónico.
               </p>
+              {user.email && (
+                <div className="mt-2 inline-block px-3 py-1 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 text-xs font-semibold select-all">
+                  Correo de acceso: {user.email}
+                </div>
+              )}
             </div>
             <Button
-              onClick={() => router.push('/brains/new')}
-              variant="primary"
+              onClick={handleLogout}
+              loading={logoutLoading}
+              variant="secondary"
+              className="text-xs font-semibold py-2 px-4 bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-200 shadow-none flex items-center justify-center gap-1.5"
               leftIcon={
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
               }
             >
-              Crear mi primer Cerebro
+              Cerrar sesión
             </Button>
           </div>
+
         ) : (
           /* Real Data Dashboard Grid */
           <div className="space-y-8">

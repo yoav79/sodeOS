@@ -14,6 +14,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // 1.1 Permission check for Brain Creation
+    const totalBrainsCount = await db.brain.count();
+    if (totalBrainsCount > 0) {
+      const ownerMembership = await db.brainMember.findFirst({
+        where: {
+          userId: currentUser.id,
+          role: 'owner',
+        },
+        select: { id: true }
+      });
+
+      if (!ownerMembership) {
+        return NextResponse.json(
+          { error: 'No tienes permisos para crear nuevos cerebros.' },
+          { status: 403 }
+        );
+      }
+    }
+
     // 2. Parse payload
     let body;
     try {
