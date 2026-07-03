@@ -346,18 +346,7 @@ export function buildAgentFinalizerContext(
     }
   }
 
-  const queryLower = queryText.toLowerCase();
-  const userAskedForPdfDocx =
-    queryLower.includes('pdf') ||
-    queryLower.includes('docx') ||
-    queryLower.includes('word') ||
-    queryLower.includes('powerpoint') ||
-    queryLower.includes('excel');
-
-  let toolStatusesString = `* Búsqueda Web (webSearch): ${webSearchStatus}\n* Consulta de Adjuntos (getAttachmentContext): ${getAttachmentContextStatus}`;
-  if (userAskedForPdfDocx) {
-    toolStatusesString += `\n* Nota de formato: PDF/DOCX todavía no tienen extracción de texto implementada.`;
-  }
+  const toolStatusesString = `* Búsqueda Web (webSearch): ${webSearchStatus}\n* Consulta de Adjuntos (getAttachmentContext): ${getAttachmentContextStatus}`;
 
   // 4. Serialize and truncate observations
   for (const obs of runResult.observations) {
@@ -490,8 +479,8 @@ Reglas fundamentales de comportamiento:
     - Si la búsqueda web no fue autorizada por el usuario: "La búsqueda web requiere autorización explícita."
     - Si la búsqueda web fue autorizada pero no se planificó o no se ejecutó: "No se ejecutó una búsqueda web en este plan." o "La búsqueda web está disponible, pero este plan no la utilizó."
     - Si la búsqueda web fue bloqueada por permisos: "La búsqueda web requiere permisos de edición."
-    - Si getAttachmentContext se ejecutó sin chunks: "Solo puedo consultar archivos TXT/MD ya procesados del nodo actual."
-    - Si se pregunta por PDF/DOCX: "PDF/DOCX todavía no tienen extracción de texto implementada."`;
+    - Si getAttachmentContext se ejecutó sin chunks: "Solo puedo consultar archivos procesados (TXT/MD/PDF/DOCX) del nodo actual."
+    - Si se pregunta por PDF/DOCX y no hay chunks: "Los archivos PDF/DOCX están soportados, pero no encontré texto extraído disponible para este archivo. Puede estar pendiente, haber fallado la extracción o no contener texto seleccionable."`;
 }
 
 /**

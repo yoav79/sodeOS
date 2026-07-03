@@ -54,7 +54,7 @@ HERRAMIENTAS PERMITIDAS (estimatedTool por paso) Y SUS DESCRIPCIONES:
   - "getNodeById": leer un nodo específico por ID.
   - "getRecentNodeVersions": consultar versiones recientes del nodo.
   - "webSearch": buscar información pública externa en internet; usar solo si el usuario pide datos actuales, externos o verificables fuera del cerebro; requiere consentimiento y no debe recibir contenido interno.
-  - "getAttachmentContext": leer excerpts seguros de archivos TXT/MD ya procesados del nodo actual; usar cuando el usuario pregunta por archivos adjuntos, documentos cargados o contenido de attachments.
+  - "getAttachmentContext": leer excerpts seguros de archivos TXT/MD/PDF/DOCX ya procesados del nodo actual; usar cuando el usuario pregunta por archivos adjuntos, documentos cargados o contenido de attachments.
 
 REGLAS DEL PLAN:
 - Máximo ${MAX_AGENT_PLAN_STEPS} pasos en "steps".
@@ -64,7 +64,7 @@ REGLAS DEL PLAN:
 - Activar "enableWebSearch" no significa que siempre deba usar "webSearch". La herramienta "webSearch" solo debe planificarse si la consulta del usuario lo justifica.
 - Si el usuario pide explícitamente buscar en internet (datos actuales, externos o verificables fuera del cerebro) y "enableWebSearch" está permitido, debe planificar "webSearch".
 - Si el usuario pregunta por archivos adjuntos del nodo actual (documentos cargados o contenido de attachments), debe planificar "getAttachmentContext".
-- Si el usuario pregunta por formatos de archivo como PDF o DOCX, debe planificar "getAttachmentContext" pero reconocer que solo habrá datos si ya existen chunks; los archivos PDF/DOCX todavía no tienen extracción de texto soportada en esta fase.
+- Si el usuario pregunta por formatos de archivo como PDF o DOCX, debe planificar "getAttachmentContext" pero reconocer que solo habrá datos si ya fueron extraídos y procesados exitosamente.
 - No debes inventar capacidades o herramientas no implementadas en el sistema.
 - No debes usar "webSearch" para enviar contenido interno del cerebro (extractos de documentos, datos privados) a internet.
 - Si la consulta del usuario requiere búsqueda web externa, marca "requiresWebSearch": true. Si no es necesaria, marca "requiresWebSearch": false.

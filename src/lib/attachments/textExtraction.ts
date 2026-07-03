@@ -3,6 +3,13 @@ import db from '@/lib/db';
 import { AttachmentExtractionStatus } from '@prisma/client';
 import { PDFParse } from 'pdf-parse';
 import * as mammoth from 'mammoth';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import path from 'path';
+
+// Configure PDFJS legacy worker for stable operation in Next.js Server / Turbopack
+if (typeof window === 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = path.resolve(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
+}
 
 /**
  * Checks if the file is a supported plain text format (TXT or MD),
