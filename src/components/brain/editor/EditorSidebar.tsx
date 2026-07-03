@@ -20,6 +20,9 @@ interface EditorSidebarProps {
   onOpenMembers?: () => void;
   canEditBrain?: boolean;
   canManageMembers?: boolean;
+  onMoveNode?: (nodeId: string, newParentId: string | null, newPosition: number) => void;
+  width?: number;
+  onResizeStart?: (e: React.MouseEvent) => void;
 }
 
 export default function EditorSidebar({
@@ -38,11 +41,17 @@ export default function EditorSidebar({
   onOpenMembers,
   canEditBrain = true,
   canManageMembers = false,
+  onMoveNode,
+  width = 288,
+  onResizeStart,
 }: EditorSidebarProps) {
   const displayName = brainName?.trim() || 'Cerebro';
 
   return (
-    <aside className="w-72 border-r border-slate-200 bg-white flex flex-col shrink-0 print-hide">
+    <aside
+      style={{ width: `${width}px` }}
+      className="border-r border-slate-200 bg-white flex flex-col shrink-0 print-hide relative"
+    >
 
       {/* ── Header del Sidebar ── */}
       <div className="px-4 pt-3.5 pb-2.5 border-b border-slate-200 bg-slate-50/50 flex flex-col gap-2">
@@ -125,7 +134,7 @@ export default function EditorSidebar({
             )}
           </div>
 
-          {/* Botón Nuevo — primario, solo editor/owner, alineado a la derecha */}
+          {/* Botón Nuevo — primario, solo editor/owner, alinado a la derecha */}
           {canEditBrain && (
             <button
               onClick={onCreateRootNode}
@@ -191,9 +200,25 @@ export default function EditorSidebar({
             items={tree}
             selectedNodeId={selectedNodeId}
             onSelectNode={(node) => onSelectNode(node.id)}
+            onMoveNode={onMoveNode}
+            canEdit={canEditBrain}
           />
         )}
       </div>
+
+      {/* Control de redimensionamiento vertical (Handle) */}
+      {onResizeStart && (
+        <div
+          onMouseDown={onResizeStart}
+          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-20 group"
+          title="Arrastrar para redimensionar el panel"
+          role="separator"
+          aria-label="Separador de panel"
+        >
+          {/* Indicación visual al pasar el cursor */}
+          <div className="absolute right-0 top-0 bottom-0 w-[4px] opacity-0 group-hover:opacity-100 bg-blue-500/30 transition-opacity" />
+        </div>
+      )}
     </aside>
   );
 }

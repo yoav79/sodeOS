@@ -983,6 +983,85 @@ export default function BrainEditorClient({
   const [isMoving, setIsMoving] = useState<boolean>(false);
   const [moveError, setMoveError] = useState<string | null>(null);
 
+  // Sidebar Resize State & Logic
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const savedWidth = localStorage.getItem('sidebarWidth');
+      if (savedWidth) {
+        const parsed = parseInt(savedWidth, 10);
+        if (!isNaN(parsed) && parsed >= 240 && parsed <= 520) {
+          return parsed;
+        }
+      }
+    }
+    return 288;
+  });
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(240, Math.min(520, moveEvent.clientX));
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = (moveEvent: MouseEvent) => {
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+
+      const finalWidth = Math.max(240, Math.min(520, moveEvent.clientX));
+      localStorage.setItem('sidebarWidth', finalWidth.toString());
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleMoveNode = async (nodeId: string, newParentId: string | null, newPosition: number) => {
+    try {
+      setMoveError(null);
+      setIsMoving(true);
+      const res = await fetch(`/api/nodes/${nodeId}/move`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newParentId,
+          newPosition,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al mover el documento.');
+      }
+
+      // Refresh tree
+      const treeRes = await fetch(`/api/brains/${brainId}/tree`);
+      if (treeRes.ok) {
+        const treeData = await treeRes.json();
+        setTree(treeData.tree || []);
+      }
+
+      // Refresh current active node details if the moved node is the current node
+      if (nodeId === selectedNodeId) {
+        const detailRes = await fetch(`/api/nodes/${nodeId}`);
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          setNodeDetail(detailData.node);
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al mover el documento.';
+      setMoveError(msg);
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
   const findParentAndSiblings = (
     nodes: NodeTreeItem[],
     targetId: string,
@@ -1703,6 +1782,9 @@ ${nodeDetail.contentMarkdown}`;
           onOpenMembers={openMembersModal}
           canEditBrain={canEditBrain}
           canManageMembers={canManageMembers}
+          onMoveNode={handleMoveNode}
+          width={sidebarWidth}
+          onResizeStart={handleResizeStart}
         />
 
         {/* Detail / Edit View Panel */}
