@@ -919,64 +919,7 @@ export default function BrainEditorClient({
     }
   };
 
-  // Archiving States
-  const [isArchiving, setIsArchiving] = useState<boolean>(false);
-  const [archiveError, setArchiveError] = useState<string | null>(null);
 
-  const handleArchiveNode = async () => {
-    if (!canEditBrain) return;
-    if (!nodeDetail) return;
-
-    const treeItem = findNodeInTree(tree, nodeDetail.id);
-    const hasChildren = treeItem ? treeItem.children.length > 0 : false;
-
-    const confirmMsg = hasChildren
-      ? 'Este nodo tiene subpáginas. Si lo archivas, todas sus subpáginas serán archivadas también de forma recursiva. ¿Estás seguro de que deseas continuar?'
-      : '¿Estás seguro de que deseas archivar este nodo?';
-
-    if (!window.confirm(confirmMsg)) {
-      return;
-    }
-
-    try {
-      setIsArchiving(true);
-      setArchiveError(null);
-
-      const res = await fetch(`/api/nodes/${nodeDetail.id}`, {
-        method: 'DELETE',
-      });
-
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 403) {
-          setArchiveError('Permisos insuficientes para archivar este nodo.');
-          return;
-        }
-        if (res.status === 404) {
-          setSelectedNodeId(null);
-          setNodeDetail(null);
-          setRefreshTrigger((prev) => prev + 1);
-          return;
-        }
-        throw new Error(data.error || 'Error al archivar el nodo.');
-      }
-
-      setSelectedNodeId(null);
-      setNodeDetail(null);
-      setRefreshTrigger((prev) => prev + 1);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al archivar el nodo.';
-      setArchiveError(message);
-    } finally {
-      setIsArchiving(false);
-    }
-  };
 
   // Moving / Reordering States
   const [isMoveModalOpen, setIsMoveModalOpen] = useState<boolean>(false);
@@ -1347,23 +1290,6 @@ export default function BrainEditorClient({
     }
   };
 
-  const findParentAndSiblings = (
-    nodes: NodeTreeItem[],
-    targetId: string,
-    parent: NodeTreeItem | null = null
-  ): { parent: NodeTreeItem | null; siblings: NodeTreeItem[] } | null => {
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i];
-      if (n.id === targetId) {
-        return { parent, siblings: nodes };
-      }
-      if (n.children && n.children.length > 0) {
-        const result = findParentAndSiblings(n.children, targetId, n);
-        if (result) return result;
-      }
-    }
-    return null;
-  };
 
   const getDescendantIds = (item: NodeTreeItem): string[] => {
     const ids: string[] = [];
@@ -1443,24 +1369,6 @@ export default function BrainEditorClient({
     }
   };
 
-  const placementInfo = nodeDetail ? findParentAndSiblings(tree, nodeDetail.id) : null;
-  const currentSiblings = placementInfo ? placementInfo.siblings : [];
-  const currentIndex = currentSiblings.findIndex((n) => n.id === nodeDetail?.id);
-
-  const canMoveUp = currentIndex > 0;
-  const canMoveDown = currentIndex >= 0 && currentIndex < currentSiblings.length - 1;
-
-  const handleMoveUp = async () => {
-    if (!canEditBrain) return;
-    if (!nodeDetail || !canMoveUp || !placementInfo) return;
-    await executeMove(placementInfo.parent?.id || null, currentIndex - 1);
-  };
-
-  const handleMoveDown = async () => {
-    if (!canEditBrain) return;
-    if (!nodeDetail || !canMoveDown || !placementInfo) return;
-    await executeMove(placementInfo.parent?.id || null, currentIndex + 1);
-  };
 
   const handleLogout = async () => {
     if (!confirmDiscardUnsavedChanges()) return;
@@ -2183,23 +2091,7 @@ ${nodeDetail.contentMarkdown}`;
                 /* READ-ONLY VIEW */
                 <EditorDocumentView
                   nodeDetail={nodeDetail}
-                  archiveError={archiveError}
-                  onClearArchiveError={() => setArchiveError(null)}
-                  moveError={moveError}
-                  onClearMoveError={() => setMoveError(null)}
-                  isArchiving={isArchiving}
-                  isMoving={isMoving}
-                  canMoveUp={canMoveUp}
-                  canMoveDown={canMoveDown}
-                  onCreateSubpage={openCreateModal}
                   onStartEdit={handleStartEdit}
-                  onOpenMoveModal={() => {
-                    setMoveError(null);
-                    setIsMoveModalOpen(true);
-                  }}
-                  onMoveUp={handleMoveUp}
-                  onMoveDown={handleMoveDown}
-                  onArchiveNode={handleArchiveNode}
                   canEdit={canEditBrain}
                 />
               )}
