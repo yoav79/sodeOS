@@ -13,6 +13,7 @@ import TrashModal, { TrashedNode } from './editor/modals/TrashModal';
 import TemplatesModal, { TemplateFieldRow, TemplateSectionRow } from './editor/modals/TemplatesModal';
 import MoveNodeModal, { FlatNodeWithDepth } from './editor/modals/MoveNodeModal';
 import ManageMembersModal, { MemberWithUser } from './editor/modals/ManageMembersModal';
+import InlineMarkdownDiff from './editor/InlineMarkdownDiff';
 
 interface TreeDemoClientProps {
   brainId: string;
@@ -106,6 +107,9 @@ export default function BrainEditorClient({
   const [isRestoringVersion, setIsRestoringVersion] = useState<boolean>(false);
   const [restoreVersionError, setRestoreVersionError] = useState<string | null>(null);
   const [restoreVersionSuccess, setRestoreVersionSuccess] = useState<string | null>(null);
+
+  // Comparison mode: when set, main area shows inline diff
+  const [comparisonVersion, setComparisonVersion] = useState<NodeVersionWithSaver | null>(null);
 
   const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history' | 'files' | 'ai'>('meta');
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState<boolean>(false);
@@ -667,6 +671,8 @@ export default function BrainEditorClient({
         throw new Error(data.error || 'Error al restaurar la versión.');
       }
 
+      // Close comparison mode after successful restore
+      setComparisonVersion(null);
       setRestoreVersionSuccess('Versión restaurada exitosamente.');
       setRefreshTrigger((prev) => prev + 1);
 
@@ -1621,6 +1627,8 @@ ${nodeDetail.contentMarkdown}`;
     } else if (isEditing) {
       setIsEditing(false);
     }
+    // Clear comparison mode when switching nodes
+    setComparisonVersion(null);
     setSelectedNodeId(id);
   };
 
@@ -1725,9 +1733,26 @@ ${nodeDetail.contentMarkdown}`;
             </div>
           ) : nodeDetail ? (
             <div className="max-w-4xl w-full mx-auto p-8 flex flex-col gap-6 print-document-root">
-              
-              {/* EDIT MODE */}
-              {isEditing ? (
+
+              {/* COMPARISON MODE — replaces editor/view temporarily */}
+              {comparisonVersion ? (
+                <InlineMarkdownDiff
+                  baseText={comparisonVersion.contentMarkdown}
+                  compareText={nodeDetail.contentMarkdown}
+                  baseLabel={`Versión guardada (${new Date(comparisonVersion.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })} · ${comparisonVersion.saver?.name ?? 'Usuario'})`}
+                  compareLabel="Documento actual"
+                  sourceType="history"
+                  onClose={() => setComparisonVersion(null)}
+                  onRestore={() => {
+                    if (window.confirm('¿Estás seguro de que deseas restaurar esta versión? Se creará una nueva entrada de auditoría en el historial.')) {
+                      handleRestoreVersion(comparisonVersion.id);
+                    }
+                  }}
+                  isRestoring={isRestoringVersion}
+                  canEdit={canEditBrain}
+                />
+              ) : isEditing ? (
+                /* EDIT MODE */
                 <EditorDocumentForm
                   nodeDetail={nodeDetail}
                   editTitle={editTitle}
@@ -1810,6 +1835,8 @@ ${nodeDetail.contentMarkdown}`;
           onToggleCollapse={() => setIsRightPanelCollapsed(!isRightPanelCollapsed)}
           canEdit={canEditBrain}
           contentMarkdown={isEditing ? editContent : (nodeDetail?.contentMarkdown || '')}
+          onCompareVersion={setComparisonVersion}
+          activeComparisonVersionId={comparisonVersion?.id ?? null}
           onInsertAIProposal={handleInsertAIProposal}
           onReplaceWithAIProposal={handleReplaceWithAIProposal}
         />

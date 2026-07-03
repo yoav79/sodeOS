@@ -12,6 +12,8 @@ interface EditorHistoryTabProps {
   restoreVersionError?: string | null;
   restoreVersionSuccess?: string | null;
   canRestoreVersion?: boolean;
+  onCompareVersion?: (version: NodeVersionWithSaver) => void;
+  activeComparisonVersionId?: string | null;
 }
 
 export default function EditorHistoryTab({
@@ -23,6 +25,8 @@ export default function EditorHistoryTab({
   restoreVersionError = null,
   restoreVersionSuccess = null,
   canRestoreVersion = true,
+  onCompareVersion,
+  activeComparisonVersionId = null,
 }: EditorHistoryTabProps) {
   const [prevVersions, setPrevVersions] = React.useState(versions);
   const [expandedVersionId, setExpandedVersionId] = React.useState<string | null>(
@@ -88,11 +92,16 @@ export default function EditorHistoryTab({
           {versions.slice(0, visibleCount).map((ver, idx) => {
             const isExpanded = expandedVersionId === ver.id;
             const versionNumber = versions.length - idx;
+            const isActiveComparison = activeComparisonVersionId === ver.id;
 
             return (
               <div
                 key={ver.id}
-                className="border border-slate-200/80 rounded-xl bg-white overflow-hidden transition-all duration-200 hover:border-slate-300"
+                className={`border rounded-xl bg-white overflow-hidden transition-all duration-200 ${
+                  isActiveComparison
+                    ? 'border-violet-300 ring-1 ring-violet-200'
+                    : 'border-slate-200/80 hover:border-slate-300'
+                }`}
               >
                 {/* Accordion header toggle */}
                 <button
@@ -127,6 +136,11 @@ export default function EditorHistoryTab({
                         ? 'En Rev'
                         : 'Arch'}
                     </span>
+                    {isActiveComparison && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-violet-50 border-violet-200 text-violet-700 shrink-0">
+                        Comparando
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
@@ -184,14 +198,33 @@ export default function EditorHistoryTab({
                       </span>
                     </div>
 
-                    {onRestoreVersion && (
-                      <div className="pt-2.5 border-t border-slate-100 flex justify-end">
+                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                      {/* Compare button — triggers full-width diff in main area */}
+                      {onCompareVersion && (
+                        <button
+                          type="button"
+                          onClick={() => onCompareVersion(ver)}
+                          className={`text-[11px] font-bold flex items-center gap-1.5 transition-colors px-2.5 py-1.5 rounded-lg border ${
+                            isActiveComparison
+                              ? 'text-violet-700 bg-violet-50 border-violet-200 hover:bg-violet-100/60'
+                              : 'text-violet-600 bg-violet-50/50 border-violet-100 hover:bg-violet-100/50'
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                          </svg>
+                          <span>{isActiveComparison ? 'Comparando...' : 'Comparar en documento'}</span>
+                        </button>
+                      )}
+
+                      {/* Restore button */}
+                      {onRestoreVersion && (
                         <button
                           type="button"
                           disabled={isRestoringVersion || canRestoreVersion === false}
                           onClick={() => {
                             const confirmed = window.confirm(
-                              `¿Estás seguro de que deseas restaurar la versión V${versionNumber}? esto creará una nueva entrada de auditoría en el historial.`
+                              `¿Estás seguro de que deseas restaurar la versión V${versionNumber}? Esto creará una nueva entrada de auditoría en el historial.`
                             );
                             if (confirmed) {
                               onRestoreVersion(ver.id);
@@ -213,8 +246,8 @@ export default function EditorHistoryTab({
                             </>
                           )}
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

@@ -31,6 +31,8 @@ interface EditorRightPanelProps {
   onToggleCollapse?: () => void;
   canEdit?: boolean;
   contentMarkdown?: string;
+  onCompareVersion?: (version: NodeVersionWithSaver) => void;
+  activeComparisonVersionId?: string | null;
   onInsertAIProposal?: (proposal: string) => void;
   onReplaceWithAIProposal?: (proposal: string) => void;
 }
@@ -55,6 +57,8 @@ export default function EditorRightPanel({
   onToggleCollapse,
   canEdit = true,
   contentMarkdown = '',
+  onCompareVersion,
+  activeComparisonVersionId = null,
   onInsertAIProposal,
   onReplaceWithAIProposal,
 }: EditorRightPanelProps) {
@@ -256,6 +260,8 @@ export default function EditorRightPanel({
               restoreVersionError={restoreVersionError}
               restoreVersionSuccess={restoreVersionSuccess}
               canRestoreVersion={canRestoreVersion}
+              onCompareVersion={onCompareVersion}
+              activeComparisonVersionId={activeComparisonVersionId}
             />
           ) : rightPanelTab === 'files' ? (
             /* Archivos Tab */
