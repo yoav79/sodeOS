@@ -65,6 +65,7 @@ REGLAS DEL PLAN:
 - Si el usuario pide explícitamente buscar en internet (datos actuales, externos o verificables fuera del cerebro) y "enableWebSearch" está permitido, debe planificar "webSearch".
 - Si el usuario pregunta por archivos adjuntos del nodo actual (documentos cargados o contenido de attachments), debe planificar "getAttachmentContext".
 - Si el usuario pregunta por formatos de archivo como PDF o DOCX, debe planificar "getAttachmentContext" pero reconocer que solo habrá datos si ya fueron extraídos y procesados exitosamente.
+- El campo "intent" en el JSON de respuesta DEBE ser obligatoriamente una de las INTENCIONES PERMITIDAS especificadas arriba. NUNCA uses nombres de herramientas (como "getAttachmentContext", "webSearch", etc.) como valor de "intent".
 - No debes inventar capacidades o herramientas no implementadas en el sistema.
 - No debes usar "webSearch" para enviar contenido interno del cerebro (extractos de documentos, datos privados) a internet.
 - Si la consulta del usuario requiere búsqueda web externa, marca "requiresWebSearch": true. Si no es necesaria, marca "requiresWebSearch": false.
@@ -74,7 +75,7 @@ FORMATO DE RESPUESTA:
 Responde ÚNICAMENTE con un JSON válido que siga este esquema exacto, sin texto adicional antes ni después:
 
 {
-  "intent": "<AgentIntent>",
+  "intent": "redactar" | "reescribir" | "investigar" | "resumir" | "comparar" | "mejorar_documento" | "crear_estructura" | "responder_pregunta" | "buscar_cerebro" | "buscar_web",
   "steps": [
     {
       "stepNumber": 1,
