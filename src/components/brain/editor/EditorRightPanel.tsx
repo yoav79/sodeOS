@@ -35,6 +35,7 @@ interface EditorRightPanelProps {
   activeComparisonVersionId?: string | null;
   onInsertAIProposal?: (proposal: string) => void;
   onReplaceWithAIProposal?: (proposal: string) => void;
+  onCompareAIProposal?: (finalMarkdown: string, mode?: 'replace' | 'append') => void;
 }
 
 export default function EditorRightPanel({
@@ -61,6 +62,7 @@ export default function EditorRightPanel({
   activeComparisonVersionId = null,
   onInsertAIProposal,
   onReplaceWithAIProposal,
+  onCompareAIProposal,
 }: EditorRightPanelProps) {
   if (isCollapsed) {
     return (
@@ -279,6 +281,7 @@ export default function EditorRightPanel({
               canApply={canEdit}
               onInsertAIProposal={onInsertAIProposal}
               onReplaceWithAIProposal={onReplaceWithAIProposal}
+              onCompareAIProposal={onCompareAIProposal}
             />
           )
         ) : (

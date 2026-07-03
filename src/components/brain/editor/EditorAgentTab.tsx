@@ -102,6 +102,7 @@ interface EditorAgentTabProps {
   canEdit: boolean;
   onInsertAIProposal?: (proposal: string) => void;
   onReplaceWithAIProposal?: (proposal: string) => void;
+  onCompareAIProposal?: (finalMarkdown: string, mode?: 'replace' | 'append') => void;
 }
 
 export default function EditorAgentTab({
@@ -112,6 +113,7 @@ export default function EditorAgentTab({
   canEdit,
   onInsertAIProposal,
   onReplaceWithAIProposal,
+  onCompareAIProposal,
 }: EditorAgentTabProps) {
   const [agentQuery, setAgentQuery] = useState<string>('');
   const [agentOutputMode, setAgentOutputMode] = useState<AgentOutputMode>('answer');
@@ -617,6 +619,19 @@ export default function EditorAgentTab({
               <div className="p-2 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-700 text-[10.5px] text-center font-medium">
                 {agentApplyMessage}
               </div>
+            )}
+
+            {onCompareAIProposal && agentFinalResult?.canApplyToDraft !== false && finalMarkdown && (
+              <button
+                type="button"
+                onClick={() => onCompareAIProposal(finalMarkdown, 'replace')}
+                className="w-full py-1.5 px-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold text-[10.5px] rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                </svg>
+                <span>Ver diferencias en documento</span>
+              </button>
             )}
 
             <div className="flex gap-1.5">

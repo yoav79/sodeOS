@@ -12,6 +12,7 @@ interface EditorAITabProps {
   canApply: boolean;
   onInsertAIProposal?: (proposal: string) => void;
   onReplaceWithAIProposal?: (proposal: string) => void;
+  onCompareAIProposal?: (finalMarkdown: string, mode?: 'replace' | 'append') => void;
 }
 
 export default function EditorAITab({
@@ -22,6 +23,7 @@ export default function EditorAITab({
   canApply,
   onInsertAIProposal,
   onReplaceWithAIProposal,
+  onCompareAIProposal,
 }: EditorAITabProps) {
   const [aiAction, setAiAction] = useState<'create' | 'format' | 'grammar' | 'spelling'>('create');
   const [aiInstruction, setAiInstruction] = useState<string>('');
@@ -336,6 +338,7 @@ export default function EditorAITab({
           canEdit={canApply}
           onInsertAIProposal={onInsertAIProposal}
           onReplaceWithAIProposal={onReplaceWithAIProposal}
+          onCompareAIProposal={onCompareAIProposal}
         />
       )}
     </div>

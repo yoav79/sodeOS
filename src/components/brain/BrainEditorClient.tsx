@@ -110,6 +110,12 @@ export default function BrainEditorClient({
 
   // Comparison mode: when set, main area shows inline diff
   const [comparisonVersion, setComparisonVersion] = useState<NodeVersionWithSaver | null>(null);
+  const [agentProposalComparison, setAgentProposalComparison] = useState<{ finalMarkdown: string; mode: 'replace' | 'append' } | null>(null);
+
+  const handleCompareAIProposal = (finalMarkdown: string, mode: 'replace' | 'append' = 'replace') => {
+    setComparisonVersion(null);
+    setAgentProposalComparison({ finalMarkdown, mode });
+  };
 
   const [rightPanelTab, setRightPanelTab] = useState<'meta' | 'history' | 'files' | 'ai'>('meta');
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState<boolean>(false);
@@ -673,6 +679,7 @@ export default function BrainEditorClient({
 
       // Close comparison mode after successful restore
       setComparisonVersion(null);
+      setAgentProposalComparison(null);
       setRestoreVersionSuccess('Versión restaurada exitosamente.');
       setRefreshTrigger((prev) => prev + 1);
 
@@ -1629,6 +1636,7 @@ ${nodeDetail.contentMarkdown}`;
     }
     // Clear comparison mode when switching nodes
     setComparisonVersion(null);
+    setAgentProposalComparison(null);
     setSelectedNodeId(id);
   };
 
@@ -1751,6 +1759,32 @@ ${nodeDetail.contentMarkdown}`;
                   isRestoring={isRestoringVersion}
                   canEdit={canEditBrain}
                 />
+              ) : agentProposalComparison ? (
+                (() => {
+                  const baseText = isEditing ? editContent : (nodeDetail.contentMarkdown ?? '');
+                  const compareText = agentProposalComparison.mode === 'replace'
+                    ? agentProposalComparison.finalMarkdown
+                    : (baseText.trim() ? `${baseText}\n\n${agentProposalComparison.finalMarkdown}` : agentProposalComparison.finalMarkdown);
+                  return (
+                    <InlineMarkdownDiff
+                      baseText={baseText}
+                      compareText={compareText}
+                      baseLabel={isEditing ? "Borrador actual" : "Documento actual"}
+                      compareLabel={agentProposalComparison.mode === 'replace' ? "Propuesta del Agente" : "Documento con propuesta insertada al final"}
+                      sourceType="agentProposal"
+                      onClose={() => setAgentProposalComparison(null)}
+                      onInsert={() => {
+                        handleInsertAIProposal(agentProposalComparison.finalMarkdown);
+                        setAgentProposalComparison(null);
+                      }}
+                      onReplace={() => {
+                        handleReplaceWithAIProposal(agentProposalComparison.finalMarkdown);
+                        setAgentProposalComparison(null);
+                      }}
+                      canEdit={canEditBrain}
+                    />
+                  );
+                })()
               ) : isEditing ? (
                 /* EDIT MODE */
                 <EditorDocumentForm
@@ -1839,6 +1873,7 @@ ${nodeDetail.contentMarkdown}`;
           activeComparisonVersionId={comparisonVersion?.id ?? null}
           onInsertAIProposal={handleInsertAIProposal}
           onReplaceWithAIProposal={handleReplaceWithAIProposal}
+          onCompareAIProposal={handleCompareAIProposal}
         />
       </div>
 

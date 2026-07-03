@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { computeLineDiff } from '../../../lib/diff';
+import ConfirmModal from './modals/ConfirmModal';
 
 interface InlineMarkdownDiffProps {
   baseText: string;
@@ -13,6 +14,8 @@ interface InlineMarkdownDiffProps {
   isRestoring?: boolean;
   onClose?: () => void;
   canEdit?: boolean;
+  onInsert?: () => void;
+  onReplace?: () => void;
 }
 
 export default function InlineMarkdownDiff({
@@ -25,7 +28,10 @@ export default function InlineMarkdownDiff({
   isRestoring = false,
   onClose,
   canEdit = true,
+  onInsert,
+  onReplace,
 }: InlineMarkdownDiffProps) {
+  const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = React.useState(false);
   const diff = computeLineDiff(baseText, compareText);
   const addedCount = diff.filter((line) => line.type === 'added').length;
   const removedCount = diff.filter((line) => line.type === 'removed').length;
@@ -39,16 +45,20 @@ export default function InlineMarkdownDiff({
           <div className="flex items-center gap-2.5 min-w-0">
             {/* Icon */}
             <div className="w-8 h-8 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-              </svg>
+              {sourceType === 'history' ? (
+                <svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                </svg>
+              ) : (
+                <span className="text-sm">🤖</span>
+              )}
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-extrabold text-slate-800 tracking-tight">
-                {sourceType === 'history' ? 'Revisión de versión histórica' : 'Propuesta del Agente'}
+                {sourceType === 'history' ? 'Revisión de versión histórica' : 'Revisión de propuesta del Agente IA'}
               </h2>
               <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                Modo solo lectura &mdash; los cambios no se aplican automáticamente
+                Modo solo lectura &mdash; los cambios no se aplican automáticamente al servidor
               </p>
             </div>
           </div>
@@ -73,18 +83,22 @@ export default function InlineMarkdownDiff({
               <div className="flex items-center gap-2 min-w-0">
                 <span className="flex items-center gap-1.5 shrink-0 text-red-600">
                   <span className="w-2 h-2 rounded-sm bg-red-300 border border-red-400 inline-block"></span>
-                  Versión histórica:
+                  {sourceType === 'history' ? 'Versión histórica:' : `${baseLabel}:`}
                 </span>
-                <span className="text-slate-600 truncate" title={baseLabel}>{baseLabel}</span>
+                <span className="text-slate-600 truncate" title={baseLabel}>
+                  {sourceType === 'history' ? baseLabel : 'estado actual del documento / borrador'}
+                </span>
               </div>
             )}
             {compareLabel && (
               <div className="flex items-center gap-2 min-w-0">
                 <span className="flex items-center gap-1.5 shrink-0 text-emerald-700">
                   <span className="w-2 h-2 rounded-sm bg-emerald-300 border border-emerald-400 inline-block"></span>
-                  {compareLabel}:
+                  {sourceType === 'history' ? `${compareLabel}:` : `${compareLabel}`}
                 </span>
-                <span className="text-slate-600">estado actual del documento</span>
+                <span className="text-slate-600">
+                  {sourceType === 'history' ? 'estado actual del documento' : 'resultado de aplicar la propuesta del agente'}
+                </span>
               </div>
             )}
           </div>
@@ -101,7 +115,7 @@ export default function InlineMarkdownDiff({
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold text-slate-700">Sin diferencias detectadas</p>
-            <p className="text-xs text-slate-400 mt-1">Esta versión es idéntica al documento actual.</p>
+            <p className="text-xs text-slate-400 mt-1">Esta propuesta es idéntica al documento actual.</p>
           </div>
         </div>
       ) : (
@@ -161,7 +175,31 @@ export default function InlineMarkdownDiff({
               Cerrar comparación
             </button>
           )}
-          {onRestore && canEdit && (
+
+          {sourceType === 'agentProposal' && canEdit && (
+            <>
+              {onInsert && (
+                <button
+                  type="button"
+                  onClick={onInsert}
+                  className="text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3.5 py-2 rounded-xl transition-colors"
+                >
+                  Insertar al final
+                </button>
+              )}
+              {onReplace && (
+                <button
+                  type="button"
+                  onClick={() => setIsReplaceConfirmOpen(true)}
+                  className="text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 px-3.5 py-2 rounded-xl transition-colors shadow-sm shadow-violet-500/20"
+                >
+                  Reemplazar borrador
+                </button>
+              )}
+            </>
+          )}
+
+          {sourceType === 'history' && onRestore && canEdit && (
             <button
               type="button"
               disabled={isRestoring}
@@ -185,6 +223,19 @@ export default function InlineMarkdownDiff({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isReplaceConfirmOpen}
+        title="Reemplazar borrador con propuesta del Agente"
+        message="Esta acción reemplazará el contenido actual del borrador con la propuesta generada por IA. No se guardará en la base de datos hasta que presiones Guardar."
+        confirmLabel="Reemplazar borrador"
+        cancelLabel="Cancelar"
+        onConfirm={() => {
+          setIsReplaceConfirmOpen(false);
+          if (onReplace) onReplace();
+        }}
+        onClose={() => setIsReplaceConfirmOpen(false)}
+      />
     </div>
   );
 }
