@@ -51,6 +51,7 @@ echo -e "${GREEN}Dependencias instaladas.${NC}"
 
 # 6. Aplicar migraciones pendientes de Prisma
 echo -e "${YELLOW}Aplicando migraciones de base de datos con Prisma...${NC}"
+npx prisma generate
 npx prisma migrate deploy
 echo -e "${GREEN}Base de datos actualizada con éxito.${NC}"
 
