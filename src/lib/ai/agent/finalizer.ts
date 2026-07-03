@@ -69,13 +69,16 @@ export function mapObservationToSource(observation: AgentObservation): AgentFina
       };
     }
     case 'getAttachmentContext': {
-      const attData = observation.data as { results?: Array<{ filename: string }> } | null;
-      const firstFilename = attData?.results?.[0]?.filename;
+      const attData = observation.data as { results?: Array<{ filename: string; excerpt?: string }> } | null;
+      const firstResult = attData?.results?.[0];
+      const firstFilename = firstResult?.filename;
+      const firstExcerpt = firstResult?.excerpt;
       return {
         toolName: observation.toolName,
         type: 'attachment_text',
         label: firstFilename ? `Archivo adjunto: ${firstFilename}` : 'Archivos adjuntos',
         truncated: observation.meta?.truncated,
+        snippet: firstExcerpt ? firstExcerpt.trim().slice(0, 500) : undefined,
       };
     }
     default:
