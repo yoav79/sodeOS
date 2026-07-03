@@ -43,7 +43,8 @@ export type AgentToolName =
   | 'webSearch'
   | 'getAttachmentContext'
   | 'fetchWebPageSummary'
-  | 'citeSources';
+  | 'citeSources'
+  | 'none';
 
 export const AGENT_TOOL_NAMES: AgentToolName[] = [
   'getCurrentDocument',
@@ -56,6 +57,7 @@ export const AGENT_TOOL_NAMES: AgentToolName[] = [
   'getAttachmentContext',
   'fetchWebPageSummary',
   'citeSources',
+  'none',
 ];
 
 // ─────────────────────────────────────────────

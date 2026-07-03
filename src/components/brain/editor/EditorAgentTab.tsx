@@ -144,11 +144,17 @@ export default function EditorAgentTab({
   };
 
   // Helper fetch calls
-  const planAgentRequest = async () => {
+  const planAgentRequest = async (overrideWebSearch?: boolean) => {
     const res = await fetch('/api/ai/agent/plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ brainId, nodeId, userQuery: agentQuery, contentMarkdown }),
+      body: JSON.stringify({
+        brainId,
+        nodeId,
+        userQuery: agentQuery,
+        contentMarkdown,
+        enableWebSearch: overrideWebSearch !== undefined ? overrideWebSearch : agentEnableWebSearch
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -229,8 +235,33 @@ export default function EditorAgentTab({
     }
   };
 
+  const handleToggleWebSearch = async (checked: boolean) => {
+    setAgentEnableWebSearch(checked);
+    if (!agentPlan) return;
+
+    setAgentLoadingStage('planning');
+    setAgentError(null);
+    try {
+      const plan = await planAgentRequest(checked);
+      setAgentPlan(plan);
+      if (plan.warnings && plan.warnings.length > 0) {
+        setAgentWarnings((prev) => [...prev, ...plan.warnings!]);
+      }
+      setAgentLoadingStage('idle');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error inesperado al planificar.';
+      setAgentError(msg);
+      setAgentLoadingStage('error');
+    }
+  };
+
   const handleApproveAndRun = async () => {
     if (!agentPlan) return;
+
+    if (!agentPlan.steps || agentPlan.steps.length === 0) {
+      setAgentError('El plan no contiene pasos. Por favor, regenera el plan antes de ejecutarlo.');
+      return;
+    }
 
     setAgentLoadingStage('running');
     setAgentError(null);
@@ -446,7 +477,7 @@ export default function EditorAgentTab({
                   type="checkbox"
                   checked={agentEnableWebSearch}
                   disabled={!canEdit}
-                  onChange={(e) => setAgentEnableWebSearch(e.target.checked)}
+                  onChange={(e) => handleToggleWebSearch(e.target.checked)}
                   className="rounded border-slate-350 text-violet-600 focus:ring-violet-500 w-3.5 h-3.5"
                 />
                 <span className="font-semibold text-slate-700">

@@ -136,6 +136,24 @@ export async function executeAgentPlan(
   for (const step of approvedPlan.steps) {
     const { stepNumber, description, estimatedTool } = step;
 
+    // 0. Skip execution of steps that do not require any tool
+    if (estimatedTool === 'none') {
+      stepResults.push({
+        stepNumber,
+        description,
+        estimatedTool,
+        status: 'executed',
+        observation: {
+          stepNumber,
+          toolName: 'none',
+          ok: true,
+          data: { message: 'No se requiere ejecución de herramienta para este paso.' }
+        }
+      });
+      executedCount++;
+      continue;
+    }
+
     // 1. Check if tool is supported in allowlist
     if (!ALLOWED_RUN_TOOLS.has(estimatedTool) || !TOOL_REGISTRY.has(estimatedTool)) {
       stepResults.push({

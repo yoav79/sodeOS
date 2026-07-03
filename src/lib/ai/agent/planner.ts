@@ -55,11 +55,12 @@ HERRAMIENTAS PERMITIDAS (estimatedTool por paso) Y SUS DESCRIPCIONES:
   - "getRecentNodeVersions": consultar versiones recientes del nodo.
   - "webSearch": buscar información pública externa en internet; usar solo si el usuario pide datos actuales, externos o verificables fuera del cerebro; requiere consentimiento y no debe recibir contenido interno.
   - "getAttachmentContext": leer excerpts seguros de archivos TXT/MD/PDF/DOCX ya procesados del nodo actual; usar cuando el usuario pregunta por archivos adjuntos, documentos cargados o contenido de attachments.
+  - "none": no requiere ejecución de herramienta. Usar obligatoriamente para pasos de análisis, redacción, comparación, estructuración o síntesis final del documento que operen únicamente sobre datos recopilados en pasos previos.
 
 REGLAS DEL PLAN:
 - Máximo ${MAX_AGENT_PLAN_STEPS} pasos en "steps".
-- Cada paso DEBE tener un campo "estimatedTool" del listado permitido arriba.
-- Si ninguna herramienta encaja perfectamente, elige la más cercana.
+- Cada paso DEBE tener un campo "estimatedTool" del listado permitido arriba. Si un paso consiste puramente en redactar, comparar información ya obtenida, estructurar el análisis o generar conclusiones, su "estimatedTool" DEBE ser "none".
+- Si ninguna herramienta encaja perfectamente, elige la más cercana o "none" si no requiere buscar o leer datos nuevos.
 - "estimatedTools" en la raíz es la lista deduplicada de tools usadas en steps.
 - Activar "enableWebSearch" no significa que siempre deba usar "webSearch". La herramienta "webSearch" solo debe planificarse si la consulta del usuario lo justifica.
 - Si el usuario pide explícitamente buscar en internet (datos actuales, externos o verificables fuera del cerebro) y "enableWebSearch" está permitido, debe planificar "webSearch".
@@ -247,9 +248,9 @@ function parsePlanJSON(raw: string): AgentPlan {
       estimatedTool = s.estimatedTool as AgentToolName;
     } else {
       warnings.push(
-        `Herramienta inválida en paso ${idx + 1} ("${s.estimatedTool}"). Sustituida por "getCurrentDocument".`
+        `Herramienta inválida en paso ${idx + 1} ("${s.estimatedTool}"). Sustituida por "none".`
       );
-      estimatedTool = 'getCurrentDocument';
+      estimatedTool = 'none';
     }
 
     return {
