@@ -1019,6 +1019,207 @@ export default function BrainEditorClient({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
+  // Context Menu State & Logic
+  const [contextMenu, setContextMenu] = useState<{
+    node: NodeTreeItem;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [adjustedCoords, setAdjustedCoords] = useState<{ x: number; y: number } | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  useEffect(() => {
+    if (!contextMenu) {
+      setAdjustedCoords(null);
+      return;
+    }
+
+    const menuWidth = 220;
+    const menuHeight = canEditBrain ? 330 : 180;
+
+    let targetX = contextMenu.x;
+    let targetY = contextMenu.y;
+
+    if (targetX + menuWidth > window.innerWidth) {
+      targetX = window.innerWidth - menuWidth - 8;
+    }
+    if (targetY + menuHeight > window.innerHeight) {
+      targetY = window.innerHeight - menuHeight - 8;
+    }
+
+    targetX = Math.max(8, targetX);
+    targetY = Math.max(8, targetY);
+
+    setAdjustedCoords({ x: targetX, y: targetY });
+
+    const handleClose = () => {
+      setContextMenu(null);
+    };
+
+    window.addEventListener('mousedown', handleClose);
+    window.addEventListener('contextmenu', handleClose);
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenu(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('mousedown', handleClose);
+      window.removeEventListener('contextmenu', handleClose);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [contextMenu, canEditBrain]);
+
+  const handleCopyTitle = (node: NodeTreeItem) => {
+    navigator.clipboard.writeText(node.title);
+    setToastMessage('Título copiado al portapapeles');
+  };
+
+  const handleCopyMarkdown = (node: NodeTreeItem) => {
+    navigator.clipboard.writeText(node.contentMarkdown || '');
+    setToastMessage('Markdown copiado al portapapeles');
+  };
+
+  const handleCopyLink = (node: NodeTreeItem) => {
+    const url = `${window.location.origin}/brains/${brainId}?nodeId=${node.id}`;
+    navigator.clipboard.writeText(url);
+    setToastMessage('Enlace copiado al portapapeles');
+  };
+
+  const handlePrintNode = (node: NodeTreeItem) => {
+    if (selectedNodeId !== node.id) {
+      selectNodeHandler(node.id);
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    } else {
+      window.print();
+    }
+  };
+
+  const handleExportTreeItemMarkdown = (node: NodeTreeItem) => {
+    const dateStr = node.updatedAt instanceof Date
+      ? node.updatedAt.toISOString()
+      : new Date(node.updatedAt).toISOString();
+
+    let yamlContent = `---\n`;
+    yamlContent += `title: "${node.title.replace(/"/g, '\\"')}"\n`;
+    yamlContent += `status: "${node.status}"\n`;
+    yamlContent += `updatedAt: "${dateStr}"\n`;
+    if (node.description) {
+      yamlContent += `description: "${node.description.replace(/"/g, '\\"')}"\n`;
+    }
+    yamlContent += `---\n\n`;
+    yamlContent += node.contentMarkdown || '';
+
+    const filename = `${node.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`;
+    downloadTextFile(filename, yamlContent, 'text/markdown');
+    setToastMessage(`Exportado "${node.title}" como Markdown`);
+  };
+
+  const handleRenameNode = async (node: NodeTreeItem) => {
+    if (!canEditBrain) return;
+    const newTitle = window.prompt('Renombrar documento:', node.title);
+    if (newTitle === null) return;
+    const trimmed = newTitle.trim();
+    if (!trimmed) {
+      alert('El título no puede estar vacío.');
+      return;
+    }
+    if (trimmed === node.title) return;
+
+    try {
+      const res = await fetch(`/api/nodes/${node.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: trimmed,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al renombrar el documento.');
+      }
+
+      // Refresh tree
+      const treeRes = await fetch(`/api/brains/${brainId}/tree`);
+      if (treeRes.ok) {
+        const treeData = await treeRes.json();
+        setTree(treeData.tree || []);
+      }
+
+      // If the renamed node is selected, update details too
+      if (node.id === selectedNodeId) {
+        const detailRes = await fetch(`/api/nodes/${node.id}`);
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          setNodeDetail(detailData.node);
+        }
+      }
+      setToastMessage('Documento renombrado exitosamente');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al renombrar.';
+      alert(msg);
+    }
+  };
+
+  const handleArchiveNodeById = async (node: NodeTreeItem) => {
+    if (!canEditBrain) return;
+    const hasChildren = node.children && node.children.length > 0;
+    const confirmMsg = hasChildren
+      ? `El documento "${node.title}" tiene subpáginas. Si lo archivas, todas sus subpáginas serán archivadas también de forma recursiva. ¿Estás seguro de que deseas continuar?`
+      : `¿Estás seguro de que deseas archivar el documento "${node.title}"?`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/nodes/${node.id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al archivar el documento.');
+      }
+
+      // Refresh tree
+      const treeRes = await fetch(`/api/brains/${brainId}/tree`);
+      if (treeRes.ok) {
+        const treeData = await treeRes.json();
+        setTree(treeData.tree || []);
+      }
+
+      // If the archived node was selected, clear selected node id
+      if (node.id === selectedNodeId) {
+        setSelectedNodeId(null);
+        setNodeDetail(null);
+      }
+      setToastMessage('Documento archivado exitosamente');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al archivar.';
+      alert(msg);
+    }
+  };
+
   const handleMoveNode = async (nodeId: string, newParentId: string | null, newPosition: number) => {
     try {
       setMoveError(null);
@@ -1785,6 +1986,9 @@ ${nodeDetail.contentMarkdown}`;
           onMoveNode={handleMoveNode}
           width={sidebarWidth}
           onResizeStart={handleResizeStart}
+          onContextMenuNode={(node, x, y) => {
+            setContextMenu({ node, x, y });
+          }}
         />
 
         {/* Detail / Edit View Panel */}
@@ -2073,6 +2277,151 @@ ${nodeDetail.contentMarkdown}`;
         onRefresh={refreshMembers}
         isOwner={isOwner}
       />
+
+      {/* Menú Contextual de Documentos */}
+      {contextMenu && adjustedCoords && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${adjustedCoords.x}px`,
+            top: `${adjustedCoords.y}px`,
+          }}
+          className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-xl shadow-slate-900/10 py-1.5 min-w-[220px] max-w-[240px] z-50 overflow-hidden flex flex-col font-sans select-none"
+        >
+          {/* Header del nodo */}
+          <div className="px-3 py-1.5 bg-slate-50/80 border-b border-slate-100 flex flex-col gap-0.5">
+            <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">Documento</span>
+            <span className="text-xs font-bold text-slate-700 truncate" title={contextMenu.node.title}>
+              {contextMenu.node.title}
+            </span>
+          </div>
+
+          <div className="py-1">
+            {/* Copiar Título */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyTitle(contextMenu.node);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              📋 Copiar título
+            </button>
+
+            {/* Copiar Markdown */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyMarkdown(contextMenu.node);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              📝 Copiar Markdown
+            </button>
+
+            {/* Copiar Enlace */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyLink(contextMenu.node);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              🔗 Copiar enlace de página
+            </button>
+
+            {/* Imprimir */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrintNode(contextMenu.node);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              🖨️ Imprimir documento
+            </button>
+
+            {/* Exportar Markdown */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleExportTreeItemMarkdown(contextMenu.node);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              📥 Exportar a Markdown
+            </button>
+          </div>
+
+          {canEditBrain && (
+            <>
+              <div className="border-t border-slate-100 my-1" />
+              <div className="py-1">
+                {/* Renombrar */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRenameNode(contextMenu.node);
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  ✏️ Renombrar
+                </button>
+
+                {/* Crear subpágina */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openCreateModal(contextMenu.node.id);
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  ➕ Crear página hija
+                </button>
+
+                {/* Mover a raíz */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleMoveNode(contextMenu.node.id, null, tree.length);
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  📁 Mover a la raíz
+                </button>
+
+                {/* Archivar / Eliminar */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleArchiveNodeById(contextMenu.node);
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  🗑️ Archivar (Eliminar)
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 bg-slate-900/90 backdrop-blur-md text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-xl shadow-slate-950/20 z-50 flex items-center gap-2 border border-slate-800 animate-pulse">
+          <span>✨</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

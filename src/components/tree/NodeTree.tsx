@@ -38,6 +38,7 @@ interface NodeTreeProps {
   onMoveNode?: (nodeId: string, newParentId: string | null, newPosition: number) => void;
   canEdit?: boolean;
   nodeMap?: Map<string, NodeTreeItem>;
+  onContextMenuNode?: (node: NodeTreeItem, x: number, y: number) => void;
 }
 
 export default function NodeTree({
@@ -49,6 +50,7 @@ export default function NodeTree({
   onMoveNode,
   canEdit = true,
   nodeMap,
+  onContextMenuNode,
 }: NodeTreeProps) {
   const currentMap = nodeMap || (level === 0 ? buildNodeMap(items) : new Map<string, NodeTreeItem>());
   const [isRootHovered, setIsRootHovered] = useState(false);
@@ -69,6 +71,7 @@ export default function NodeTree({
           canEdit={canEdit}
           nodeMap={currentMap}
           siblings={items}
+          onContextMenuNode={onContextMenuNode}
         />
       ))}
 
@@ -116,6 +119,7 @@ interface NodeTreeRowProps {
   canEdit: boolean;
   nodeMap: Map<string, NodeTreeItem>;
   siblings: NodeTreeItem[];
+  onContextMenuNode?: (node: NodeTreeItem, x: number, y: number) => void;
 }
 
 function NodeTreeRow({
@@ -128,6 +132,7 @@ function NodeTreeRow({
   canEdit,
   nodeMap,
   siblings,
+  onContextMenuNode,
 }: NodeTreeRowProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeDropZone, setActiveDropZone] = useState<'before' | 'inside' | 'after' | null>(null);
@@ -255,6 +260,13 @@ function NodeTreeRow({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onContextMenu={(e) => {
+          if (onContextMenuNode) {
+            e.preventDefault();
+            e.stopPropagation();
+            onContextMenuNode(item, e.clientX, e.clientY);
+          }
+        }}
         className={`group flex items-center justify-between py-1.5 px-2 rounded-lg transition-all duration-200 cursor-pointer ${
           isSelected
             ? 'bg-blue-50 border-l-2 border-blue-600 text-blue-700 font-semibold'
@@ -333,6 +345,7 @@ function NodeTreeRow({
             onMoveNode={onMoveNode}
             canEdit={canEdit}
             nodeMap={nodeMap}
+            onContextMenuNode={onContextMenuNode}
           />
         </div>
       )}

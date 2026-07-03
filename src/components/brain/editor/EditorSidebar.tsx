@@ -23,6 +23,7 @@ interface EditorSidebarProps {
   onMoveNode?: (nodeId: string, newParentId: string | null, newPosition: number) => void;
   width?: number;
   onResizeStart?: (e: React.MouseEvent) => void;
+  onContextMenuNode?: (node: NodeTreeItem, x: number, y: number) => void;
 }
 
 export default function EditorSidebar({
@@ -44,6 +45,7 @@ export default function EditorSidebar({
   onMoveNode,
   width = 288,
   onResizeStart,
+  onContextMenuNode,
 }: EditorSidebarProps) {
   const displayName = brainName?.trim() || 'Cerebro';
 
@@ -202,6 +204,7 @@ export default function EditorSidebar({
             onSelectNode={(node) => onSelectNode(node.id)}
             onMoveNode={onMoveNode}
             canEdit={canEditBrain}
+            onContextMenuNode={onContextMenuNode}
           />
         )}
       </div>
