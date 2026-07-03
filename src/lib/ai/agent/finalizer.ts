@@ -333,7 +333,7 @@ export function buildAgentFinalizerContext(
       if (resultsCount > 0) {
         getAttachmentContextStatus = 'getAttachmentContext ejecutado con resultados.';
       } else {
-        getAttachmentContextStatus = 'Solo puedo consultar archivos TXT/MD ya procesados del nodo actual. No se encontraron archivos de texto procesados en este nodo.';
+        getAttachmentContextStatus = 'Solo puedo consultar archivos procesados (TXT, MD, PDF o DOCX) del nodo actual. No se encontraron archivos procesados o chunks válidos en este nodo.';
       }
     } else {
       getAttachmentContextStatus = `getAttachmentContext fallido durante la ejecución: ${attachmentsObs.errorMessage || 'Error desconocido'}`;
