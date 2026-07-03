@@ -1025,8 +1025,32 @@ export default function BrainEditorClient({
     x: number;
     y: number;
   } | null>(null);
-  const [adjustedCoords, setAdjustedCoords] = useState<{ x: number; y: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Compute adjustedCoords during render to avoid cascading renders
+  const adjustedCoords = (() => {
+    if (!contextMenu) return null;
+
+    const menuWidth = 220;
+    const menuHeight = canEditBrain ? 330 : 180;
+
+    let targetX = contextMenu.x;
+    let targetY = contextMenu.y;
+
+    if (typeof window !== 'undefined') {
+      if (targetX + menuWidth > window.innerWidth) {
+        targetX = window.innerWidth - menuWidth - 8;
+      }
+      if (targetY + menuHeight > window.innerHeight) {
+        targetY = window.innerHeight - menuHeight - 8;
+      }
+
+      targetX = Math.max(8, targetX);
+      targetY = Math.max(8, targetY);
+    }
+
+    return { x: targetX, y: targetY };
+  })();
 
   useEffect(() => {
     if (toastMessage) {
@@ -1036,28 +1060,7 @@ export default function BrainEditorClient({
   }, [toastMessage]);
 
   useEffect(() => {
-    if (!contextMenu) {
-      setAdjustedCoords(null);
-      return;
-    }
-
-    const menuWidth = 220;
-    const menuHeight = canEditBrain ? 330 : 180;
-
-    let targetX = contextMenu.x;
-    let targetY = contextMenu.y;
-
-    if (targetX + menuWidth > window.innerWidth) {
-      targetX = window.innerWidth - menuWidth - 8;
-    }
-    if (targetY + menuHeight > window.innerHeight) {
-      targetY = window.innerHeight - menuHeight - 8;
-    }
-
-    targetX = Math.max(8, targetX);
-    targetY = Math.max(8, targetY);
-
-    setAdjustedCoords({ x: targetX, y: targetY });
+    if (!contextMenu) return;
 
     const handleClose = () => {
       setContextMenu(null);
@@ -1078,36 +1081,96 @@ export default function BrainEditorClient({
       window.removeEventListener('contextmenu', handleClose);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [contextMenu, canEditBrain]);
+  }, [contextMenu]);
+
+  const copyToClipboard = async (text: string, successMessage: string) => {
+    if (!text) {
+      setToastMessage('Error: No hay contenido para copiar');
+      return;
+    }
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        setToastMessage(successMessage);
+        return;
+      }
+    } catch (err) {
+      console.warn('Navigator clipboard failed, using fallback:', err);
+    }
+
+    // Fallback implementation using standard textarea
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.width = '2em';
+      textArea.style.height = '2em';
+      textArea.style.padding = '0';
+      textArea.style.border = 'none';
+      textArea.style.outline = 'none';
+      textArea.style.boxShadow = 'none';
+      textArea.style.background = 'transparent';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        setToastMessage(successMessage);
+      } else {
+        throw new Error('Fallback execCommand copy returned false');
+      }
+    } catch (err) {
+      console.error('Copy fallback failed:', err);
+      setToastMessage('Error al copiar al portapapeles');
+    }
+  };
 
   const handleCopyTitle = (node: NodeTreeItem) => {
-    navigator.clipboard.writeText(node.title);
-    setToastMessage('Título copiado al portapapeles');
+    copyToClipboard(node.title, 'Título copiado al portapapeles');
   };
 
   const handleCopyMarkdown = (node: NodeTreeItem) => {
-    navigator.clipboard.writeText(node.contentMarkdown || '');
-    setToastMessage('Markdown copiado al portapapeles');
+    let md = node.contentMarkdown;
+    if (!md && selectedNodeId === node.id && nodeDetail) {
+      md = nodeDetail.contentMarkdown;
+    }
+    if (!md) {
+      setToastMessage('Error: Este documento no tiene contenido Markdown para copiar');
+      return;
+    }
+    copyToClipboard(md, 'Markdown copiado al portapapeles');
   };
 
   const handleCopyLink = (node: NodeTreeItem) => {
-    const url = `${window.location.origin}/brains/${brainId}?nodeId=${node.id}`;
-    navigator.clipboard.writeText(url);
-    setToastMessage('Enlace copiado al portapapeles');
+    const origin = typeof window !== 'undefined' && window.location.origin ? window.location.origin : '';
+    const path = `/brains/${brainId}?nodeId=${node.id}`;
+    const url = origin ? `${origin}${path}` : path;
+    copyToClipboard(url, 'Enlace copiado al portapapeles');
   };
 
   const handlePrintNode = (node: NodeTreeItem) => {
     if (selectedNodeId !== node.id) {
       selectNodeHandler(node.id);
-      setTimeout(() => {
-        window.print();
-      }, 500);
+      setToastMessage('Documento abierto. Vuelve a imprimir cuando termine de cargar.');
     } else {
       window.print();
     }
   };
 
   const handleExportTreeItemMarkdown = (node: NodeTreeItem) => {
+    let md = node.contentMarkdown;
+    if (!md && selectedNodeId === node.id && nodeDetail) {
+      md = nodeDetail.contentMarkdown;
+    }
+    if (!md) {
+      setToastMessage('Error: Este documento no tiene contenido para exportar');
+      return;
+    }
+
     const dateStr = node.updatedAt instanceof Date
       ? node.updatedAt.toISOString()
       : new Date(node.updatedAt).toISOString();
@@ -1120,23 +1183,42 @@ export default function BrainEditorClient({
       yamlContent += `description: "${node.description.replace(/"/g, '\\"')}"\n`;
     }
     yamlContent += `---\n\n`;
-    yamlContent += node.contentMarkdown || '';
+    yamlContent += md;
 
-    const filename = `${node.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`;
+    let sanitizedTitle = node.title.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!sanitizedTitle) {
+      sanitizedTitle = 'documento';
+    }
+    const filename = `${sanitizedTitle}.md`;
+
     downloadTextFile(filename, yamlContent, 'text/markdown');
     setToastMessage(`Exportado "${node.title}" como Markdown`);
+  };
+
+  const handleMoveToRoot = (node: NodeTreeItem) => {
+    if (!canEditBrain) return;
+    if (node.parentId === null) {
+      setToastMessage('El documento ya se encuentra en la raíz');
+      return;
+    }
+    const roots = tree.filter((n) => n.id !== node.id);
+    const newPosition = roots.length;
+    handleMoveNode(node.id, null, newPosition);
   };
 
   const handleRenameNode = async (node: NodeTreeItem) => {
     if (!canEditBrain) return;
     const newTitle = window.prompt('Renombrar documento:', node.title);
-    if (newTitle === null) return;
+    if (newTitle === null) return; // User cancelled
     const trimmed = newTitle.trim();
     if (!trimmed) {
-      alert('El título no puede estar vacío.');
+      setToastMessage('Error: El título no puede estar vacío');
       return;
     }
-    if (trimmed === node.title) return;
+    if (trimmed === node.title) {
+      setToastMessage('El título es idéntico');
+      return;
+    }
 
     try {
       const res = await fetch(`/api/nodes/${node.id}`, {
@@ -1171,7 +1253,7 @@ export default function BrainEditorClient({
       setToastMessage('Documento renombrado exitosamente');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al renombrar.';
-      alert(msg);
+      setToastMessage(`Error: ${msg}`);
     }
   };
 
@@ -1216,7 +1298,7 @@ export default function BrainEditorClient({
       setToastMessage('Documento archivado exitosamente');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al archivar.';
-      alert(msg);
+      setToastMessage(`Error: ${msg}`);
     }
   };
 
@@ -1255,9 +1337,11 @@ export default function BrainEditorClient({
           setNodeDetail(detailData.node);
         }
       }
+      setToastMessage('Documento movido exitosamente');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al mover el documento.';
       setMoveError(msg);
+      setToastMessage(`Error: ${msg}`);
     } finally {
       setIsMoving(false);
     }
@@ -2286,6 +2370,8 @@ ${nodeDetail.contentMarkdown}`;
             left: `${adjustedCoords.x}px`,
             top: `${adjustedCoords.y}px`,
           }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.stopPropagation()}
           className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-xl shadow-slate-900/10 py-1.5 min-w-[220px] max-w-[240px] z-50 overflow-hidden flex flex-col font-sans select-none"
         >
           {/* Header del nodo */}
@@ -2390,7 +2476,7 @@ ${nodeDetail.contentMarkdown}`;
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleMoveNode(contextMenu.node.id, null, tree.length);
+                    handleMoveToRoot(contextMenu.node);
                     setContextMenu(null);
                   }}
                   className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-2 cursor-pointer"
