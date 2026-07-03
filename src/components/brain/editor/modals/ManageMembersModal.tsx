@@ -157,8 +157,8 @@ export default function ManageMembersModal({
       setAddError('La contraseña temporal es requerida.');
       return;
     }
-    if (password.length < 12) {
-      setAddError('La contraseña debe tener al menos 12 caracteres.');
+    if (password.length < 8) {
+      setAddError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
 
@@ -450,7 +450,7 @@ export default function ManageMembersModal({
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contraseña Temporal</label>
                       <input
                         type="password"
-                        placeholder="Mínimo 12 caracteres"
+                        placeholder="Mínimo 8 caracteres"
                         value={newUserPassword}
                         onChange={(e) => {
                           setNewUserPassword(e.target.value);

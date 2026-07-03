@@ -53,8 +53,8 @@ async function main() {
   }
 
   // Validación de longitud mínima de contraseña para producción (segura)
-  if (password.length < 12) {
-    console.error("Error: La contraseña (ADMIN_PASSWORD) debe tener al menos 12 caracteres.");
+  if (password.length < 8) {
+    console.error("Error: La contraseña (ADMIN_PASSWORD) debe tener al menos 8 caracteres.");
     process.exit(1);
   }
 

@@ -43,8 +43,8 @@ export default function RegisterForm() {
       setError('La contraseña es requerida.');
       return;
     }
-    if (password.length < 12) {
-      setError('La contraseña debe tener al menos 12 caracteres.');
+    if (password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
 
@@ -199,7 +199,7 @@ export default function RegisterForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mín. 12 caracteres"
+              placeholder="Mín. 8 caracteres"
               disabled={loading}
               className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-colors"
             />
