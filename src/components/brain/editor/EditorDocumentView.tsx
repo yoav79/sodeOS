@@ -18,13 +18,13 @@ export default function EditorDocumentView({
   return (
     <div className="flex flex-col gap-6">
       {/* ── Cabecera: título, badge y botón Editar ── */}
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4">
+      <div className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-sm -mx-8 px-8 pt-8 -mt-8 pb-4 border-b border-slate-200 flex flex-col gap-3">
         {/* Fila superior: título + badge + botón Editar */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-1 truncate">{nodeDetail.title}</h1>
             {nodeDetail.description?.trim() && (
-              <p className="text-slate-500 text-sm font-medium">
+              <p className="text-slate-500 text-sm font-medium line-clamp-2">
                 {nodeDetail.description}
               </p>
             )}
