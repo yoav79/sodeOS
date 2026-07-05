@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Node } from '@/types';
 import RichMarkdownEditor from './rich-text/RichMarkdownEditor';
+import ConfirmModal from './modals/ConfirmModal';
 import SaveReviewModal from './modals/SaveReviewModal';
 
 
@@ -18,7 +19,6 @@ interface EditorDocumentFormProps {
   editChangeNote: string;
   saveError: string | null;
   isSaving: boolean;
-  isDirty?: boolean;
   onEditTitleChange: (val: string) => void;
   onEditDescriptionChange: (val: string) => void;
   onEditContentChange: (val: string) => void;
@@ -41,7 +41,6 @@ export default function EditorDocumentForm({
   editChangeNote,
   saveError,
   isSaving,
-  isDirty = false,
   onEditTitleChange,
   onEditDescriptionChange,
   onEditContentChange,
@@ -53,8 +52,56 @@ export default function EditorDocumentForm({
   onCancel,
 }: EditorDocumentFormProps) {
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
+  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState<boolean>(false);
   const [tagInput, setTagInput] = useState<string>('');
   const [reviewError, setReviewError] = useState<string | null>(null);
+
+  const normalizedOriginalTags = useMemo(
+    () => (nodeDetail.tags || []).map((tag) => tag.trim().toLowerCase()).filter(Boolean),
+    [nodeDetail.tags]
+  );
+
+  const normalizedEditTags = useMemo(
+    () => editTags.map((tag) => tag.trim().toLowerCase()).filter(Boolean),
+    [editTags]
+  );
+
+  const isDirty = useMemo(() => {
+    const titleChanged = editTitle.trim() !== (nodeDetail.title || '').trim();
+    const descriptionChanged = editDescription.trim() !== (nodeDetail.description || '').trim();
+    const contentChanged = editContent !== (nodeDetail.contentMarkdown || '');
+    const statusChanged = editStatus !== (nodeDetail.status || '');
+    const categoryChanged = editCategory.trim() !== (nodeDetail.category || '').trim();
+    const changeNoteChanged = editChangeNote.trim() !== '';
+
+    const tagsChanged =
+      normalizedOriginalTags.length !== normalizedEditTags.length ||
+      normalizedOriginalTags.some((tag, index) => tag !== normalizedEditTags[index]);
+
+    return (
+      titleChanged ||
+      descriptionChanged ||
+      contentChanged ||
+      statusChanged ||
+      categoryChanged ||
+      tagsChanged ||
+      changeNoteChanged
+    );
+  }, [
+    editTitle,
+    nodeDetail.title,
+    editDescription,
+    nodeDetail.description,
+    editContent,
+    nodeDetail.contentMarkdown,
+    editStatus,
+    nodeDetail.status,
+    editCategory,
+    nodeDetail.category,
+    editChangeNote,
+    normalizedOriginalTags,
+    normalizedEditTags,
+  ]);
 
   const addTag = (val: string) => {
     const normalized = val.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -92,6 +139,28 @@ export default function EditorDocumentForm({
     if (isSaving) return;
     setReviewError(null);
     setIsConfigOpen(false);
+  };
+
+  const handleCancelClick = () => {
+    if (isConfigOpen || isSaving) {
+      return;
+    }
+
+    if (!isDirty) {
+      onCancel();
+      return;
+    }
+
+    setIsDiscardConfirmOpen(true);
+  };
+
+  const closeDiscardConfirm = () => {
+    setIsDiscardConfirmOpen(false);
+  };
+
+  const confirmDiscardChanges = () => {
+    setIsDiscardConfirmOpen(false);
+    onCancel();
   };
 
   const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -189,7 +258,7 @@ export default function EditorDocumentForm({
 
           {/* Cancelar */}
           <button
-            onClick={onCancel}
+            onClick={handleCancelClick}
             disabled={isSaving}
             title="Cancelar edición"
             aria-label="Cancelar edición"
@@ -291,6 +360,17 @@ export default function EditorDocumentForm({
         onRemoveTag={removeTag}
         onClose={closeConfigModal}
         onConfirm={handleConfirmSave}
+      />
+
+      <ConfirmModal
+        isOpen={isDiscardConfirmOpen}
+        title="Descartar cambios"
+        message="Tienes cambios sin guardar. Si sales ahora, se perderán."
+        confirmLabel="Descartar cambios"
+        cancelLabel="Seguir editando"
+        isDestructive
+        onConfirm={confirmDiscardChanges}
+        onClose={closeDiscardConfirm}
       />
     </div>
   );

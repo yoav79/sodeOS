@@ -153,6 +153,7 @@ export default function BrainEditorClient({
     const contentChanged = editContent !== (nodeDetail.contentMarkdown || '');
     const statusChanged = editStatus !== (nodeDetail.status || '');
     const categoryChanged = (editCategory || '').trim() !== (nodeDetail.category || '').trim();
+    const changeNoteChanged = editChangeNote.trim() !== '';
     
     const currentSet = new Set((nodeDetail.tags || []).map(t => t.trim().toLowerCase()).filter(Boolean));
     const editSet = new Set(editTags.map(t => t.trim().toLowerCase()).filter(Boolean));
@@ -166,8 +167,8 @@ export default function BrainEditorClient({
       }
     }
     
-    return titleChanged || descChanged || contentChanged || statusChanged || categoryChanged || tagsChanged;
-  }, [isEditing, nodeDetail, editTitle, editDescription, editContent, editStatus, editCategory, editTags]);
+    return titleChanged || descChanged || contentChanged || statusChanged || categoryChanged || tagsChanged || changeNoteChanged;
+  }, [isEditing, nodeDetail, editTitle, editDescription, editContent, editStatus, editCategory, editTags, editChangeNote]);
 
   // Alert on tab close or reload when changes are unsaved
   useEffect(() => {
@@ -2088,13 +2089,12 @@ ${nodeDetail.contentMarkdown}`;
                   onEditDescriptionChange={setEditDescription}
                   onEditContentChange={setEditContent}
                   onEditStatusChange={setEditStatus}
-                  onEditCategoryChange={setEditCategory}
-                  onEditTagsChange={setEditTags}
-                  onEditChangeNoteChange={setEditChangeNote}
-                  isDirty={isDirty}
-                  onSave={handleSave}
-                  onCancel={handleCancelEdit}
-                />
+                   onEditCategoryChange={setEditCategory}
+                   onEditTagsChange={setEditTags}
+                   onEditChangeNoteChange={setEditChangeNote}
+                   onSave={handleSave}
+                   onCancel={handleCancelEdit}
+                 />
               ) : (
                 /* READ-ONLY VIEW */
                 <EditorDocumentView
