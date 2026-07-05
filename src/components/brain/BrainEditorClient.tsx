@@ -1164,7 +1164,7 @@ export default function BrainEditorClient({
     }
 
     try {
-      const res = await fetch(`/api/nodes/${node.id}`, {
+      const res = await fetch(`/api/nodes/${node.id}/rename`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1173,6 +1173,12 @@ export default function BrainEditorClient({
           title: trimmed,
         }),
       });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Error al renombrar el documento.');

@@ -144,6 +144,11 @@ export interface UpdateNodeInput {
   tags?: string[];
 }
 
+export interface RenameNodeInput {
+  title: string;
+  userId: string;
+}
+
 /**
  * Updates a node's content (title, contentMarkdown, status) and creates a new NodeVersion.
  * Runs inside a Prisma transaction.
@@ -378,6 +383,103 @@ export async function updateNodeContent(
       unchanged: false,
     };
   });
+}
+
+export async function renameNode(
+  nodeId: string,
+  input: RenameNodeInput
+): Promise<{ node: Node | null; unchanged: boolean }> {
+  const currentNode = await db.node.findFirst({
+    where: {
+      id: nodeId,
+      deletedAt: null,
+    },
+    include: {
+      nodeTags: {
+        include: {
+          tag: true,
+        },
+      },
+    },
+  });
+
+  if (!currentNode) {
+    return { node: null, unchanged: false };
+  }
+
+  const normalizedTitle = input.title.trim();
+  const currentTags = currentNode.nodeTags
+    ? currentNode.nodeTags.map((nt) => nt.tag.name).sort((a, b) => a.localeCompare(b))
+    : [];
+
+  if (currentNode.title === normalizedTitle) {
+    return {
+      node: {
+        id: currentNode.id,
+        brainId: currentNode.brainId,
+        parentId: currentNode.parentId,
+        templateId: currentNode.templateId,
+        title: currentNode.title,
+        slug: currentNode.slug,
+        contentMarkdown: currentNode.contentMarkdown,
+        status: currentNode.status,
+        description: currentNode.description,
+        category: currentNode.category,
+        ownerUserId: currentNode.ownerUserId,
+        responsibleUserId: currentNode.responsibleUserId,
+        position: currentNode.position,
+        lockedBy: currentNode.lockedBy,
+        lockedAt: currentNode.lockedAt,
+        createdBy: currentNode.createdBy,
+        updatedBy: currentNode.updatedBy,
+        reviewedAt: currentNode.reviewedAt,
+        nextReviewAt: currentNode.nextReviewAt,
+        createdAt: currentNode.createdAt,
+        updatedAt: currentNode.updatedAt,
+        deletedAt: currentNode.deletedAt,
+        tags: currentTags,
+      },
+      unchanged: true,
+    };
+  }
+
+  const updatedNode = await db.node.update({
+    where: { id: nodeId },
+    data: {
+      title: normalizedTitle,
+      updatedBy: input.userId,
+      updatedAt: new Date(),
+    },
+  });
+
+  return {
+    node: {
+      id: updatedNode.id,
+      brainId: updatedNode.brainId,
+      parentId: updatedNode.parentId,
+      templateId: updatedNode.templateId,
+      title: updatedNode.title,
+      slug: updatedNode.slug,
+      contentMarkdown: updatedNode.contentMarkdown,
+      status: updatedNode.status,
+      description: updatedNode.description,
+      category: updatedNode.category,
+      ownerUserId: updatedNode.ownerUserId,
+      responsibleUserId: updatedNode.responsibleUserId,
+      position: updatedNode.position,
+      lockedBy: updatedNode.lockedBy,
+      lockedAt: updatedNode.lockedAt,
+      createdBy: updatedNode.createdBy,
+      updatedBy: updatedNode.updatedBy,
+      reviewedAt: updatedNode.reviewedAt,
+      nextReviewAt: updatedNode.nextReviewAt,
+      createdAt: updatedNode.createdAt,
+      updatedAt: updatedNode.updatedAt,
+      deletedAt: updatedNode.deletedAt,
+      tags: currentTags,
+    },
+    unchanged: false,
+  };
 }
 
 /**
@@ -1467,7 +1569,6 @@ export async function searchNodesInBrain(
 
   return results;
 }
-
 
 
 
