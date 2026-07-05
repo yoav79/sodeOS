@@ -1629,13 +1629,13 @@ export default function BrainEditorClient({
     }
   };
 
-  const handleSave = async () => {
-    if (!canEditBrain) return;
-    if (!selectedNodeId) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!canEditBrain) return false;
+    if (!selectedNodeId) return false;
 
     if (!editTitle.trim()) {
       setSaveError('El título no puede estar vacío.');
-      return;
+      return false;
     }
 
     try {
@@ -1660,7 +1660,7 @@ export default function BrainEditorClient({
 
       if (res.status === 401) {
         router.push('/login');
-        return;
+        return false;
       }
 
       if (!res.ok) {
@@ -1671,9 +1671,11 @@ export default function BrainEditorClient({
       setIsEditing(false);
       // Trigger refresh of tree hierarchy, node detail and versions list
       setRefreshTrigger((prev) => prev + 1);
+      return true;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al guardar los cambios.';
       setSaveError(message);
+      return false;
     } finally {
       setIsSaving(false);
     }

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Node } from '@/types';
 import RichMarkdownEditor from './rich-text/RichMarkdownEditor';
+import SaveReviewModal from './modals/SaveReviewModal';
 
 
 
@@ -25,7 +26,7 @@ interface EditorDocumentFormProps {
   onEditCategoryChange: (val: string) => void;
   onEditTagsChange: (tags: string[]) => void;
   onEditChangeNoteChange: (val: string) => void;
-  onSave: () => void;
+  onSave: () => Promise<boolean>;
   onCancel: () => void;
 }
 
@@ -53,6 +54,7 @@ export default function EditorDocumentForm({
 }: EditorDocumentFormProps) {
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
   const [tagInput, setTagInput] = useState<string>('');
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const addTag = (val: string) => {
     const normalized = val.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -81,6 +83,17 @@ export default function EditorDocumentForm({
     onEditTagsChange(editTags.filter((_, idx) => idx !== indexToRemove));
   };
 
+  const openConfigModal = () => {
+    setReviewError(null);
+    setIsConfigOpen(true);
+  };
+
+  const closeConfigModal = () => {
+    if (isSaving) return;
+    setReviewError(null);
+    setIsConfigOpen(false);
+  };
+
   const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -90,6 +103,26 @@ export default function EditorDocumentForm({
       addTag(tagInput);
     } else if (e.key === 'Backspace' && !tagInput && editTags.length > 0) {
       removeTag(editTags.length - 1);
+    }
+  };
+
+  const handleChangeNoteChange = (val: string) => {
+    if (reviewError) {
+      setReviewError(null);
+    }
+    onEditChangeNoteChange(val);
+  };
+
+  const handleConfirmSave = async () => {
+    if (!editChangeNote.trim()) {
+      setReviewError('La nota de revisión es obligatoria para guardar cambios.');
+      return;
+    }
+
+    const saved = await onSave();
+    if (saved) {
+      setReviewError(null);
+      setIsConfigOpen(false);
     }
   };
 
@@ -142,7 +175,7 @@ export default function EditorDocumentForm({
           {/* Configuración Button */}
           <button
             type="button"
-            onClick={() => setIsConfigOpen(true)}
+            onClick={openConfigModal}
             title="Configuración del Documento"
             aria-label="Configuración del Documento"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-sm hover:shadow"
@@ -170,10 +203,10 @@ export default function EditorDocumentForm({
 
           {/* Guardar cambios */}
           <button
-            onClick={onSave}
+            onClick={openConfigModal}
             disabled={isSaving}
-            title={isSaving ? 'Guardando...' : 'Guardar cambios'}
-            aria-label="Guardar cambios"
+            title={isSaving ? 'Guardando...' : 'Revisar y guardar'}
+            aria-label="Revisar y guardar"
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
@@ -183,7 +216,7 @@ export default function EditorDocumentForm({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             )}
-            <span>Guardar cambios</span>
+            <span>Revisar y guardar</span>
           </button>
         </div>
       </div>
@@ -236,125 +269,29 @@ export default function EditorDocumentForm({
       {/* Separador de fin de formulario */}
       <div className="border-t border-slate-200 pt-2 mt-2" />
 
-      {/* Modal de Configuración del Documento */}
-      {isConfigOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col text-slate-900 animate-in fade-in zoom-in duration-200">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Configuración del Documento</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsConfigOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 space-y-4">
-              {/* Estado */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Estado de publicación</label>
-                <select
-                  value={editStatus}
-                  onChange={(e) => onEditStatusChange(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors w-full"
-                >
-                  <option value="active">Vigente (Activo)</option>
-                  <option value="draft">Borrador</option>
-                  <option value="needs_review">En Revisión</option>
-                  <option value="archived">Archivado</option>
-                </select>
-              </div>
-
-              {/* Categoría */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Categoría</label>
-                <input
-                  type="text"
-                  value={editCategory}
-                  onChange={(e) => onEditCategoryChange(e.target.value)}
-                  maxLength={50}
-                  className="bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors w-full"
-                  placeholder="Ej: Infraestructura, Recursos Humanos..."
-                />
-              </div>
-
-              {/* Etiquetas (Tags) */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Etiquetas (Tags)</label>
-                <div className="border border-slate-200 rounded-xl p-2 bg-white focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-colors w-full min-h-[42px] flex flex-wrap gap-1.5 items-center">
-                  {editTags.map((tag, idx) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 rounded-lg px-2 py-0.5 text-[11px] font-semibold"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(idx)}
-                        className="text-slate-400 hover:text-slate-600 focus:outline-none ml-0.5 text-xs font-bold"
-                      >
-                        &times;
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={handleTagInputKeyDown}
-                    onBlur={() => addTag(tagInput)}
-                    className="flex-1 min-w-[120px] bg-transparent text-xs text-slate-700 font-medium focus:outline-none py-0.5"
-                    placeholder={editTags.length === 0 ? "Ej: seguridad, wiki..." : ""}
-                  />
-                </div>
-                <span className="text-[9px] text-slate-400 font-medium">
-                  Enter o coma para agregar. Máximo 15 etiquetas de hasta 35 caracteres.
-                </span>
-              </div>
-
-              {/* Nota de cambios */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Nota de cambios</label>
-                <textarea
-                  value={editChangeNote}
-                  onChange={(e) => onEditChangeNoteChange(e.target.value)}
-                  rows={3}
-                  className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors placeholder-slate-400 resize-none w-full"
-                  placeholder="Ej: Actualización de fechas..."
-                />
-                <span className="text-[9px] text-slate-400 font-medium leading-normal flex items-start gap-1">
-                  <svg className="w-3.5 h-3.5 text-slate-300 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>Se agregará a la versión y será visible en el Historial al guardar.</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end bg-slate-50/50">
-              <button
-                type="button"
-                onClick={() => setIsConfigOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SaveReviewModal
+        isOpen={isConfigOpen}
+        title={editTitle}
+        description={editDescription}
+        status={editStatus}
+        category={editCategory}
+        tags={editTags}
+        changeNote={editChangeNote}
+        tagInput={tagInput}
+        validationError={reviewError}
+        saveError={saveError}
+        isSaving={isSaving}
+        onDescriptionChange={onEditDescriptionChange}
+        onStatusChange={onEditStatusChange}
+        onCategoryChange={onEditCategoryChange}
+        onChangeNoteChange={handleChangeNoteChange}
+        onTagInputChange={setTagInput}
+        onTagInputKeyDown={handleTagInputKeyDown}
+        onTagInputBlur={() => addTag(tagInput)}
+        onRemoveTag={removeTag}
+        onClose={closeConfigModal}
+        onConfirm={handleConfirmSave}
+      />
     </div>
   );
 }
