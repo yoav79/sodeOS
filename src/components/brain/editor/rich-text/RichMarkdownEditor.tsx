@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
@@ -371,6 +372,13 @@ export default function RichMarkdownEditor({
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
+  const bubbleMenuButtonClass = (isActive: boolean) =>
+    `px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+      isActive
+        ? 'bg-blue-600 text-white shadow-sm'
+        : 'text-slate-600 hover:bg-slate-100'
+    }`;
+
   return (
     <div className={`rich-markdown-editor rich-markdown-content flex flex-col border border-slate-200 bg-white rounded-xl overflow-hidden shadow-inner focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-all ${className} ${isFullscreen ? 'fixed inset-0 z-50 bg-white p-6 overflow-auto' : ''}`}>
       {/* Encapsulated styles for Tiptap content */}
@@ -384,62 +392,85 @@ export default function RichMarkdownEditor({
         }
       `}</style>
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 bg-slate-50 border-b border-slate-200 p-1.5 select-none">
-        {/* Bold */}
+      <BubbleMenu
+        editor={editor}
+        shouldShow={({ editor: currentEditor, state }) => {
+          if (!currentEditor.isEditable || disabled) {
+            return false;
+          }
+
+          const { from, to, empty } = state.selection;
+          if (empty || from === to) {
+            return false;
+          }
+
+          return !currentEditor.isActive('image');
+        }}
+        options={{
+          placement: 'top',
+          offset: 10,
+        }}
+        className={`flex items-center gap-1 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-lg shadow-slate-900/10 backdrop-blur-sm ${isFullscreen ? 'z-[70]' : 'z-40'}`}
+      >
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          disabled={disabled || !editor.can().chain().focus().toggleBold().run()}
-          className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
-            editor.isActive('bold') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleBold().run();
+          }}
+          className={bubbleMenuButtonClass(editor.isActive('bold'))}
           title="Negrita"
         >
           B
         </button>
-
-        {/* Italic */}
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          disabled={disabled || !editor.can().chain().focus().toggleItalic().run()}
-          className={`px-2 py-1 rounded text-xs font-semibold italic transition-colors ${
-            editor.isActive('italic') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleItalic().run();
+          }}
+          className={bubbleMenuButtonClass(editor.isActive('italic'))}
           title="Cursiva"
         >
-          I
+          <span className="italic">I</span>
         </button>
-
-        {/* Underline */}
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          disabled={disabled || !editor.can().chain().focus().toggleUnderline().run()}
-          className={`px-2 py-1 rounded text-xs underline transition-colors ${
-            editor.isActive('underline') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleUnderline().run();
+          }}
+          className={bubbleMenuButtonClass(editor.isActive('underline'))}
           title="Subrayado"
         >
-          U
+          <span className="underline">U</span>
         </button>
-
-        {/* Strike */}
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          disabled={disabled || !editor.can().chain().focus().toggleStrike().run()}
-          className={`px-2 py-1 rounded text-xs line-through transition-colors ${
-            editor.isActive('strike') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleStrike().run();
+          }}
+          className={bubbleMenuButtonClass(editor.isActive('strike'))}
           title="Tachado"
         >
-          S
+          <span className="line-through">S</span>
         </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleCode().run();
+          }}
+          className={bubbleMenuButtonClass(editor.isActive('code'))}
+          title="Código en línea"
+        >
+          <span className="font-mono">`code`</span>
+        </button>
+      </BubbleMenu>
 
-        <div className="w-px h-4 bg-slate-300 mx-1" />
-
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-1 bg-slate-50 border-b border-slate-200 p-1.5 select-none">
         {/* Color de texto */}
         <div className="relative" ref={colorPickerRef}>
           <button
@@ -635,19 +666,6 @@ export default function RichMarkdownEditor({
           title="Cita"
         >
           Cita
-        </button>
-
-        {/* Code Inline */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleCode().run()}
-          disabled={disabled || !editor.can().chain().focus().toggleCode().run()}
-          className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
-            editor.isActive('code') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Código en línea"
-        >
-          `code`
         </button>
 
         {/* Code Block */}
