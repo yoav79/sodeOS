@@ -223,6 +223,9 @@ export default function MarkdownDocumentView({
   // Add copy buttons to code blocks
   const copiedRef = useRef<Set<HTMLButtonElement>>(new Set());
 
+  const CLIPBOARD_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  const CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
   const handleCopy = useCallback(async (button: HTMLButtonElement, pre: HTMLPreElement) => {
     const codeElement = pre.querySelector('code');
     const code = codeElement?.textContent || pre.textContent || '';
@@ -241,11 +244,15 @@ export default function MarkdownDocumentView({
         document.body.removeChild(textarea);
       }
 
-      button.textContent = 'Copiado';
+      button.innerHTML = CHECK_SVG;
+      button.setAttribute('aria-label', 'Código copiado');
+      button.setAttribute('title', 'Código copiado');
       button.style.color = '#16a34a';
 
       setTimeout(() => {
-        button.textContent = 'Copiar';
+        button.innerHTML = CLIPBOARD_SVG;
+        button.setAttribute('aria-label', 'Copiar código');
+        button.setAttribute('title', 'Copiar código');
         button.style.color = '#64748b';
       }, 2000);
     } catch (err) {
@@ -269,15 +276,19 @@ export default function MarkdownDocumentView({
         button.type = 'button';
         button.setAttribute('data-copy-button', 'true');
         button.setAttribute('aria-label', 'Copiar código');
-        button.textContent = 'Copiar';
+        button.setAttribute('title', 'Copiar código');
+        button.innerHTML = CLIPBOARD_SVG;
 
         Object.assign(button.style, {
           position: 'absolute',
           top: '8px',
           right: '8px',
-          padding: '4px 8px',
-          fontSize: '11px',
-          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '28px',
+          height: '28px',
+          padding: '0',
           color: '#64748b',
           backgroundColor: 'rgba(255, 255, 255, 0.9)',
           border: '1px solid #e2e8f0',
@@ -285,7 +296,6 @@ export default function MarkdownDocumentView({
           cursor: 'pointer',
           transition: 'all 0.15s ease',
           zIndex: '10',
-          lineHeight: '1.4',
         });
 
         button.addEventListener('mouseenter', () => {
