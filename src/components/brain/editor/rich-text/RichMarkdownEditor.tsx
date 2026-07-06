@@ -503,6 +503,10 @@ export default function RichMarkdownEditor({
         }}
         className={`flex items-center gap-1 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-lg shadow-slate-900/10 backdrop-blur-sm ${isFullscreen ? 'z-[70]' : 'z-30'}`}
       >
+        <span className="px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 select-none whitespace-nowrap">
+          Insertar
+        </span>
+        <div className="w-px h-4 bg-slate-200 mx-0.5" />
         <button
           type="button"
           onMouseDown={(e) => {
