@@ -72,6 +72,42 @@ const HLJS_TOKEN_STYLES = `
 .hljs-strong { font-weight: bold; }
 `;
 
+const LANGUAGE_BADGE_LABELS: Record<string, string> = {
+  js: 'javascript',
+  javascript: 'javascript',
+  ts: 'typescript',
+  typescript: 'typescript',
+  jsx: 'jsx',
+  tsx: 'tsx',
+  py: 'python',
+  python: 'python',
+  sh: 'bash',
+  shell: 'bash',
+  bash: 'bash',
+  console: 'console',
+  json: 'json',
+  html: 'html',
+  xml: 'html',
+  css: 'css',
+  md: 'markdown',
+  markdown: 'markdown',
+  sql: 'sql',
+  yml: 'yaml',
+  yaml: 'yaml',
+  env: 'env',
+  dotenv: 'env',
+  txt: 'plaintext',
+  plaintext: 'plaintext',
+};
+
+const getCodeBlockLanguageBadge = (classAttr: string) => {
+  const match = classAttr.match(/(?:^|\s)language-([^\s]+)/i);
+  if (!match) return null;
+
+  const rawLanguage = match[1].toLowerCase();
+  return LANGUAGE_BADGE_LABELS[rawLanguage] || rawLanguage;
+};
+
 const CustomTaskList = TaskList.extend({
   priority: 150,
   addStorage() {
@@ -234,8 +270,8 @@ export default function MarkdownDocumentView({
   // Add copy buttons to code blocks
   const copiedRef = useRef<Set<HTMLButtonElement>>(new Set());
 
-  const CLIPBOARD_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-  const CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const CLIPBOARD_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  const CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
   const handleCopy = useCallback(async (button: HTMLButtonElement, pre: HTMLPreElement) => {
     const codeElement = pre.querySelector('code');
@@ -279,9 +315,53 @@ export default function MarkdownDocumentView({
       const preElements = container.querySelectorAll('pre');
 
       preElements.forEach((pre) => {
-        if (pre.querySelector('[data-copy-button]')) return;
+        if (pre.querySelector('[data-code-block-controls]')) return;
 
         pre.style.position = 'relative';
+
+        const codeElement = pre.querySelector('code');
+        const classAttr = codeElement?.getAttribute('class') || '';
+        const languageBadge = getCodeBlockLanguageBadge(classAttr);
+
+        const controls = document.createElement('div');
+        controls.setAttribute('data-code-block-controls', 'true');
+
+        Object.assign(controls.style, {
+          position: 'absolute',
+          top: '4px',
+          right: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          zIndex: '10',
+        });
+
+        if (languageBadge) {
+          const badge = document.createElement('span');
+          badge.setAttribute('data-language-badge', 'true');
+          badge.textContent = languageBadge;
+
+          Object.assign(badge.style, {
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '18px',
+            padding: '2px 4px',
+            fontSize: '8px',
+            lineHeight: '1',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontWeight: '500',
+            letterSpacing: '0.01em',
+            textTransform: 'lowercase',
+            color: '#e5e7eb',
+            backgroundColor: '#000',
+            border: '1px solid #111827',
+            borderRadius: '4px',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          });
+
+          controls.appendChild(badge);
+        }
 
         const button = document.createElement('button');
         button.type = 'button';
@@ -291,45 +371,66 @@ export default function MarkdownDocumentView({
         button.innerHTML = CLIPBOARD_SVG;
 
         Object.assign(button.style, {
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: '28px',
-          height: '28px',
+          width: '24px',
+          height: '24px',
           padding: '0',
           color: '#64748b',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          border: '1px solid #e2e8f0',
-          borderRadius: '6px',
+          backgroundColor: 'transparent',
+          border: '1px solid transparent',
+          borderRadius: '5px',
           cursor: 'pointer',
-          transition: 'all 0.15s ease',
-          zIndex: '10',
+          transition: 'color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease',
+          lineHeight: '0',
+          flexShrink: '0',
+        });
+
+        button.setAttribute('aria-pressed', 'false');
+
+        button.addEventListener('focus', () => {
+          button.style.borderColor = '#cbd5e1';
+          button.style.backgroundColor = 'rgba(248, 250, 252, 0.95)';
+        });
+
+        button.addEventListener('blur', () => {
+          if (!copiedRef.current.has(button)) {
+            button.style.borderColor = 'transparent';
+            button.style.backgroundColor = 'transparent';
+          }
         });
 
         button.addEventListener('mouseenter', () => {
-          button.style.backgroundColor = '#f8fafc';
-          button.style.color = '#334155';
+          button.style.borderColor = '#e2e8f0';
+          button.style.backgroundColor = 'rgba(248, 250, 252, 0.95)';
+          if (!copiedRef.current.has(button)) {
+            button.style.color = '#334155';
+          }
         });
 
         button.addEventListener('mouseleave', () => {
           if (!copiedRef.current.has(button)) {
-            button.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+            button.style.backgroundColor = 'transparent';
+            button.style.borderColor = 'transparent';
             button.style.color = '#64748b';
+          } else {
+            button.style.borderColor = 'transparent';
           }
         });
 
         button.addEventListener('click', () => {
           copiedRef.current.add(button);
+          button.setAttribute('aria-pressed', 'true');
           handleCopy(button, pre as HTMLPreElement);
           setTimeout(() => {
             copiedRef.current.delete(button);
+            button.setAttribute('aria-pressed', 'false');
           }, 2000);
         });
 
-        pre.appendChild(button);
+        controls.appendChild(button);
+        pre.appendChild(controls);
       });
     };
 
