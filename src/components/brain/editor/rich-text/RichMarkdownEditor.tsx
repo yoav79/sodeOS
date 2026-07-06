@@ -394,6 +394,54 @@ export default function RichMarkdownEditor({
           pointer-events: none;
           height: 0;
         }
+
+        .rich-markdown-editor .ProseMirror pre:has(> code[class*="language-"]) {
+          position: relative;
+          padding-top: 2rem;
+        }
+
+        .rich-markdown-editor .ProseMirror pre:has(> code[class*="language-"])::after {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.75rem;
+          z-index: 5;
+          padding: 0.125rem 0.4rem;
+          border-radius: 0.25rem;
+          background: rgba(255, 255, 255, 0.9);
+          color: #64748b;
+          font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+          font-size: 0.625rem;
+          font-weight: 600;
+          line-height: 1.4;
+          letter-spacing: 0.01em;
+          pointer-events: none;
+        }
+
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-js)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-javascript)::after { content: "javascript"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-ts)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-typescript)::after { content: "typescript"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-jsx)::after { content: "jsx"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-tsx)::after { content: "tsx"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-py)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-python)::after { content: "python"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-sh)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-shell)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-bash)::after { content: "bash"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-html)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-xml)::after { content: "html"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-css)::after { content: "css"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-json)::after { content: "json"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-md)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-markdown)::after { content: "markdown"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-sql)::after { content: "sql"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-yml)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-yaml)::after { content: "yaml"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-txt)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-plaintext)::after { content: "plaintext"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-console)::after { content: "console"; }
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-dotenv)::after,
+        .rich-markdown-editor .ProseMirror pre:has(> code.language-env)::after { content: "env"; }
       `}</style>
 
       <BubbleMenu

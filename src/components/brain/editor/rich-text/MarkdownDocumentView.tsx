@@ -30,6 +30,9 @@ import markdown from 'highlight.js/lib/languages/markdown';
 import xml from 'highlight.js/lib/languages/xml';
 import css from 'highlight.js/lib/languages/css';
 import plaintext from 'highlight.js/lib/languages/plaintext';
+import sql from 'highlight.js/lib/languages/sql';
+import yaml from 'highlight.js/lib/languages/yaml';
+import properties from 'highlight.js/lib/languages/properties';
 
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('typescript', typescript);
@@ -41,14 +44,22 @@ hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('html', xml);
 hljs.registerLanguage('css', css);
 hljs.registerLanguage('plaintext', plaintext);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('yaml', yaml);
+hljs.registerLanguage('env', properties);
 
 hljs.registerAliases(['js'], { languageName: 'javascript' });
 hljs.registerAliases(['ts'], { languageName: 'typescript' });
+hljs.registerAliases(['jsx'], { languageName: 'javascript' });
+hljs.registerAliases(['tsx'], { languageName: 'typescript' });
 hljs.registerAliases(['py'], { languageName: 'python' });
 hljs.registerAliases(['sh'], { languageName: 'bash' });
 hljs.registerAliases(['shell'], { languageName: 'bash' });
-hljs.registerAliases(['console'], { languageName: 'plaintext' });
+hljs.registerAliases(['console'], { languageName: 'bash' });
 hljs.registerAliases(['txt'], { languageName: 'plaintext' });
+hljs.registerAliases(['md'], { languageName: 'markdown' });
+hljs.registerAliases(['yml'], { languageName: 'yaml' });
+hljs.registerAliases(['dotenv'], { languageName: 'env' });
 
 const HLJS_TOKEN_STYLES = `
 .code-block-wrapper pre code.hljs { padding: 0; background: transparent; }

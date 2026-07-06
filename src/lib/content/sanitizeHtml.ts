@@ -108,7 +108,16 @@ export function sanitizeHtml(html: string): string {
 
   registerHooks();
 
-  return DOMPurify.sanitize(html, {
+  const codeFences: string[] = [];
+  const contentWithPlaceholders = html.replace(
+    /(```[^\r\n]*[\r\n][\s\S]*?[\r\n]```|~~~[^\r\n]*[\r\n][\s\S]*?[\r\n]~~~)/g,
+    (match) => {
+      const index = codeFences.push(match) - 1;
+      return `__SODE_CODE_FENCE_PLACEHOLDER_${index}__`;
+    }
+  );
+
+  const sanitized = DOMPurify.sanitize(contentWithPlaceholders, {
     ALLOWED_TAGS: [
       'p', 'br', 'hr', 'h1', 'h2', 'h3', 'blockquote', 'pre', 'code',
       'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
@@ -120,4 +129,8 @@ export function sanitizeHtml(html: string): string {
     FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form'],
     FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover'],
   }) as string;
+
+  return sanitized.replace(/__SODE_CODE_FENCE_PLACEHOLDER_(\d+)__/g, (_match, index) => {
+    return codeFences[Number(index)] || '';
+  });
 }
