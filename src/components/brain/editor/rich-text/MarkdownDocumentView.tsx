@@ -355,22 +355,20 @@ export default function MarkdownDocumentView({
 
         const classAttr = codeEl.getAttribute('class') || '';
         const langMatch = classAttr.match(/language-(\w+)/);
-        const lang = langMatch?.[1] || 'plaintext';
+        const lang = langMatch?.[1] || '';
 
         try {
-          const result = hljs.highlight(codeText, { language: lang, ignoreIllegals: true });
-          codeEl.innerHTML = result.value;
+          if (lang && hljs.getLanguage(lang)) {
+            const result = hljs.highlight(codeText, { language: lang, ignoreIllegals: true });
+            codeEl.innerHTML = result.value;
+          } else {
+            const result = hljs.highlightAuto(codeText);
+            codeEl.innerHTML = result.value;
+          }
           codeEl.classList.add('hljs');
           pre.setAttribute('data-highlighted', 'true');
         } catch {
-          try {
-            const result = hljs.highlightAuto(codeText);
-            codeEl.innerHTML = result.value;
-            codeEl.classList.add('hljs');
-            pre.setAttribute('data-highlighted', 'true');
-          } catch {
-            // Leave as plaintext
-          }
+          pre.setAttribute('data-highlighted', 'true');
         }
       });
     };
