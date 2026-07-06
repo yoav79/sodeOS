@@ -533,6 +533,17 @@ export default function RichMarkdownEditor({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
+            editor.chain().focus().toggleHeading({ level: 3 }).run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Título 3"
+        >
+          H3
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
             editor.chain().focus().toggleBulletList().run();
           }}
           className={floatingMenuButtonClass}
@@ -572,6 +583,17 @@ export default function RichMarkdownEditor({
           title="Cita"
         >
           Cita
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleCodeBlock().run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Bloque de código"
+        >
+          Código
         </button>
         <button
           type="button"
@@ -687,32 +709,6 @@ export default function RichMarkdownEditor({
             </div>
           )}
         </div>
-
-        {/* Heading 3 */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          disabled={disabled}
-          className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
-            editor.isActive('heading', { level: 3 }) ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Título 3"
-        >
-          H3
-        </button>
-
-        {/* Code Block */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          disabled={disabled}
-          className={`px-2 py-1 rounded text-xs font-mono transition-colors ${
-            editor.isActive('codeBlock') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Bloque de código"
-        >
-          {"{ }"}
-        </button>
 
         <div className="w-px h-4 bg-slate-300 mx-1" />
 
