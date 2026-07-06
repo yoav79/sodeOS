@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
-import { BubbleMenu } from '@tiptap/react/menus';
+import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
@@ -379,6 +379,9 @@ export default function RichMarkdownEditor({
         : 'text-slate-600 hover:bg-slate-100'
     }`;
 
+  const floatingMenuButtonClass =
+    'px-2 py-1 rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-100 transition-colors whitespace-nowrap';
+
   return (
     <div className={`rich-markdown-editor rich-markdown-content flex flex-col border border-slate-200 bg-white rounded-xl overflow-hidden shadow-inner focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-all ${className} ${isFullscreen ? 'fixed inset-0 z-50 bg-white p-6 overflow-auto' : ''}`}>
       {/* Encapsulated styles for Tiptap content */}
@@ -468,6 +471,116 @@ export default function RichMarkdownEditor({
           <span className="font-mono">`code`</span>
         </button>
       </BubbleMenu>
+
+      <FloatingMenu
+        editor={editor}
+        shouldShow={({ editor: currentEditor, state }) => {
+          if (!currentEditor.isEditable || disabled) {
+            return false;
+          }
+
+          const { $from, empty } = state.selection;
+          if (!empty) {
+            return false;
+          }
+
+          if (currentEditor.isActive('table')) {
+            return false;
+          }
+
+          const parentNode = $from.parent;
+          const isEmptyTextBlock = parentNode.isTextblock && parentNode.textContent.trim().length === 0;
+
+          if (!isEmptyTextBlock) {
+            return false;
+          }
+
+          return !currentEditor.isActive('image');
+        }}
+        options={{
+          placement: 'top-start',
+          offset: 10,
+        }}
+        className={`flex items-center gap-1 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-lg shadow-slate-900/10 backdrop-blur-sm ${isFullscreen ? 'z-[70]' : 'z-30'}`}
+      >
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleHeading({ level: 1 }).run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Título 1"
+        >
+          H1
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleHeading({ level: 2 }).run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Título 2"
+        >
+          H2
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleBulletList().run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Lista con viñetas"
+        >
+          Lista
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleOrderedList().run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Lista numerada"
+        >
+          Num.
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleTaskList().run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Lista de tareas"
+        >
+          Tarea
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleBlockquote().run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Cita"
+        >
+          Cita
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().setHorizontalRule().run();
+          }}
+          className={floatingMenuButtonClass}
+          title="Insertar separador"
+        >
+          Línea
+        </button>
+      </FloatingMenu>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 bg-slate-50 border-b border-slate-200 p-1.5 select-none">
