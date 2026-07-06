@@ -684,34 +684,6 @@ export default function RichMarkdownEditor({
           )}
         </div>
 
-        <div className="w-px h-4 bg-slate-300 mx-1" />
-
-        {/* Heading 1 */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          disabled={disabled}
-          className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
-            editor.isActive('heading', { level: 1 }) ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Título 1"
-        >
-          H1
-        </button>
-
-        {/* Heading 2 */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          disabled={disabled}
-          className={`px-2 py-1 rounded text-xs font-bold transition-colors ${
-            editor.isActive('heading', { level: 2 }) ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Título 2"
-        >
-          H2
-        </button>
-
         {/* Heading 3 */}
         <button
           type="button"
@@ -723,62 +695,6 @@ export default function RichMarkdownEditor({
           title="Título 3"
         >
           H3
-        </button>
-
-        <div className="w-px h-4 bg-slate-300 mx-1" />
-
-        {/* Bullet List */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          disabled={disabled}
-          className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
-            editor.isActive('bulletList') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Lista con Viñetas"
-        >
-          • Lista
-        </button>
-
-        {/* Ordered List */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          disabled={disabled}
-          className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
-            editor.isActive('orderedList') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Lista Numerada"
-        >
-          1. Lista
-        </button>
-
-        {/* Task List */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleTaskList().run()}
-          disabled={disabled}
-          className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
-            editor.isActive('taskList') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Lista de Tareas (Checklist)"
-        >
-          ☑ Tareas
-        </button>
-
-        <div className="w-px h-4 bg-slate-300 mx-1" />
-
-        {/* Blockquote */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          disabled={disabled}
-          className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
-            editor.isActive('blockquote') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Cita"
-        >
-          Cita
         </button>
 
         {/* Code Block */}
@@ -805,19 +721,6 @@ export default function RichMarkdownEditor({
           title="Limpiar formato"
         >
           Limpiar formato
-        </button>
-
-        <div className="w-px h-4 bg-slate-300 mx-1" />
-
-        {/* Horizontal Rule */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          disabled={disabled}
-          className="px-2 py-1 rounded text-xs text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-40"
-          title="Regla horizontal"
-        >
-          —
         </button>
 
         {/* Link */}
