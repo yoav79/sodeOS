@@ -20,6 +20,47 @@ import TaskItem from '@tiptap/extension-task-item';
 // @ts-expect-error - markdown-it-task-lists does not have typescript declarations
 import taskListPlugin from 'markdown-it-task-lists';
 
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import bash from 'highlight.js/lib/languages/bash';
+import python from 'highlight.js/lib/languages/python';
+import json from 'highlight.js/lib/languages/json';
+import markdown from 'highlight.js/lib/languages/markdown';
+import xml from 'highlight.js/lib/languages/xml';
+import css from 'highlight.js/lib/languages/css';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('html', xml);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('plaintext', plaintext);
+
+hljs.registerAliases(['js'], { languageName: 'javascript' });
+hljs.registerAliases(['ts'], { languageName: 'typescript' });
+hljs.registerAliases(['py'], { languageName: 'python' });
+hljs.registerAliases(['sh'], { languageName: 'bash' });
+hljs.registerAliases(['shell'], { languageName: 'bash' });
+hljs.registerAliases(['console'], { languageName: 'plaintext' });
+hljs.registerAliases(['txt'], { languageName: 'plaintext' });
+
+const HLJS_TOKEN_STYLES = `
+.code-block-wrapper pre code.hljs { padding: 0; background: transparent; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-section, .hljs-link { color: #1e40af; }
+.hljs-string, .hljs-title, .hljs-name, .hljs-type, .hljs-attribute, .hljs-symbol, .hljs-bullet, .hljs-addition, .hljs-variable, .hljs-template-tag, .hljs-template-variable { color: #16a34a; }
+.hljs-comment, .hljs-quote, .hljs-deletion, .hljs-meta { color: #6b7280; }
+.hljs-number, .hljs-regexp, .hljs-params { color: #d97706; }
+.hljs-built_in { color: #0891b2; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: bold; }
+`;
+
 const CustomTaskList = TaskList.extend({
   priority: 150,
   addStorage() {
@@ -183,7 +224,8 @@ export default function MarkdownDocumentView({
   const copiedRef = useRef<Set<HTMLButtonElement>>(new Set());
 
   const handleCopy = useCallback(async (button: HTMLButtonElement, pre: HTMLPreElement) => {
-    const code = pre.textContent || '';
+    const codeElement = pre.querySelector('code');
+    const code = codeElement?.textContent || pre.textContent || '';
 
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -274,6 +316,65 @@ export default function MarkdownDocumentView({
 
     return () => clearTimeout(timer);
   }, [editor, isContentEmpty, handleCopy]);
+
+  // Apply syntax highlighting to code blocks
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || isContentEmpty) return;
+
+    const highlightCodeBlocks = () => {
+      const container = editor.view.dom;
+      const codeElements = container.querySelectorAll('pre code');
+
+      codeElements.forEach((codeEl) => {
+        const pre = codeEl.parentElement as HTMLPreElement | null;
+        if (!pre || pre.hasAttribute('data-highlighted')) return;
+
+        const codeText = codeEl.textContent || '';
+        if (!codeText.trim()) return;
+
+        const classAttr = codeEl.getAttribute('class') || '';
+        const langMatch = classAttr.match(/language-(\w+)/);
+        const lang = langMatch?.[1] || 'plaintext';
+
+        try {
+          const result = hljs.highlight(codeText, { language: lang, ignoreIllegals: true });
+          codeEl.innerHTML = result.value;
+          codeEl.classList.add('hljs');
+          pre.setAttribute('data-highlighted', 'true');
+        } catch {
+          try {
+            const result = hljs.highlightAuto(codeText);
+            codeEl.innerHTML = result.value;
+            codeEl.classList.add('hljs');
+            pre.setAttribute('data-highlighted', 'true');
+          } catch {
+            // Leave as plaintext
+          }
+        }
+      });
+    };
+
+    const timer = setTimeout(highlightCodeBlocks, 150);
+
+    return () => clearTimeout(timer);
+  }, [editor, isContentEmpty]);
+
+  // Inject syntax highlighting styles
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const existing = document.getElementById('hljs-token-styles');
+    if (existing) return;
+
+    const style = document.createElement('style');
+    style.id = 'hljs-token-styles';
+    style.textContent = HLJS_TOKEN_STYLES;
+    document.head.appendChild(style);
+
+    return () => {
+      style.remove();
+    };
+  }, []);
 
   if (isContentEmpty) {
     return (
