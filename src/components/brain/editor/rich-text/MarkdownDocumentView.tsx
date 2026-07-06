@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -178,6 +178,102 @@ export default function MarkdownDocumentView({
       editor.commands.setContent(sanitizedContent);
     }
   }, [content, editor, isContentEmpty]);
+
+  // Add copy buttons to code blocks
+  const copiedRef = useRef<Set<HTMLButtonElement>>(new Set());
+
+  const handleCopy = useCallback(async (button: HTMLButtonElement, pre: HTMLPreElement) => {
+    const code = pre.textContent || '';
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      button.textContent = 'Copiado';
+      button.style.color = '#16a34a';
+
+      setTimeout(() => {
+        button.textContent = 'Copiar';
+        button.style.color = '#64748b';
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || isContentEmpty) return;
+
+    const addCopyButtons = () => {
+      const container = editor.view.dom;
+      const preElements = container.querySelectorAll('pre');
+
+      preElements.forEach((pre) => {
+        if (pre.querySelector('[data-copy-button]')) return;
+
+        pre.style.position = 'relative';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.setAttribute('data-copy-button', 'true');
+        button.setAttribute('aria-label', 'Copiar código');
+        button.textContent = 'Copiar';
+
+        Object.assign(button.style, {
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          padding: '4px 8px',
+          fontSize: '11px',
+          fontWeight: '600',
+          color: '#64748b',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          border: '1px solid #e2e8f0',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          zIndex: '10',
+          lineHeight: '1.4',
+        });
+
+        button.addEventListener('mouseenter', () => {
+          button.style.backgroundColor = '#f8fafc';
+          button.style.color = '#334155';
+        });
+
+        button.addEventListener('mouseleave', () => {
+          if (!copiedRef.current.has(button)) {
+            button.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+            button.style.color = '#64748b';
+          }
+        });
+
+        button.addEventListener('click', () => {
+          copiedRef.current.add(button);
+          handleCopy(button, pre as HTMLPreElement);
+          setTimeout(() => {
+            copiedRef.current.delete(button);
+          }, 2000);
+        });
+
+        pre.appendChild(button);
+      });
+    };
+
+    const timer = setTimeout(addCopyButtons, 100);
+
+    return () => clearTimeout(timer);
+  }, [editor, isContentEmpty, handleCopy]);
 
   if (isContentEmpty) {
     return (
