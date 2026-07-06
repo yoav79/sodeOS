@@ -383,6 +383,7 @@ export default function RichMarkdownEditor({
     'px-2 py-1 rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-100 transition-colors whitespace-nowrap';
 
   return (
+    <>
     <div className={`rich-markdown-editor rich-markdown-content flex flex-col border border-slate-200 bg-white rounded-xl overflow-hidden shadow-inner focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-all ${className} ${isFullscreen ? 'fixed inset-0 z-50 bg-white p-6 overflow-auto' : ''}`}>
       {/* Encapsulated styles for Tiptap content */}
       <style>{`
@@ -609,6 +610,16 @@ export default function RichMarkdownEditor({
         </div>
       </BubbleMenu>
 
+      {nodeId && (
+        <input
+          type="file"
+          ref={imageInputRef}
+          onChange={handleImageUpload}
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          className="hidden"
+        />
+      )}
+
       <FloatingMenu
         editor={editor}
         shouldShow={({ editor: currentEditor, state }) => {
@@ -743,62 +754,42 @@ export default function RichMarkdownEditor({
         >
           Línea
         </button>
-      </FloatingMenu>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 bg-slate-50 border-b border-slate-200 p-1.5 select-none">
-        {/* Imagen */}
         {nodeId && (
           <>
-            <input
-              type="file"
-              ref={imageInputRef}
-              onChange={handleImageUpload}
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              className="hidden"
-            />
+            <div className="w-px h-4 bg-slate-200 mx-0.5" />
             <button
               type="button"
-              onClick={triggerImageUpload}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                triggerImageUpload();
+              }}
               disabled={disabled || uploadingImage}
-              className="px-2 py-1 rounded text-xs font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40 transition-colors flex items-center gap-1"
+              className={floatingMenuButtonClass}
               title="Insertar Imagen"
             >
               {uploadingImage ? (
-                <>
+                <span className="flex items-center gap-1">
                   <span className="w-3 h-3 border border-slate-600 border-t-transparent rounded-full animate-spin shrink-0"></span>
-                  <span>Subiendo...</span>
-                </>
+                  Subiendo...
+                </span>
               ) : (
-                <span>Imagen</span>
+                'Imagen'
               )}
             </button>
           </>
         )}
-
-        {/* Tabla */}
         <button
           type="button"
-          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-          disabled={disabled}
-          className="px-2 py-1 rounded text-xs font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40 transition-colors"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+          }}
+          className={floatingMenuButtonClass}
           title="Insertar tabla 3x3"
         >
           Tabla
         </button>
-
-        {/* Pantalla Completa */}
-        <button
-          type="button"
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          className={`px-2 py-1 rounded text-xs font-semibold transition-colors ml-auto ${
-            isFullscreen ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'
-          }`}
-          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-        >
-          {isFullscreen ? "Salir Completa" : "Pantalla Completa"}
-        </button>
-      </div>
+      </FloatingMenu>
 
       {/* Advanced Table Controls Sub-Toolbar */}
       {editor.isActive('table') && (
@@ -896,5 +887,19 @@ export default function RichMarkdownEditor({
         </div>
       </div>
     </div>
+
+      {/* Fullscreen floating button */}
+      <button
+        type="button"
+        onClick={() => setIsFullscreen(!isFullscreen)}
+        className={`fixed bottom-4 right-4 z-[60] px-3 py-2 rounded-lg text-xs font-semibold shadow-lg transition-colors ${
+          isFullscreen ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+        }`}
+        title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+        aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+      >
+        {isFullscreen ? "Salir Completa" : "Pantalla Completa"}
+      </button>
+    </>
   );
 }
