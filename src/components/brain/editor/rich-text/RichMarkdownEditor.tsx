@@ -470,6 +470,42 @@ export default function RichMarkdownEditor({
         >
           <span className="font-mono">`code`</span>
         </button>
+        <div className="w-px h-4 bg-slate-200 mx-0.5" />
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setLink();
+          }}
+          className={bubbleMenuButtonClass(editor.isActive('link'))}
+          title="Enlace"
+        >
+          Link
+        </button>
+        {editor.isActive('link') && (
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              editor.chain().focus().unsetLink().run();
+            }}
+            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+            title="Quitar enlace"
+          >
+            Quitar
+          </button>
+        )}
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            editor.chain().focus().unsetAllMarks().clearNodes().run();
+          }}
+          className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+          title="Limpiar formato"
+        >
+          Limpiar
+        </button>
       </BubbleMenu>
 
       <FloatingMenu
@@ -710,32 +746,6 @@ export default function RichMarkdownEditor({
           )}
         </div>
 
-        <div className="w-px h-4 bg-slate-300 mx-1" />
-
-        {/* Limpiar formato */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
-          disabled={disabled}
-          className="px-2 py-1 rounded text-xs text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-40 font-semibold"
-          title="Limpiar formato"
-        >
-          Limpiar formato
-        </button>
-
-        {/* Link */}
-        <button
-          type="button"
-          onClick={setLink}
-          disabled={disabled || uploadingImage}
-          className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
-            editor.isActive('link') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
-          }`}
-          title="Enlace"
-        >
-          Enlace
-        </button>
-
         {/* Imagen */}
         {nodeId && (
           <>
@@ -775,18 +785,6 @@ export default function RichMarkdownEditor({
         >
           Tabla
         </button>
-
-        {editor.isActive('link') && (
-          <button
-            type="button"
-            onClick={() => editor.chain().focus().unsetLink().run()}
-            disabled={disabled}
-            className="px-2 py-1 rounded text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
-            title="Quitar Enlace"
-          >
-            Quitar
-          </button>
-        )}
 
         {/* Pantalla Completa */}
         <button
