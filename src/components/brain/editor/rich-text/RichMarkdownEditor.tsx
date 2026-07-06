@@ -506,6 +506,107 @@ export default function RichMarkdownEditor({
         >
           Limpiar
         </button>
+        <div className="w-px h-4 bg-slate-200 mx-0.5" />
+        {/* Color picker inline */}
+        <div className="relative" ref={colorPickerRef}>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowColorPicker(!showColorPicker);
+              setShowHighlightPicker(false);
+            }}
+            className="px-2 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+            title="Color de texto"
+          >
+            <span
+              className="w-3 h-3 rounded-full border border-slate-300 inline-block"
+              style={{
+                backgroundColor: (editor.getAttributes('textStyle').color as string) || '#0f172a',
+              }}
+            />
+          </button>
+          {showColorPicker && (
+            <div className="absolute left-0 mt-1 p-1.5 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex flex-col gap-1 min-w-[100px]">
+              <div className="grid grid-cols-4 gap-1">
+                {colors.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      editor.chain().focus().setColor(c.value).run();
+                      setShowColorPicker(false);
+                    }}
+                    className={`w-5 h-5 rounded-full ${c.bg} border border-slate-200 cursor-pointer hover:scale-110 transition-transform`}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  editor.chain().focus().unsetColor().run();
+                  setShowColorPicker(false);
+                }}
+                className="text-[10px] text-slate-500 hover:text-slate-800 text-left border-t border-slate-100 pt-1"
+              >
+                Quitar
+              </button>
+            </div>
+          )}
+        </div>
+        {/* Highlight picker inline */}
+        <div className="relative" ref={highlightPickerRef}>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowHighlightPicker(!showHighlightPicker);
+              setShowColorPicker(false);
+            }}
+            className="px-2 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+            title="Resaltado de texto"
+          >
+            <span
+              className="w-3 h-3 rounded-sm border border-slate-300 inline-block"
+              style={{
+                backgroundColor: (editor.getAttributes('highlight').color as string) || 'transparent',
+              }}
+            />
+          </button>
+          {showHighlightPicker && (
+            <div className="absolute left-0 mt-1 p-1.5 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex flex-col gap-1 min-w-[100px]">
+              <div className="grid grid-cols-5 gap-1">
+                {highlights.map((h) => (
+                  <button
+                    key={h.value}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      editor.chain().focus().toggleHighlight({ color: h.value }).run();
+                      setShowHighlightPicker(false);
+                    }}
+                    className={`w-5 h-5 rounded-sm ${h.bg} border cursor-pointer hover:scale-110 transition-transform`}
+                    title={h.name}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  editor.chain().focus().unsetHighlight().run();
+                  setShowHighlightPicker(false);
+                }}
+                className="text-[10px] text-slate-500 hover:text-slate-800 text-left border-t border-slate-100 pt-1"
+              >
+                Quitar
+              </button>
+            </div>
+          )}
+        </div>
       </BubbleMenu>
 
       <FloatingMenu
@@ -646,106 +747,6 @@ export default function RichMarkdownEditor({
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 bg-slate-50 border-b border-slate-200 p-1.5 select-none">
-        {/* Color de texto */}
-        <div className="relative" ref={colorPickerRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowColorPicker(!showColorPicker);
-              setShowHighlightPicker(false);
-            }}
-            disabled={disabled}
-            className={`px-2 py-1 rounded text-xs transition-colors flex items-center gap-1 text-slate-600 hover:bg-slate-200 disabled:opacity-40`}
-            title="Color de texto"
-          >
-            <span
-              className="w-3 h-3 rounded-full border border-slate-300"
-              style={{
-                backgroundColor: (editor.getAttributes('textStyle').color as string) || '#0f172a',
-              }}
-            />
-            <span>A</span>
-          </button>
-          {showColorPicker && (
-            <div className="absolute left-0 mt-1 p-2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex flex-col gap-2 min-w-[120px]">
-              <div className="grid grid-cols-4 gap-1.5">
-                {colors.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => {
-                      editor.chain().focus().setColor(c.value).run();
-                      setShowColorPicker(false);
-                    }}
-                    className={`w-5 h-5 rounded-full ${c.bg} border border-slate-200 cursor-pointer hover:scale-110 transition-transform`}
-                    title={c.name}
-                  />
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  editor.chain().focus().unsetColor().run();
-                  setShowColorPicker(false);
-                }}
-                className="text-[10px] text-slate-500 hover:text-slate-800 text-left border-t border-slate-100 pt-1.5"
-              >
-                Quitar color
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Fondo / Resaltado */}
-        <div className="relative" ref={highlightPickerRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowHighlightPicker(!showHighlightPicker);
-              setShowColorPicker(false);
-            }}
-            disabled={disabled}
-            className={`px-2 py-1 rounded text-xs transition-colors flex items-center gap-1 text-slate-600 hover:bg-slate-200 disabled:opacity-40`}
-            title="Resaltado de texto"
-          >
-            <span
-              className="w-3 h-3 rounded-sm border border-slate-300"
-              style={{
-                backgroundColor: (editor.getAttributes('highlight').color as string) || 'transparent',
-              }}
-            />
-            <span>Resaltar</span>
-          </button>
-          {showHighlightPicker && (
-            <div className="absolute left-0 mt-1 p-2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex flex-col gap-2 min-w-[120px]">
-              <div className="grid grid-cols-5 gap-1.5">
-                {highlights.map((h) => (
-                  <button
-                    key={h.value}
-                    type="button"
-                    onClick={() => {
-                      editor.chain().focus().toggleHighlight({ color: h.value }).run();
-                      setShowHighlightPicker(false);
-                    }}
-                    className={`w-5 h-5 rounded-sm ${h.bg} border cursor-pointer hover:scale-110 transition-transform`}
-                    title={h.name}
-                  />
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  editor.chain().focus().unsetHighlight().run();
-                  setShowHighlightPicker(false);
-                }}
-                className="text-[10px] text-slate-500 hover:text-slate-800 text-left border-t border-slate-100 pt-1.5"
-              >
-                Quitar resaltado
-              </button>
-            </div>
-          )}
-        </div>
-
         {/* Imagen */}
         {nodeId && (
           <>
