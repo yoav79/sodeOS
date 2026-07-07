@@ -62,6 +62,7 @@ model Organization {
   memberships OrganizationMembership[]
   brains      Brain[]
   usageRecords UsageRecord[]
+  auditLogs   AuditLog[]
 
   @@index([slug])
   @@map("organizations")
@@ -112,6 +113,7 @@ model User {
   sessions           Session[]
   uploadedAttachments NodeAttachment[]        @relation("UploadedAttachments")
   usageRecords       UsageRecord[]
+  auditLogs          AuditLog[]              @relation("AuditLogActor")
 
   @@map("users")
 }
@@ -379,6 +381,26 @@ model UsageRecord {
   @@index([brainId, createdAt])
   @@index([userId, createdAt])
   @@map("usage_records")
+}
+
+model AuditLog {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  action         String
+  targetType     String?  @map("target_type")
+  targetId       String?  @map("target_id")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@map("audit_logs")
 }
 
 
