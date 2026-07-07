@@ -5,6 +5,7 @@ import { createAgentPlan, AgentPlanError } from '@/lib/ai/agent/planner';
 import db from '@/lib/db';
 import { recordUsage } from '@/lib/usage';
 import { UsageFeature } from '@prisma/client';
+import { assertWithinLimit, UsageLimitError } from '@/lib/limits';
 
 export const runtime = 'nodejs';
 
@@ -82,7 +83,12 @@ export async function POST(request: Request) {
         id: true,
         brain: {
           select: {
-            organizationId: true,
+            organization: {
+              select: {
+                id: true,
+                plan: true,
+              }
+            }
           }
         }
       },
@@ -106,6 +112,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
     }
 
+    const organizationId = node.brain.organization.id;
+    const plan = node.brain.organization.plan;
+
+    // Check usage limits before planner LLM generation
+    await assertWithinLimit({
+      organizationId,
+      plan,
+      check: 'ai_requests',
+      incrementBy: 1,
+    });
+
     // 7. Build plan input ─────────────────────────────────────────────────
     // SAFETY: contentMarkdown is passed as context only; it is never written back.
     // We deliberately do NOT log contentMarkdown to avoid leaking sensitive content.
@@ -123,7 +140,7 @@ export async function POST(request: Request) {
     const result = await createAgentPlan(agentInput);
 
     await recordUsage({
-      organizationId: node.brain.organizationId,
+      organizationId,
       feature: UsageFeature.ai_agent,
       userId: currentUser.id,
       brainId,
@@ -142,6 +159,9 @@ export async function POST(request: Request) {
     return NextResponse.json(result.plan, { status: 200 });
 
   } catch (error: unknown) {
+    if (error instanceof UsageLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     if (error instanceof AgentPlanError) {
       if (error.code === 'AI_CONFIG_ERROR') {
         return NextResponse.json({ error: error.message }, { status: 503 });

@@ -6,6 +6,7 @@ import { AgentOutputMode } from '@/lib/ai/agent/finalize/types';
 import db from '@/lib/db';
 import { recordUsage } from '@/lib/usage';
 import { UsageFeature } from '@prisma/client';
+import { assertWithinLimit, UsageLimitError } from '@/lib/limits';
 
 export const runtime = 'nodejs';
 
@@ -109,7 +110,12 @@ export async function POST(request: Request) {
         id: true,
         brain: {
           select: {
-            organizationId: true,
+            organization: {
+              select: {
+                id: true,
+                plan: true,
+              }
+            }
           }
         }
       },
@@ -132,6 +138,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
     }
 
+    const organizationId = node.brain.organization.id;
+    const plan = node.brain.organization.plan;
+
+    // Check usage limits before finalize LLM generation
+    await assertWithinLimit({
+      organizationId,
+      plan,
+      check: 'ai_requests',
+      incrementBy: 1,
+    });
+
     // 7. Invoke generateAgentFinalResponse to perform LLM call
     const result = await generateAgentFinalResponse({
       runResult: runResult as AgentRunResult,
@@ -142,7 +159,7 @@ export async function POST(request: Request) {
     });
 
     await recordUsage({
-      organizationId: node.brain.organizationId,
+      organizationId,
       feature: UsageFeature.ai_agent,
       userId: currentUser.id,
       brainId,
@@ -161,6 +178,9 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: 200 });
 
   } catch (error: unknown) {
+    if (error instanceof UsageLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     console.error('[agent/finalize] Unexpected error:', error);
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ error: message }, { status: 500 });
