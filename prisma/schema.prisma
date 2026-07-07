@@ -61,6 +61,7 @@ model Organization {
   // Relations
   memberships OrganizationMembership[]
   brains      Brain[]
+  usageRecords UsageRecord[]
 
   @@index([slug])
   @@map("organizations")
@@ -110,6 +111,7 @@ model User {
   credentials        UserCredential?
   sessions           Session[]
   uploadedAttachments NodeAttachment[]        @relation("UploadedAttachments")
+  usageRecords       UsageRecord[]
 
   @@map("users")
 }
@@ -133,6 +135,7 @@ model Brain {
   tags         Tag[]
   attachments  NodeAttachment[]
   attachmentChunks NodeAttachmentChunk[]
+  usageRecords     UsageRecord[]
 
   @@index([organizationId])
   @@map("brains")
@@ -213,6 +216,7 @@ model Node {
   nodeTags    NodeTag[]
   attachments NodeAttachment[]
   attachmentChunks NodeAttachmentChunk[]
+  usageRecords     UsageRecord[]
 
   @@unique([brainId, parentId, slug])
   @@index([brainId, parentId, position])
@@ -337,4 +341,44 @@ model NodeAttachmentChunk {
   @@index([nodeId])
   @@map("node_attachment_chunks")
 }
+
+enum UsageFeature {
+  ai_document
+  ai_agent
+  web_search
+  file_upload
+  file_download
+  attachment_extraction
+}
+
+model UsageRecord {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String        @map("organization_id") @db.Uuid
+  userId            String?       @map("user_id") @db.Uuid
+  brainId           String?       @map("brain_id") @db.Uuid
+  nodeId            String?       @map("node_id") @db.Uuid
+  feature           UsageFeature
+  quantity          Int           @default(1)
+  tokensPrompt      Int?          @map("tokens_prompt")
+  tokensCompletion  Int?          @map("tokens_completion")
+  tokensTotal       Int?          @map("tokens_total")
+  bytesIn           BigInt?       @map("bytes_in")
+  bytesOut          BigInt?       @map("bytes_out")
+  estimatedCostUsd  Decimal?      @map("estimated_cost_usd") @db.Decimal(12, 6)
+  metadata          Json?
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  brain             Brain?        @relation(fields: [brainId], references: [id], onDelete: SetNull)
+  node              Node?         @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([feature, createdAt])
+  @@index([brainId, createdAt])
+  @@index([userId, createdAt])
+  @@map("usage_records")
+}
+
 
