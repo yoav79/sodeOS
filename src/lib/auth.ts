@@ -5,6 +5,7 @@ import db from '@/lib/db';
 import { User } from '@/types';
 import { BrainRole, OrgRole, Organization, OrganizationMembership } from '@prisma/client';
 import { cache } from 'react';
+import { extractOrgSlugFromHost } from '@/lib/tenant';
 
 export const SESSION_COOKIE_NAME = 'cerebro_session';
 export const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -183,43 +184,43 @@ export async function verifyBrainAccess(
 }
 
 /**
- * Resolves the active Organization using the host header.
- * Uses DEV_ORG_SLUG in development environments for local testing.
+ * Resolves the active Organization.
+ *
+ * Priority:
+ * 1. x-active-org-slug header (will be injected by middleware in Subfase 3D)
+ * 2. Host-based extraction via extractOrgSlugFromHost()
+ *
+ * Falls back to DEV_ORG_SLUG || 'demo' in development.
  * Cached per request cycle.
  */
 export const resolveActiveOrganization = cache(async (): Promise<Organization> => {
   const headersList = await headers();
-  const host = headersList.get('host') || '';
-  
-  let slug = '';
-  
-  // Resolve active organization slug
-  if (host.includes('localhost') || host.includes('127.0.0.1') || process.env.NODE_ENV === 'development') {
-    slug = process.env.DEV_ORG_SLUG || 'demo';
-  } else {
-    // Basic subdomain extraction for production (e.g. acme.sodeos.com -> acme)
-    const parts = host.split('.');
-    if (parts.length > 2) {
-      slug = parts[0];
-    }
+
+  // 1. Check internal header first (middleware-injected in future)
+  let slug = headersList.get('x-active-org-slug')?.trim() || '';
+
+  // 2. Fallback: extract from host using the pure tenant helper
+  if (!slug) {
+    const host = headersList.get('host') || '';
+    slug = extractOrgSlugFromHost(host) || '';
   }
-  
+
   if (!slug) {
     throw new AuthError('No se pudo determinar la organización activa.', 400);
   }
-  
+
   const organization = await db.organization.findUnique({
     where: { slug },
   });
-  
+
   if (!organization) {
     throw new AuthError('La organización especificada no existe.', 404);
   }
-  
+
   if (!organization.isActive) {
     throw new AuthError('La organización está inactiva.', 403);
   }
-  
+
   return organization;
 });
 
