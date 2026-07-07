@@ -3,6 +3,8 @@ import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 import { AIDocumentPayload, AI_DOCUMENT_ACTIONS, MAX_AI_INSTRUCTION_LENGTH, MAX_AI_CONTENT_LENGTH } from '@/lib/ai/types';
 import { generateProposal, AIConfigError } from '@/lib/ai/provider';
 import db from '@/lib/db';
+import { recordUsage } from '@/lib/usage';
+import { UsageFeature } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `El contenido del documento no puede superar los ${MAX_AI_CONTENT_LENGTH} caracteres.` }, { status: 413 });
     }
 
-    // 4. Verify node existence and association to the brain
+    // 4. Verify node existence and association to the brain, retrieving organizationId
     const node = await db.node.findFirst({
       where: {
         id: nodeId,
@@ -63,6 +65,11 @@ export async function POST(request: Request) {
       select: {
         id: true,
         title: true,
+        brain: {
+          select: {
+            organizationId: true,
+          }
+        }
       }
     });
 
@@ -85,6 +92,25 @@ export async function POST(request: Request) {
     // 6. Generate proposal using server side provider
     const result = await generateProposal(action, node.title, contentMarkdown, instruction);
 
+    // 7. Record usage (fault tolerant — does not throw on failure)
+    const organizationId = node.brain.organizationId;
+    await recordUsage({
+      organizationId,
+      feature: UsageFeature.ai_document,
+      userId: currentUser.id,
+      brainId,
+      nodeId,
+      quantity: 1,
+      tokensPrompt: result.tokensUsed?.promptTokens ?? null,
+      tokensCompletion: result.tokensUsed?.completionTokens ?? null,
+      tokensTotal: result.tokensUsed?.totalTokens ?? null,
+      metadata: {
+        action,
+        model: result.model,
+        route: '/api/ai/document',
+      },
+    });
+
     return NextResponse.json({
       proposal: result.proposal,
       model: result.model,
@@ -100,3 +126,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
