@@ -1,4 +1,4 @@
-import { PrismaClient, BrainVisibility, BrainRole, NodeStatus, TemplateType } from '@prisma/client';
+import { PrismaClient, BrainVisibility, BrainRole, NodeStatus, TemplateType, OrgRole, OrganizationPlan } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
@@ -18,21 +18,67 @@ const prisma = prismaClientSingleton();
 async function main() {
   console.log("Starting database seed...");
 
-  // 1. Seed Mock User
+  // Constants for demo organization
+  const demoOrgId = "00000000-0000-0000-0000-000000000100";
+  const demoOrgSlug = "demo";
+  const demoOrgMembershipId = "00000000-0000-0000-0000-000000000101";
+
+  // 1. Seed Demo Organization
+  const org = await prisma.organization.upsert({
+    where: { id: demoOrgId },
+    update: {
+      name: "Demo Organization",
+      slug: demoOrgSlug,
+      plan: OrganizationPlan.pro,
+      isActive: true,
+    },
+    create: {
+      id: demoOrgId,
+      name: "Demo Organization",
+      slug: demoOrgSlug,
+      plan: OrganizationPlan.pro,
+      isActive: true,
+    },
+  });
+  console.log(`Organization seeded: ${org.name}`);
+
+  // 2. Seed Mock User
   const mockUserId = "00000000-0000-0000-0000-000000000001";
   const user = await prisma.user.upsert({
     where: { id: mockUserId },
     update: {
       name: "Usuario Demo",
       email: "demo@cerebroempresarial.com",
+      isSysadmin: true,
     },
     create: {
       id: mockUserId,
       name: "Usuario Demo",
       email: "demo@cerebroempresarial.com",
+      isSysadmin: true,
     },
   });
   console.log(`Mock user seeded: ${user.name}`);
+
+  // 3. Seed Organization Membership (Owner)
+  const orgMembership = await prisma.organizationMembership.upsert({
+    where: {
+      organizationId_userId: {
+        organizationId: demoOrgId,
+        userId: mockUserId,
+      },
+    },
+    update: {
+      role: OrgRole.org_owner,
+    },
+    create: {
+      id: demoOrgMembershipId,
+      organizationId: demoOrgId,
+      userId: mockUserId,
+      role: OrgRole.org_owner,
+    },
+  });
+  console.log(`Organization membership seeded: ${orgMembership.role} for user`);
 
   // Seed User Credential for Local Auth
   const passwordHash = await bcrypt.hash("DemoPassword123!", 10);
@@ -48,7 +94,7 @@ async function main() {
   });
   console.log("Mock user credentials seeded with local password hash");
 
-  // 2. Seed Brain Workspace
+  // 4. Seed Brain Workspace
   const demoBrainId = "00000000-0000-0000-0000-000000000002";
   const brain = await prisma.brain.upsert({
     where: { id: demoBrainId },
@@ -56,6 +102,7 @@ async function main() {
       name: "Cerebro Empresarial Demo",
       description: "Espacio de trabajo demo para validar el árbol de conocimiento de la empresa.",
       visibility: BrainVisibility.company,
+      organizationId: demoOrgId,
     },
     create: {
       id: demoBrainId,
@@ -63,11 +110,12 @@ async function main() {
       description: "Espacio de trabajo demo para validar el árbol de conocimiento de la empresa.",
       visibility: BrainVisibility.company,
       createdBy: mockUserId,
+      organizationId: demoOrgId,
     },
   });
   console.log(`Brain seeded: ${brain.name}`);
 
-  // 3. Seed Brain Membership (Owner)
+  // 5. Seed Brain Membership (Owner)
   const brainMemberId = "00000000-0000-0000-0000-000000000005";
   const membership = await prisma.brainMember.upsert({
     where: {
