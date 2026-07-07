@@ -5,6 +5,8 @@ import { PDFParse } from 'pdf-parse';
 import * as mammoth from 'mammoth';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import path from 'path';
+import { recordUsage } from '@/lib/usage';
+import { UsageFeature } from '@prisma/client';
 
 // Configure PDFJS legacy worker for stable operation in Next.js Server / Turbopack
 if (typeof window === 'undefined') {
@@ -251,6 +253,31 @@ export async function processAttachmentExtraction(
         },
       });
     });
+
+    // Record extraction usage (fault tolerant)
+    const brain = await db.brain.findFirst({
+      where: { id: brainId },
+      select: { organizationId: true },
+    });
+
+    if (brain) {
+      await recordUsage({
+        organizationId: brain.organizationId,
+        feature: UsageFeature.attachment_extraction,
+        userId: null,
+        brainId,
+        nodeId,
+        quantity: chunkTexts.length || 1,
+        bytesIn: buffer.length,
+        metadata: {
+          source: 'textExtraction',
+          attachmentId,
+          chunksCount: chunkTexts.length,
+          mimeType: contentType,
+          fileName: filename,
+        },
+      });
+    }
 
   } catch (error: unknown) {
     console.error(`Error during text extraction for attachment ${attachmentId}:`, error);
