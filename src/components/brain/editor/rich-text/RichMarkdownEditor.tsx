@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import { BubbleMenu, FloatingMenu } from '@tiptap/react/menus';
+import { NodeSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import { Markdown } from 'tiptap-markdown';
@@ -131,6 +132,31 @@ const getEditorMarkdown = (editorInstance: Editor): string => {
   return markdownStorage?.getMarkdown?.() || '';
 };
 
+type ImageAlignment = 'left' | 'center' | 'right';
+
+const normalizeImageAlignment = (value: unknown): ImageAlignment => {
+  if (value === 'left' || value === 'center' || value === 'right') {
+    return value;
+  }
+
+  return 'center';
+};
+
+const ImageWithAlignment = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      align: {
+        default: 'center',
+        parseHTML: (element) => normalizeImageAlignment(element.getAttribute('data-align')),
+        renderHTML: (attributes) => ({
+          'data-align': normalizeImageAlignment(attributes.align),
+        }),
+      },
+    };
+  },
+});
+
 export default function RichMarkdownEditor({
   value,
   onChange,
@@ -195,7 +221,7 @@ export default function RichMarkdownEditor({
       TableRow,
       TableHeader,
       TableCell,
-      Image.configure({
+      ImageWithAlignment.configure({
         HTMLAttributes: {
           class: 'max-w-full h-auto rounded-xl border border-slate-200/60 shadow-xs my-6 mx-auto block',
         },
@@ -382,6 +408,22 @@ export default function RichMarkdownEditor({
   const floatingMenuButtonClass =
     'px-2 py-1 rounded-lg text-[11px] font-semibold text-slate-600 hover:bg-slate-100 transition-colors whitespace-nowrap';
 
+  const imageAlignmentButtonClass = (isActive: boolean) =>
+    `px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+      isActive
+        ? 'bg-blue-600 text-white shadow-sm'
+        : 'text-slate-600 hover:bg-slate-100'
+    }`;
+
+  const setImageAlignment = (align: ImageAlignment) => {
+    if (!editor || editor.isDestroyed || disabled) return;
+    editor.chain().focus().updateAttributes('image', { align }).run();
+  };
+
+  const isImageLeftAligned = editor.isActive('image', { align: 'left' });
+  const isImageCenterAligned = editor.isActive('image', { align: 'center' }) || (!isImageLeftAligned && !editor.isActive('image', { align: 'right' }));
+  const isImageRightAligned = editor.isActive('image', { align: 'right' });
+
   return (
     <>
     <div className={`rich-markdown-editor rich-markdown-content flex flex-col border border-slate-200 bg-white rounded-xl overflow-hidden shadow-inner focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 transition-all ${className} ${isFullscreen ? 'fixed inset-0 z-50 bg-white p-6 overflow-auto' : ''}`}>
@@ -442,6 +484,24 @@ export default function RichMarkdownEditor({
         .rich-markdown-editor .ProseMirror pre:has(> code.language-console)::after { content: "console"; }
         .rich-markdown-editor .ProseMirror pre:has(> code.language-dotenv)::after,
         .rich-markdown-editor .ProseMirror pre:has(> code.language-env)::after { content: "env"; }
+
+        .rich-markdown-editor .ProseMirror img[data-align="left"] {
+          display: block;
+          margin-left: 0;
+          margin-right: auto;
+        }
+
+        .rich-markdown-editor .ProseMirror img[data-align="center"] {
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .rich-markdown-editor .ProseMirror img[data-align="right"] {
+          display: block;
+          margin-left: auto;
+          margin-right: 0;
+        }
       `}</style>
 
       <BubbleMenu
@@ -656,6 +716,68 @@ export default function RichMarkdownEditor({
             </div>
           )}
         </div>
+      </BubbleMenu>
+
+      <BubbleMenu
+        editor={editor}
+        shouldShow={({ editor: currentEditor, state }) => {
+          if (!currentEditor.isEditable || disabled) {
+            return false;
+          }
+
+          const selection = state.selection;
+          if (!(selection instanceof NodeSelection)) {
+            return false;
+          }
+
+          return selection.node.type.name === 'image';
+        }}
+        options={{
+          placement: 'top',
+          offset: 10,
+        }}
+        className={`flex items-center gap-1 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-lg shadow-slate-900/10 backdrop-blur-sm ${isFullscreen ? 'z-[70]' : 'z-40'}`}
+      >
+        <span className="px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 select-none whitespace-nowrap">
+          Imagen
+        </span>
+        <div className="w-px h-4 bg-slate-200 mx-0.5" />
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setImageAlignment('left');
+          }}
+          className={imageAlignmentButtonClass(isImageLeftAligned)}
+          title="Alinear a la izquierda"
+          aria-label="Alinear imagen a la izquierda"
+        >
+          Izq
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setImageAlignment('center');
+          }}
+          className={imageAlignmentButtonClass(isImageCenterAligned)}
+          title="Alinear al centro"
+          aria-label="Alinear imagen al centro"
+        >
+          Cen
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setImageAlignment('right');
+          }}
+          className={imageAlignmentButtonClass(isImageRightAligned)}
+          title="Alinear a la derecha"
+          aria-label="Alinear imagen a la derecha"
+        >
+          Der
+        </button>
       </BubbleMenu>
 
       {nodeId && (
