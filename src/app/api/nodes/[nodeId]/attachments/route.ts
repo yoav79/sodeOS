@@ -6,6 +6,7 @@ import db from '@/lib/db';
 import { processAttachmentExtraction } from '@/lib/attachments/textExtraction';
 import { recordUsage } from '@/lib/usage';
 import { UsageFeature } from '@prisma/client';
+import { assertWithinLimit, UsageLimitError } from '@/lib/limits';
 
 
 export const runtime = 'nodejs';
@@ -182,6 +183,48 @@ export async function POST(
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Fetch organization and plan details preventively
+    const brain = await db.brain.findFirst({
+      where: { id: node.brainId },
+      select: {
+        organization: {
+          select: {
+            id: true,
+            plan: true,
+          }
+        }
+      },
+    });
+
+    if (!brain) {
+      return NextResponse.json({ error: 'Cerebro no encontrado.' }, { status: 404 });
+    }
+
+    const organizationId = brain.organization.id;
+    const plan = brain.organization.plan;
+
+    // Validate attachment upload limits
+    await assertWithinLimit({
+      organizationId,
+      plan,
+      check: 'max_file_size_bytes',
+      incrementBy: file.size,
+    });
+
+    await assertWithinLimit({
+      organizationId,
+      plan,
+      check: 'file_uploads',
+      incrementBy: 1,
+    });
+
+    await assertWithinLimit({
+      organizationId,
+      plan,
+      check: 'storage_bytes',
+      incrementBy: file.size,
+    });
+
     // 10. Upload to R2
     let uploadResult;
     try {
@@ -192,16 +235,6 @@ export async function POST(
         { error: 'Error al subir el archivo al almacenamiento R2.' },
         { status: 500 }
       );
-    }
-
-    // 11. Fetch organizationId directly from brain relations
-    const brain = await db.brain.findFirst({
-      where: { id: node.brainId },
-      select: { organizationId: true },
-    });
-
-    if (!brain) {
-      return NextResponse.json({ error: 'Cerebro no encontrado.' }, { status: 404 });
     }
 
     // 12. Create entry in Prisma DB
@@ -239,7 +272,7 @@ export async function POST(
 
       // Record file upload usage
       await recordUsage({
-        organizationId: brain.organizationId,
+        organizationId,
         feature: UsageFeature.file_upload,
         userId: user.id,
         brainId: node.brainId,
@@ -288,6 +321,9 @@ export async function POST(
     }
 
   } catch (error: unknown) {
+    if (error instanceof UsageLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     console.error('Error in POST /api/nodes/[nodeId]/attachments:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor al crear el adjunto.' },
