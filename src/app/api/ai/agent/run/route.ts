@@ -6,6 +6,7 @@ import { MAX_AGENT_PLAN_STEPS, AgentPlan } from '@/lib/ai/agent/types';
 import db from '@/lib/db';
 import { recordUsage } from '@/lib/usage';
 import { UsageFeature } from '@prisma/client';
+import { assertWithinLimit, UsageLimitError } from '@/lib/limits';
 
 export const runtime = 'nodejs';
 
@@ -99,7 +100,12 @@ export async function POST(request: Request) {
         id: true,
         brain: {
           select: {
-            organizationId: true,
+            organization: {
+              select: {
+                id: true,
+                plan: true,
+              }
+            }
           }
         }
       },
@@ -131,6 +137,24 @@ export async function POST(request: Request) {
       );
     }
 
+    const organizationId = node.brain.organization.id;
+    const plan = node.brain.organization.plan;
+
+    // Calculate estimated web search steps from the approved plan
+    const estimatedWebSearchCount = (approvedPlan.steps as { estimatedTool?: string }[]).filter(
+      (step) => step?.estimatedTool === 'webSearch'
+    ).length;
+
+    // Verify web search limits before execution if the plan contains web search steps
+    if (estimatedWebSearchCount > 0) {
+      await assertWithinLimit({
+        organizationId,
+        plan,
+        check: 'web_searches',
+        incrementBy: estimatedWebSearchCount,
+      });
+    }
+
     // 7. Construct AgentToolContext server-side
     const context: AgentToolContext = {
       userId: currentUser.id,
@@ -150,24 +174,24 @@ export async function POST(request: Request) {
     );
 
     // 9. Record usage of successful web searches
-    const webSearchCount = result.observations.filter(
+    const actualWebSearchCount = result.observations.filter(
       (observation) =>
         observation.toolName === 'webSearch' &&
         observation.ok === true
     ).length;
 
-    if (webSearchCount > 0) {
+    if (actualWebSearchCount > 0) {
       await recordUsage({
-        organizationId: node.brain.organizationId,
+        organizationId,
         feature: UsageFeature.web_search,
         userId: currentUser.id,
         brainId,
         nodeId,
-        quantity: webSearchCount,
+        quantity: actualWebSearchCount,
         metadata: {
           tool: 'webSearch',
           route: '/api/ai/agent/run',
-          successfulRequests: webSearchCount,
+          successfulRequests: actualWebSearchCount,
         },
       });
     }
@@ -175,6 +199,9 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: 200 });
 
   } catch (error: unknown) {
+    if (error instanceof UsageLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     console.error('[agent/run] Unexpected error:', error);
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ error: message }, { status: 500 });
