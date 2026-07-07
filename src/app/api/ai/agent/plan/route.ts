@@ -3,6 +3,8 @@ import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 import { AgentRequest, MAX_AGENT_QUERY_LENGTH, MAX_AGENT_CONTENT_LENGTH } from '@/lib/ai/agent/types';
 import { createAgentPlan, AgentPlanError } from '@/lib/ai/agent/planner';
 import db from '@/lib/db';
+import { recordUsage } from '@/lib/usage';
+import { UsageFeature } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -76,7 +78,14 @@ export async function POST(request: Request) {
         brainId: brainId,
         deletedAt: null,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        brain: {
+          select: {
+            organizationId: true,
+          }
+        }
+      },
     });
 
     if (!node) {
@@ -111,9 +120,26 @@ export async function POST(request: Request) {
 
     // 8. Generate plan (read-only — no tools executed, no DB writes) ───────
 
-    const plan = await createAgentPlan(agentInput);
+    const result = await createAgentPlan(agentInput);
 
-    return NextResponse.json(plan, { status: 200 });
+    await recordUsage({
+      organizationId: node.brain.organizationId,
+      feature: UsageFeature.ai_agent,
+      userId: currentUser.id,
+      brainId,
+      nodeId,
+      quantity: 1,
+      tokensPrompt: result.tokensUsed?.promptTokens ?? null,
+      tokensCompletion: result.tokensUsed?.completionTokens ?? null,
+      tokensTotal: result.tokensUsed?.totalTokens ?? null,
+      metadata: {
+        stage: 'plan',
+        model: result.model,
+        route: '/api/ai/agent/plan',
+      },
+    });
+
+    return NextResponse.json(result.plan, { status: 200 });
 
   } catch (error: unknown) {
     if (error instanceof AgentPlanError) {

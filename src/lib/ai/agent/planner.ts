@@ -129,7 +129,15 @@ function buildPlannerUserPrompt(input: AgentRequest): string {
  * Deliberately separated from generateProposal to avoid any risk of coupling
  * with the IA v1 flow. Uses the same env vars (AI_PROVIDER_API_KEY, AI_MODEL).
  */
-async function callModelForJSON(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callModelForJSON(systemPrompt: string, userPrompt: string): Promise<{
+  content: string;
+  tokensUsed?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  model: string;
+}> {
   const apiKey = process.env.AI_PROVIDER_API_KEY;
   const model = process.env.AI_MODEL || 'gpt-4o-mini';
   const provider = process.env.AI_PROVIDER || 'openai';
@@ -178,6 +186,12 @@ async function callModelForJSON(systemPrompt: string, userPrompt: string): Promi
 
   const data = await response.json() as {
     choices?: Array<{ message?: { content?: string } }>;
+    model?: string;
+    usage?: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    };
     error?: { message?: string };
   };
 
@@ -186,7 +200,20 @@ async function callModelForJSON(systemPrompt: string, userPrompt: string): Promi
   }
 
   const content = data.choices?.[0]?.message?.content ?? '';
-  return content;
+  const actualModel = data.model || model;
+  const tokensUsed = data.usage
+    ? {
+        promptTokens: data.usage.prompt_tokens,
+        completionTokens: data.usage.completion_tokens,
+        totalTokens: data.usage.total_tokens,
+      }
+    : undefined;
+
+  return {
+    content,
+    tokensUsed,
+    model: actualModel,
+  };
 }
 
 // ─────────────────────────────────────────────
@@ -290,9 +317,15 @@ function parsePlanJSON(raw: string): AgentPlan {
   };
 }
 
-// ─────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────
+export interface CreateAgentPlanResult {
+  plan: AgentPlan;
+  tokensUsed?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
+  model?: string;
+}
 
 /**
  * Creates an AgentPlan from a user request.
@@ -300,11 +333,17 @@ function parsePlanJSON(raw: string): AgentPlan {
  * This function ONLY plans — it never executes tools, never writes to the DB,
  * never modifies documents, and never performs web searches.
  */
-export async function createAgentPlan(input: AgentRequest): Promise<AgentPlan> {
+export async function createAgentPlan(input: AgentRequest): Promise<CreateAgentPlanResult> {
   const systemPrompt = buildPlannerSystemPrompt();
   const userPrompt = buildPlannerUserPrompt(input);
 
-  const rawJSON = await callModelForJSON(systemPrompt, userPrompt);
+  const { content, tokensUsed, model } = await callModelForJSON(systemPrompt, userPrompt);
 
-  return parsePlanJSON(rawJSON);
+  const plan = parsePlanJSON(content);
+
+  return {
+    plan,
+    tokensUsed,
+    model,
+  };
 }

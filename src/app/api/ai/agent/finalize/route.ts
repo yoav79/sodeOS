@@ -4,6 +4,8 @@ import { generateAgentFinalResponse } from '@/lib/ai/agent/finalizer';
 import { AgentRunResult } from '@/lib/ai/agent/run/types';
 import { AgentOutputMode } from '@/lib/ai/agent/finalize/types';
 import db from '@/lib/db';
+import { recordUsage } from '@/lib/usage';
+import { UsageFeature } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -103,7 +105,14 @@ export async function POST(request: Request) {
         brainId: brainId,
         deletedAt: null,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        brain: {
+          select: {
+            organizationId: true,
+          }
+        }
+      },
     });
 
     if (!node) {
@@ -130,6 +139,23 @@ export async function POST(request: Request) {
       outputMode: outputMode as AgentOutputMode,
       contentMarkdown: contentMarkdown as string,
       enableWebSearch: enableWebSearch !== undefined ? Boolean(enableWebSearch) : undefined,
+    });
+
+    await recordUsage({
+      organizationId: node.brain.organizationId,
+      feature: UsageFeature.ai_agent,
+      userId: currentUser.id,
+      brainId,
+      nodeId,
+      quantity: 1,
+      tokensPrompt: result.metadata.tokensUsed?.promptTokens ?? null,
+      tokensCompletion: result.metadata.tokensUsed?.completionTokens ?? null,
+      tokensTotal: result.metadata.tokensUsed?.totalTokens ?? null,
+      metadata: {
+        stage: 'finalize',
+        model: result.metadata.model,
+        route: '/api/ai/agent/finalize',
+      },
     });
 
     return NextResponse.json(result, { status: 200 });
