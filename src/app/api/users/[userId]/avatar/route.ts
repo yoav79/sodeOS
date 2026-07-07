@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, resolveActiveOrganization, AuthError } from '@/lib/auth';
 import db from '@/lib/db';
 import { getInternalAvatarKey } from '@/lib/storage/avatar';
 import { getFile } from '@/lib/storage/files';
@@ -26,6 +26,45 @@ export async function GET(
     const { userId } = await params;
     if (!userId) {
       return NextResponse.json({ error: 'El ID de usuario es requerido.' }, { status: 400 });
+    }
+
+    // 2.1 Multi-tenant — Resolve active organization and enforce shared membership
+    let activeOrg;
+    try {
+      activeOrg = await resolveActiveOrganization();
+    } catch (err) {
+      if (err instanceof AuthError) {
+        return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
+      }
+      throw err;
+    }
+
+    if (currentUser.id !== userId) {
+      const requesterMembership = await db.organizationMembership.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: activeOrg.id,
+            userId: currentUser.id,
+          },
+        },
+      });
+
+      if (!requesterMembership) {
+        return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
+      }
+
+      const targetMembership = await db.organizationMembership.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: activeOrg.id,
+            userId: userId,
+          },
+        },
+      });
+
+      if (!targetMembership) {
+        return NextResponse.json({ error: 'Usuario no encontrado.' }, { status: 404 });
+      }
     }
 
     // 3. Retrieve target user from DB to read the stored avatar path

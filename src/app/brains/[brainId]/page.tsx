@@ -1,5 +1,5 @@
 import { redirect, notFound } from 'next/navigation';
-import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
+import { getCurrentUser, verifyBrainAccess, AuthError, resolveActiveOrganization } from '@/lib/auth';
 import db from '@/lib/db';
 import BrainEditorClient from '@/components/brain/BrainEditorClient';
 import Link from 'next/link';
@@ -19,9 +19,14 @@ export default async function BrainEditorPage({ params }: BrainEditorPageProps) 
     redirect('/login');
   }
 
-  // 2. Brain existence — 404 if not found
+  const activeOrg = await resolveActiveOrganization();
+
+  // 2. Brain existence inside active organization — 404 if not found
   const brain = await db.brain.findUnique({
-    where: { id: brainId },
+    where: {
+      id: brainId,
+      organizationId: activeOrg.id,
+    },
     select: { id: true, name: true, description: true },
   });
 
