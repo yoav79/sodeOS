@@ -133,13 +133,32 @@ const ROLE_VALUES: Record<BrainRole, number> = {
 /**
  * Verifies if a user has access to a specific Brain with at least the minimum role required.
  * Returns the BrainMember record if access is allowed.
- * Throws an AuthError with status 403 if access is denied.
+ * Throws an AuthError with status 403 or 404 if access is denied.
  */
 export async function verifyBrainAccess(
   userId: string,
   brainId: string,
   minRole: BrainRole = 'reader'
 ) {
+  // 1. Resolve active organization
+  const activeOrg = await resolveActiveOrganization();
+
+  // 2. Fetch brain to check organization ownership
+  const brain = await db.brain.findUnique({
+    where: { id: brainId },
+    select: { id: true, organizationId: true },
+  });
+
+  if (!brain) {
+    throw new AuthError('El cerebro especificado no existe.', 404);
+  }
+
+  // 3. Ensure the brain belongs to the active organization
+  if (!brain.organizationId || brain.organizationId !== activeOrg.id) {
+    throw new AuthError('El cerebro especificado no existe.', 404);
+  }
+
+  // 4. Validate brain membership and role hierarchy
   const membership = await db.brainMember.findUnique({
     where: {
       brainId_userId: {
