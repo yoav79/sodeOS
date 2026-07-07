@@ -1,9 +1,10 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import db from '@/lib/db';
 import { User } from '@/types';
-import { BrainRole } from '@prisma/client';
+import { BrainRole, OrgRole, Organization, OrganizationMembership } from '@prisma/client';
+import { cache } from 'react';
 
 export const SESSION_COOKIE_NAME = 'cerebro_session';
 export const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -91,6 +92,7 @@ export async function getCurrentUser(): Promise<User | null> {
       company: session.user.company,
       department: session.user.department,
       jobTitle: session.user.jobTitle,
+      isSysadmin: session.user.isSysadmin,
       createdAt: session.user.createdAt,
       updatedAt: session.user.updatedAt,
     };
@@ -156,6 +158,87 @@ export async function verifyBrainAccess(
 
   if (userRoleValue < requiredRoleValue) {
     throw new AuthError('Permisos insuficientes para realizar esta acción.', 403);
+  }
+
+  return membership;
+}
+
+/**
+ * Resolves the active Organization using the host header.
+ * Uses DEV_ORG_SLUG in development environments for local testing.
+ * Cached per request cycle.
+ */
+export const resolveActiveOrganization = cache(async (): Promise<Organization> => {
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  
+  let slug = '';
+  
+  // Resolve active organization slug
+  if (host.includes('localhost') || host.includes('127.0.0.1') || process.env.NODE_ENV === 'development') {
+    slug = process.env.DEV_ORG_SLUG || 'demo';
+  } else {
+    // Basic subdomain extraction for production (e.g. acme.sodeos.com -> acme)
+    const parts = host.split('.');
+    if (parts.length > 2) {
+      slug = parts[0];
+    }
+  }
+  
+  if (!slug) {
+    throw new AuthError('No se pudo determinar la organización activa.', 400);
+  }
+  
+  const organization = await db.organization.findUnique({
+    where: { slug },
+  });
+  
+  if (!organization) {
+    throw new AuthError('La organización especificada no existe.', 404);
+  }
+  
+  if (!organization.isActive) {
+    throw new AuthError('La organización está inactiva.', 403);
+  }
+  
+  return organization;
+});
+
+/**
+ * Ranks OrgRoles to determine minimum role authorization hierarchy.
+ */
+const ORG_ROLE_VALUES: Record<OrgRole, number> = {
+  org_owner: 2,
+  org_member: 1,
+};
+
+/**
+ * Verifies if a user has access to a specific Organization with the required minimum role.
+ * Does NOT allow bypass for global sysadmins without explicit OrganizationMembership.
+ */
+export async function verifyOrgAccess(
+  userId: string,
+  organizationId: string,
+  minRole: OrgRole = 'org_member'
+): Promise<OrganizationMembership> {
+  const membership = await db.organizationMembership.findUnique({
+    where: {
+      organizationId_userId: {
+        organizationId,
+        userId,
+      },
+    },
+  });
+
+  if (!membership) {
+    throw new AuthError('No eres miembro de esta organización.', 403);
+  }
+
+  const userRoleValue = ORG_ROLE_VALUES[membership.role];
+  const requiredRoleValue = ORG_ROLE_VALUES[minRole];
+
+  if (userRoleValue < requiredRoleValue) {
+    throw new AuthError('Permisos insuficientes en la organización.', 403);
   }
 
   return membership;

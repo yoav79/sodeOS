@@ -30,6 +30,7 @@ export interface User {
   company: string | null;
   department: string | null;
   jobTitle: string | null;
+  isSysadmin: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
