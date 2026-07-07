@@ -221,6 +221,11 @@ export default function RichMarkdownEditor({
   const highlightPickerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const [showLinkPopover, setShowLinkPopover] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkError, setLinkError] = useState('');
+  const linkPopoverRef = useRef<HTMLDivElement>(null);
+
   // Close pickers on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -229,6 +234,10 @@ export default function RichMarkdownEditor({
       }
       if (highlightPickerRef.current && !highlightPickerRef.current.contains(event.target as Node)) {
         setShowHighlightPicker(false);
+      }
+      if (linkPopoverRef.current && !linkPopoverRef.current.contains(event.target as Node)) {
+        setShowLinkPopover(false);
+        setLinkError('');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -427,18 +436,48 @@ export default function RichMarkdownEditor({
     );
   }
 
-  const setLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URL del Enlace (ej. https://example.com):', previousUrl);
+  const isValidLink = (href: string): boolean => {
+    if (!href.trim()) return false;
+    try {
+      const parsed = new URL(href);
+      return ['http:', 'https:', 'mailto:'].includes(parsed.protocol);
+    } catch {
+      return href.startsWith('mailto:') || href.startsWith('/');
+    }
+  };
 
-    if (url === null) return; // Cancelled
+  const openLinkPopover = () => {
+    const previousUrl = editor.getAttributes('link').href || '';
+    setLinkUrl(previousUrl);
+    setLinkError('');
+    setShowLinkPopover(!showLinkPopover);
+    setShowColorPicker(false);
+    setShowHighlightPicker(false);
+  };
 
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+  const applyLink = () => {
+    if (!linkUrl.trim()) {
+      setLinkError('Ingresa una URL válida.');
       return;
     }
+    if (!isValidLink(linkUrl)) {
+      setLinkError('URL no válida. Usa http, https, mailto o /ruta.');
+      return;
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl }).run();
+    setShowLinkPopover(false);
+    setLinkError('');
+  };
 
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  const removeLink = () => {
+    editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    setShowLinkPopover(false);
+    setLinkError('');
+  };
+
+  const closeLinkPopover = () => {
+    setShowLinkPopover(false);
+    setLinkError('');
   };
 
   const bubbleMenuButtonClass = (isActive: boolean) =>
@@ -623,30 +662,81 @@ export default function RichMarkdownEditor({
           <span className="font-mono">`code`</span>
         </button>
         <div className="w-px h-4 bg-slate-200 mx-0.5" />
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setLink();
-          }}
-          className={bubbleMenuButtonClass(editor.isActive('link'))}
-          title="Enlace"
-        >
-          Link
-        </button>
-        {editor.isActive('link') && (
+        {/* Link popover inline */}
+        <div className="relative" ref={linkPopoverRef}>
           <button
             type="button"
             onMouseDown={(e) => {
               e.preventDefault();
-              editor.chain().focus().unsetLink().run();
+              openLinkPopover();
             }}
-            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
-            title="Quitar enlace"
+            className={bubbleMenuButtonClass(editor.isActive('link'))}
+            title="Enlace"
           >
-            Quitar
+            Link
           </button>
-        )}
+          {showLinkPopover && (
+            <div className="absolute left-0 mt-1 p-2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex flex-col gap-1.5 min-w-[240px]">
+              <input
+                type="text"
+                value={linkUrl}
+                onChange={(e) => {
+                  setLinkUrl(e.target.value);
+                  setLinkError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyLink();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeLinkPopover();
+                  }
+                }}
+                placeholder="https://example.com"
+                className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 placeholder:text-slate-400"
+                autoFocus
+              />
+              {linkError && (
+                <span className="text-[10px] text-red-500 font-medium">{linkError}</span>
+              )}
+              <div className="flex items-center gap-1 pt-0.5 border-t border-slate-100">
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    applyLink();
+                  }}
+                  className="px-2 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
+                  Aplicar
+                </button>
+                {editor.isActive('link') && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      removeLink();
+                    }}
+                    className="px-2 py-1 rounded-md text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    Quitar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    closeLinkPopover();
+                  }}
+                  className="px-2 py-1 rounded-md text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors ml-auto"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onMouseDown={(e) => {
