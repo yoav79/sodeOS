@@ -119,14 +119,14 @@ model Brain {
   name           String
   description    String?
   visibility     BrainVisibility @default(private)
-  organizationId String?         @map("organization_id") @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
   createdBy      String          @map("created_by") @db.Uuid
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
   // Relations
-  creator      User          @relation("CreatedBrains", fields: [createdBy], references: [id], onDelete: Restrict)
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  creator      User         @relation("CreatedBrains", fields: [createdBy], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   members      BrainMember[]
   templates    Template[]
   nodes        Node[]
