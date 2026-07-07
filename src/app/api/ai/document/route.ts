@@ -5,6 +5,7 @@ import { generateProposal, AIConfigError } from '@/lib/ai/provider';
 import db from '@/lib/db';
 import { recordUsage } from '@/lib/usage';
 import { UsageFeature } from '@prisma/client';
+import { assertWithinLimit, UsageLimitError } from '@/lib/limits';
 
 export const runtime = 'nodejs';
 
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `El contenido del documento no puede superar los ${MAX_AI_CONTENT_LENGTH} caracteres.` }, { status: 413 });
     }
 
-    // 4. Verify node existence and association to the brain, retrieving organizationId
+    // 4. Verify node existence and association to the brain, retrieving organizationId and plan
     const node = await db.node.findFirst({
       where: {
         id: nodeId,
@@ -67,7 +68,12 @@ export async function POST(request: Request) {
         title: true,
         brain: {
           select: {
-            organizationId: true,
+            organization: {
+              select: {
+                id: true,
+                plan: true,
+              }
+            }
           }
         }
       }
@@ -87,13 +93,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
     }
 
-    // TODO: Implement rate limiting here in the future if infrastructure is available
+    const organizationId = node.brain.organization.id;
+    const plan = node.brain.organization.plan;
+
+    // Check usage limit before invoking LLM proposal generation
+    await assertWithinLimit({
+      organizationId,
+      plan,
+      check: 'ai_requests',
+      incrementBy: 1,
+    });
 
     // 6. Generate proposal using server side provider
     const result = await generateProposal(action, node.title, contentMarkdown, instruction);
 
     // 7. Record usage (fault tolerant — does not throw on failure)
-    const organizationId = node.brain.organizationId;
     await recordUsage({
       organizationId,
       feature: UsageFeature.ai_document,
@@ -118,6 +132,9 @@ export async function POST(request: Request) {
     }, { status: 200 });
 
   } catch (error: unknown) {
+    if (error instanceof UsageLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     if (error instanceof AIConfigError) {
       return NextResponse.json({ error: error.message }, { status: 503 });
     }
