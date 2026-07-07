@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, resolveActiveOrganization } from '@/lib/auth';
 import db from '@/lib/db';
 import DashboardClient from './DashboardClient';
 
@@ -12,9 +12,16 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
+  const activeOrg = await resolveActiveOrganization();
+
   // 1. Get brains where the current user is a member
   const memberships = await db.brainMember.findMany({
-    where: { userId: currentUser.id },
+    where: {
+      userId: currentUser.id,
+      brain: {
+        organizationId: activeOrg.id,
+      },
+    },
     include: {
       brain: {
         select: {

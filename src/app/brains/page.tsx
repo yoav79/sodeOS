@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, resolveActiveOrganization } from '@/lib/auth';
 import db from '@/lib/db';
 import BrainsClient from './BrainsClient';
 
@@ -12,10 +12,15 @@ export default async function BrainsIndexPage() {
     redirect('/login');
   }
 
+  const activeOrg = await resolveActiveOrganization();
+
   // Retrieve brains memberships for the current user, ordered by brain update time
   const memberships = await db.brainMember.findMany({
     where: {
       userId: currentUser.id,
+      brain: {
+        organizationId: activeOrg.id,
+      },
     },
     orderBy: {
       brain: {
