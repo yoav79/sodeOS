@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
+import UsageSummaryCard from '@/components/usage/UsageSummaryCard';
 
 interface BrainInfo {
   id: string;
@@ -395,6 +396,9 @@ export default function DashboardClient({
                 </div>
               </div>
             </div>
+
+            {/* Usage Summary Section */}
+            <UsageSummaryCard />
 
             {/* Split panels layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch lg:h-[500px]">
