@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 import { getAttachmentFile } from '@/lib/storage/files';
 import db from '@/lib/db';
+import { recordUsage } from '@/lib/usage';
+import { UsageFeature } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +32,11 @@ export async function GET(
         node: {
           select: {
             deletedAt: true,
+          }
+        },
+        brain: {
+          select: {
+            organizationId: true,
           }
         }
       }
@@ -64,6 +71,23 @@ export async function GET(
       }
       throw error;
     }
+
+    // Record file download usage
+    await recordUsage({
+      organizationId: attachment.brain.organizationId,
+      feature: UsageFeature.file_download,
+      userId: user.id,
+      brainId: attachment.brainId,
+      nodeId: attachment.nodeId,
+      quantity: 1,
+      bytesOut: attachment.size,
+      metadata: {
+        route: '/api/attachments/[attachmentId]/download',
+        attachmentId,
+        mimeType: attachment.contentType,
+        fileName: attachment.filename,
+      },
+    });
 
     // 6. Generate Response with headers
     const safeFilename = encodeURIComponent(file.filename);

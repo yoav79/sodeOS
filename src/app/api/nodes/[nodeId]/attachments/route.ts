@@ -4,6 +4,8 @@ import { getNodeDetail } from '@/services/nodeService';
 import { putAttachmentFile, deleteAttachmentFile } from '@/lib/storage/files';
 import db from '@/lib/db';
 import { processAttachmentExtraction } from '@/lib/attachments/textExtraction';
+import { recordUsage } from '@/lib/usage';
+import { UsageFeature } from '@prisma/client';
 
 
 export const runtime = 'nodejs';
@@ -192,7 +194,17 @@ export async function POST(
       );
     }
 
-    // 11. Create entry in Prisma DB
+    // 11. Fetch organizationId directly from brain relations
+    const brain = await db.brain.findFirst({
+      where: { id: node.brainId },
+      select: { organizationId: true },
+    });
+
+    if (!brain) {
+      return NextResponse.json({ error: 'Cerebro no encontrado.' }, { status: 404 });
+    }
+
+    // 12. Create entry in Prisma DB
     try {
       const attachment = await db.nodeAttachment.create({
         data: {
@@ -224,6 +236,23 @@ export async function POST(
         file.type,
         buffer
       );
+
+      // Record file upload usage
+      await recordUsage({
+        organizationId: brain.organizationId,
+        feature: UsageFeature.file_upload,
+        userId: user.id,
+        brainId: node.brainId,
+        nodeId,
+        quantity: 1,
+        bytesIn: file.size,
+        metadata: {
+          route: '/api/nodes/[nodeId]/attachments',
+          attachmentId: attachment.id,
+          mimeType: file.type,
+          fileName: file.name,
+        },
+      });
 
       // Respond with 201 (exclude r2Key for security)
       const responseAttachment = {
