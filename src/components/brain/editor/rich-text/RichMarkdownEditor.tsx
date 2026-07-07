@@ -150,8 +150,51 @@ const ImageWithAlignment = Image.extend({
         default: 'center',
         parseHTML: (element) => normalizeImageAlignment(element.getAttribute('data-align')),
         renderHTML: (attributes) => ({
-          'data-align': normalizeImageAlignment(attributes.align),
+          ...(normalizeImageAlignment(attributes.align) === 'center'
+            ? {}
+            : { 'data-align': normalizeImageAlignment(attributes.align) }),
         }),
+      },
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        serialize(state: any, node: any) {
+          const align = normalizeImageAlignment(node.attrs.align);
+          const src = String(node.attrs.src || '');
+          const alt = String(node.attrs.alt || '');
+          const title = String(node.attrs.title || '');
+
+          if (align === 'center') {
+            state.write(`![${state.esc(alt)}](${src.replace(/[()]/g, '\\$&')}${title ? ` \"${title.replace(/\"/g, '\\\"')}\"` : ''})`);
+            return;
+          }
+
+          const escapeHtmlAttribute = (value: string) => value
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+          const attrs = [
+            `src="${escapeHtmlAttribute(src)}"`,
+            `alt="${escapeHtmlAttribute(alt)}"`,
+            `data-align="${align}"`,
+          ];
+
+          if (title) {
+            attrs.push(`title="${escapeHtmlAttribute(title)}"`);
+          }
+
+          state.write(`<img ${attrs.join(' ')}>`);
+        },
+        parse: {
+          // handled by markdown-it / DOM parsing
+        },
       },
     };
   },

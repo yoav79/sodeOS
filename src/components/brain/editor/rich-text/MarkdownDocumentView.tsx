@@ -70,6 +70,9 @@ const HLJS_TOKEN_STYLES = `
 .hljs-built_in { color: #0891b2; }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: bold; }
+.rich-markdown-view .ProseMirror img[data-align="left"] { display: block; margin-left: 0; margin-right: auto; }
+.rich-markdown-view .ProseMirror img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
+.rich-markdown-view .ProseMirror img[data-align="right"] { display: block; margin-left: auto; margin-right: 0; }
 `;
 
 const LANGUAGE_BADGE_LABELS: Record<string, string> = {
@@ -107,6 +110,33 @@ const getCodeBlockLanguageBadge = (classAttr: string) => {
   const rawLanguage = match[1].toLowerCase();
   return LANGUAGE_BADGE_LABELS[rawLanguage] || rawLanguage;
 };
+
+type ImageAlignment = 'left' | 'center' | 'right';
+
+const normalizeImageAlignment = (value: unknown): ImageAlignment => {
+  if (value === 'left' || value === 'center' || value === 'right') {
+    return value;
+  }
+
+  return 'center';
+};
+
+const ImageWithAlignment = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      align: {
+        default: 'center',
+        parseHTML: (element) => normalizeImageAlignment(element.getAttribute('data-align')),
+        renderHTML: (attributes) => ({
+          ...(normalizeImageAlignment(attributes.align) === 'center'
+            ? {}
+            : { 'data-align': normalizeImageAlignment(attributes.align) }),
+        }),
+      },
+    };
+  },
+});
 
 const CustomTaskList = TaskList.extend({
   priority: 150,
@@ -222,7 +252,7 @@ export default function MarkdownDocumentView({
       TableRow,
       TableHeader,
       TableCell,
-      Image.configure({
+      ImageWithAlignment.configure({
         HTMLAttributes: {
           class: 'max-w-full h-auto rounded-xl border border-slate-200/60 shadow-xs my-6 mx-auto block',
         },

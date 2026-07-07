@@ -26,9 +26,9 @@ const ALLOWED_BACKGROUND_COLORS = [
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-DOMPurify.addHook('uponSanitizeAttribute', (node, data: any) => {
-  // 1. Enforce strict CSS styling whitelist
-  if (data.attrName === 'style') {
+  DOMPurify.addHook('uponSanitizeAttribute', (node, data: any) => {
+    // 1. Enforce strict CSS styling whitelist
+    if (data.attrName === 'style') {
     const styleValue = data.attrValue;
     const declarations = styleValue.split(';');
     const cleanedDeclarations: string[] = [];
@@ -74,7 +74,7 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data: any) => {
       node.removeAttribute('style');
       data.keepAttr = false;
     }
-  }
+    }
 
     // 2. Restrict img[src] strictly to internal node attachments
     if (data.attrName === 'src' && node.tagName === 'IMG') {
@@ -85,9 +85,20 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data: any) => {
         node.removeAttribute('src');
       }
     }
+
+    // 3. Allow only controlled image alignment metadata
+    if (data.attrName === 'data-align') {
+      const align = String(data.attrValue || '').toLowerCase();
+      const isValidAlign = align === 'left' || align === 'center' || align === 'right';
+
+      if (node.tagName !== 'IMG' || !isValidAlign) {
+        data.keepAttr = false;
+        node.removeAttribute('data-align');
+      }
+    }
   });
 
-  // 3. Force rel="noopener noreferrer" for links with target="_blank"
+  // 4. Force rel="noopener noreferrer" for links with target="_blank"
   DOMPurify.addHook('afterSanitizeAttributes', (node) => {
     if (node.tagName === 'A') {
       const target = node.getAttribute('target');
@@ -119,12 +130,12 @@ export function sanitizeHtml(html: string): string {
 
   const sanitized = DOMPurify.sanitize(contentWithPlaceholders, {
     ALLOWED_TAGS: [
-      'p', 'br', 'hr', 'h1', 'h2', 'h3', 'blockquote', 'pre', 'code',
+    'p', 'br', 'hr', 'h1', 'h2', 'h3', 'blockquote', 'pre', 'code',
       'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
       'strong', 'em', 's', 'span', 'mark', 'u', 'a', 'img'
     ],
     // Explicitly excluded 'class' attribute from the allowed list
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'style'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'style', 'data-align'],
     ADD_ATTR: ['target', 'rel'],
     FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form'],
     FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover'],
