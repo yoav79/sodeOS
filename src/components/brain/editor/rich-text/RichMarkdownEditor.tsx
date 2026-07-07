@@ -168,17 +168,35 @@ const ImageWithAlignment = Image.extend({
           const alt = String(node.attrs.alt || '');
           const title = String(node.attrs.title || '');
 
-          if (align === 'center') {
-            state.write(`![${state.esc(alt)}](${src.replace(/[()]/g, '\\$&')}${title ? ` \"${title.replace(/\"/g, '\\\"')}\"` : ''})`);
-            return;
-          }
-
           const escapeHtmlAttribute = (value: string) => value
             .replace(/&/g, '&amp;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
+
+          const escapeMarkdownUrl = (value: string) => value.replace(/[()]/g, '\\$&');
+
+          const linkMark = node.marks?.find((m: { type: { name: string } }) => m.type.name === 'link');
+          const href = linkMark ? String(linkMark.attrs?.href || '') : '';
+
+          const imageMarkdown = align === 'center'
+            ? `![${state.esc(alt)}](${escapeMarkdownUrl(src)}${title ? ` \"${title.replace(/\"/g, '\\\"')}\"` : ''})`
+            : `<img src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(alt)}"${title ? ` title="${escapeHtmlAttribute(title)}"` : ''} data-align="${align}">`;
+
+          if (href) {
+            if (align === 'center') {
+              state.write(`[${imageMarkdown}](${escapeMarkdownUrl(href)})`);
+            } else {
+              state.write(`<a href="${escapeHtmlAttribute(href)}">${imageMarkdown}</a>`);
+            }
+            return;
+          }
+
+          if (align === 'center') {
+            state.write(imageMarkdown);
+            return;
+          }
 
           const attrs = [
             `src="${escapeHtmlAttribute(src)}"`,
@@ -226,6 +244,13 @@ export default function RichMarkdownEditor({
   const [linkError, setLinkError] = useState('');
   const linkPopoverRef = useRef<HTMLDivElement>(null);
 
+  const [showImageLinkPopover, setShowImageLinkPopover] = useState(false);
+  const [imageLinkUrl, setImageLinkUrl] = useState('');
+  const [imageLinkError, setImageLinkError] = useState('');
+  const [imageLinkHasLink, setImageLinkHasLink] = useState(false);
+  const imageLinkPopoverRef = useRef<HTMLDivElement>(null);
+  const imageLinkSelectionPosRef = useRef<number | null>(null);
+
   // Close pickers on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -238,6 +263,10 @@ export default function RichMarkdownEditor({
       if (linkPopoverRef.current && !linkPopoverRef.current.contains(event.target as Node)) {
         setShowLinkPopover(false);
         setLinkError('');
+      }
+      if (imageLinkPopoverRef.current && !imageLinkPopoverRef.current.contains(event.target as Node)) {
+        setShowImageLinkPopover(false);
+        setImageLinkError('');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -334,6 +363,29 @@ export default function RichMarkdownEditor({
       },
     },
   });
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return undefined;
+
+    const updateImageLinkState = () => {
+      const selection = editor.state.selection;
+      if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+        const linkMark = selection.node.marks?.find((m: { type: { name: string } }) => m.type.name === 'link');
+        setImageLinkHasLink(!!linkMark?.attrs?.href);
+        imageLinkSelectionPosRef.current = selection.from;
+        return;
+      }
+
+      setImageLinkHasLink(false);
+    };
+
+    updateImageLinkState();
+    editor.on('selectionUpdate', updateImageLinkState);
+
+    return () => {
+      editor.off('selectionUpdate', updateImageLinkState);
+    };
+  }, [editor]);
 
   // Handle external value changes (only if the editor is not currently focused by the user)
   useEffect(() => {
@@ -478,6 +530,83 @@ export default function RichMarkdownEditor({
   const closeLinkPopover = () => {
     setShowLinkPopover(false);
     setLinkError('');
+  };
+
+  const getSelectedImageLink = (): { pos: number; href: string } | null => {
+    const { state } = editor;
+    const { selection } = state;
+
+    if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+      const linkMark = selection.node.marks?.find((m: { type: { name: string } }) => m.type.name === 'link');
+      return {
+        pos: selection.from,
+        href: linkMark ? String(linkMark.attrs?.href || '') : '',
+      };
+    }
+
+    const storedPos = imageLinkSelectionPosRef.current;
+    if (typeof storedPos === 'number') {
+      const node = state.doc.nodeAt(storedPos);
+      if (node?.type.name === 'image') {
+        const linkMark = node.marks?.find((m: { type: { name: string } }) => m.type.name === 'link');
+        return {
+          pos: storedPos,
+          href: linkMark ? String(linkMark.attrs?.href || '') : '',
+        };
+      }
+    }
+
+    return null;
+  };
+
+  const openImageLinkPopover = () => {
+    const selectedImage = getSelectedImageLink();
+    if (!selectedImage) return;
+
+    imageLinkSelectionPosRef.current = selectedImage.pos;
+    setImageLinkUrl(selectedImage.href);
+    setImageLinkHasLink(!!selectedImage.href);
+    setImageLinkError('');
+    setShowImageLinkPopover(!showImageLinkPopover);
+  };
+
+  const applyImageLink = () => {
+    if (!imageLinkUrl.trim()) {
+      setImageLinkError('Ingresa una URL válida.');
+      return;
+    }
+    if (!isValidLink(imageLinkUrl)) {
+      setImageLinkError('URL no válida. Usa http, https, mailto o /ruta.');
+      return;
+    }
+    const pos = imageLinkSelectionPosRef.current;
+    if (typeof pos !== 'number') {
+      setImageLinkError('No se pudo localizar la imagen seleccionada.');
+      return;
+    }
+
+    editor.chain().focus().setNodeSelection(pos).setLink({ href: imageLinkUrl }).run();
+    setImageLinkHasLink(true);
+    setShowImageLinkPopover(false);
+    setImageLinkError('');
+  };
+
+  const removeImageLink = () => {
+    const pos = imageLinkSelectionPosRef.current;
+    if (typeof pos !== 'number') {
+      setImageLinkError('No se pudo localizar la imagen seleccionada.');
+      return;
+    }
+
+    editor.chain().focus().setNodeSelection(pos).unsetLink().run();
+    setImageLinkHasLink(false);
+    setShowImageLinkPopover(false);
+    setImageLinkError('');
+  };
+
+  const closeImageLinkPopover = () => {
+    setShowImageLinkPopover(false);
+    setImageLinkError('');
   };
 
   const bubbleMenuButtonClass = (isActive: boolean) =>
@@ -911,6 +1040,83 @@ export default function RichMarkdownEditor({
         >
           Der
         </button>
+        <div className="w-px h-4 bg-slate-200 mx-0.5" />
+        {/* Image link popover */}
+        <div className="relative" ref={imageLinkPopoverRef}>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              openImageLinkPopover();
+            }}
+            className={imageAlignmentButtonClass(imageLinkHasLink)}
+            title="Enlace de imagen"
+            aria-label="Agregar enlace a imagen"
+          >
+            Link
+          </button>
+          {showImageLinkPopover && (
+            <div className="absolute left-0 mt-1 p-2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex flex-col gap-1.5 min-w-[240px]">
+              <input
+                type="text"
+                value={imageLinkUrl}
+                onChange={(e) => {
+                  setImageLinkUrl(e.target.value);
+                  setImageLinkError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applyImageLink();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeImageLinkPopover();
+                  }
+                }}
+                placeholder="https://example.com"
+                className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800 placeholder:text-slate-400"
+                autoFocus
+              />
+              {imageLinkError && (
+                <span className="text-[10px] text-red-500 font-medium">{imageLinkError}</span>
+              )}
+              <div className="flex items-center gap-1 pt-0.5 border-t border-slate-100">
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    applyImageLink();
+                  }}
+                  className="px-2 py-1 rounded-md text-[11px] font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
+                  Aplicar
+                </button>
+                {imageLinkHasLink && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      removeImageLink();
+                    }}
+                    className="px-2 py-1 rounded-md text-[11px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    Quitar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    closeImageLinkPopover();
+                  }}
+                  className="px-2 py-1 rounded-md text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors ml-auto"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </BubbleMenu>
 
       {nodeId && (
