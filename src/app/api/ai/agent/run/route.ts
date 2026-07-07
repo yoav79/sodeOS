@@ -4,6 +4,8 @@ import { AgentToolContext } from '@/lib/ai/agent/tools';
 import { executeAgentPlan } from '@/lib/ai/agent/run/executor';
 import { MAX_AGENT_PLAN_STEPS, AgentPlan } from '@/lib/ai/agent/types';
 import db from '@/lib/db';
+import { recordUsage } from '@/lib/usage';
+import { UsageFeature } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
@@ -93,7 +95,14 @@ export async function POST(request: Request) {
         brainId: brainId,
         deletedAt: null,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        brain: {
+          select: {
+            organizationId: true,
+          }
+        }
+      },
     });
 
     if (!node) {
@@ -139,6 +148,29 @@ export async function POST(request: Request) {
       userQuery,
       inputsMap
     );
+
+    // 9. Record usage of successful web searches
+    const webSearchCount = result.observations.filter(
+      (observation) =>
+        observation.toolName === 'webSearch' &&
+        observation.ok === true
+    ).length;
+
+    if (webSearchCount > 0) {
+      await recordUsage({
+        organizationId: node.brain.organizationId,
+        feature: UsageFeature.web_search,
+        userId: currentUser.id,
+        brainId,
+        nodeId,
+        quantity: webSearchCount,
+        metadata: {
+          tool: 'webSearch',
+          route: '/api/ai/agent/run',
+          successfulRequests: webSearchCount,
+        },
+      });
+    }
 
     return NextResponse.json(result, { status: 200 });
 
