@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, AuthError, resolveActiveOrganization, verifyOrgAccess } from '@/lib/auth';
 import db from '@/lib/db';
 import { BrainVisibility } from '@prisma/client';
 
@@ -14,24 +14,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1.1 Permission check for Brain Creation
-    const totalBrainsCount = await db.brain.count();
-    if (totalBrainsCount > 0) {
-      const ownerMembership = await db.brainMember.findFirst({
-        where: {
-          userId: currentUser.id,
-          role: 'owner',
-        },
-        select: { id: true }
-      });
-
-      if (!ownerMembership) {
-        return NextResponse.json(
-          { error: 'No tienes permisos para crear nuevos cerebros.' },
-          { status: 403 }
-        );
-      }
-    }
+    // 1.1 Multi-tenant — Resolve active organization and verify ORG_OWNER access
+    const activeOrg = await resolveActiveOrganization();
+    await verifyOrgAccess(currentUser.id, activeOrg.id, 'org_owner');
 
     // 2. Parse payload
     let body;
@@ -93,13 +78,14 @@ export async function POST(request: Request) {
 
     // 6. Transaction: Create Brain, BrainMember (owner), Root Node and initial NodeVersion
     const brain = await db.$transaction(async (tx) => {
-      // A. Create Brain
+      // A. Create Brain associated with the active organization
       const newBrain = await tx.brain.create({
         data: {
           name: cleanName,
           description: cleanDescription,
           visibility: cleanVisibility,
           createdBy: currentUser.id,
+          organizationId: activeOrg.id,
         },
       });
 
@@ -146,6 +132,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ brain }, { status: 201 });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
     console.error('Error al crear el cerebro:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor al procesar la creación.' },
