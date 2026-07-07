@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
+import { getCurrentUser, verifyBrainAccess, AuthError, resolveActiveOrganization } from '@/lib/auth';
 import db from '@/lib/db';
 import { BrainRole } from '@prisma/client';
 
@@ -75,6 +75,12 @@ export async function GET(
 
     return NextResponse.json({ members: sortedMembers }, { status: 200 });
   } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('Error fetching members:', error);
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json(
@@ -123,7 +129,10 @@ export async function POST(
       );
     }
 
-    // 3. Parse and validate JSON body
+    // 3. Resolve active organization
+    const activeOrg = await resolveActiveOrganization();
+
+    // 4. Parse and validate JSON body
     let body;
     try {
       body = await request.json();
@@ -159,7 +168,7 @@ export async function POST(
       );
     }
 
-    // 4. Check if user exists by email
+    // 5. Check if user exists by email
     const targetUser = await db.user.findUnique({
       where: { email: cleanEmail },
       select: {
@@ -177,7 +186,24 @@ export async function POST(
       );
     }
 
-    // 5. Check if user is already a member
+    // 6. Verify targetUser belongs to the active organization
+    const targetOrgMembership = await db.organizationMembership.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: activeOrg.id,
+          userId: targetUser.id,
+        },
+      },
+    });
+
+    if (!targetOrgMembership) {
+      return NextResponse.json(
+        { error: 'El usuario debe pertenecer a la misma organización para ser agregado al cerebro.' },
+        { status: 400 }
+      );
+    }
+
+    // 7. Check if user is already a member of the brain
     const existingMembership = await db.brainMember.findUnique({
       where: {
         brainId_userId: {
@@ -194,7 +220,7 @@ export async function POST(
       );
     }
 
-    // 6. Create the membership
+    // 8. Create the membership
     const newMember = await db.brainMember.create({
       data: {
         brainId,
@@ -215,6 +241,12 @@ export async function POST(
 
     return NextResponse.json({ member: newMember }, { status: 201 });
   } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('Error adding member:', error);
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json(

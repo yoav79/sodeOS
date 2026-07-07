@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
+import { getCurrentUser, verifyBrainAccess, AuthError, resolveActiveOrganization, verifyOrgAccess } from '@/lib/auth';
 import db from '@/lib/db';
 import { BrainRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -44,7 +44,11 @@ export async function POST(
       );
     }
 
-    // 3. Parsear y validar el cuerpo de la solicitud
+    // 3. Resolver la organización activa y verificar que el creador sea ORG_OWNER
+    const activeOrg = await resolveActiveOrganization();
+    await verifyOrgAccess(currentUser.id, activeOrg.id, 'org_owner');
+
+    // 4. Parsear y validar el cuerpo de la solicitud
     let body;
     try {
       body = await request.json();
@@ -113,7 +117,7 @@ export async function POST(
       );
     }
 
-    // 4. Verificar si el usuario ya existe en el sistema
+    // 5. Verificar si el usuario ya existe en el sistema
     const existingUser = await db.user.findUnique({
       where: { email: cleanEmail },
       select: {
@@ -146,13 +150,13 @@ export async function POST(
       );
     }
 
-    // 5. Generar UUID y cifrado de contraseña
+    // 6. Generar UUID y cifrado de contraseña
     const newUserId = crypto.randomUUID();
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // 6. Transacción atómica de creación y membresía
+    // 7. Transacción atómica de creación y membresías (Usuario + Credencial + OrgMembership + BrainMember)
     const result = await db.$transaction(async (tx) => {
-      // 6.1 Crear el usuario
+      // 7.1 Crear el usuario
       const newUser = await tx.user.create({
         data: {
           id: newUserId,
@@ -166,7 +170,7 @@ export async function POST(
         }
       });
 
-      // 6.2 Crear la credencial de autenticación
+      // 7.2 Crear la credencial de autenticación
       await tx.userCredential.create({
         data: {
           userId: newUserId,
@@ -174,7 +178,16 @@ export async function POST(
         }
       });
 
-      // 6.3 Crear el registro de membresía
+      // 7.3 Crear la membresía de la organización
+      await tx.organizationMembership.create({
+        data: {
+          organizationId: activeOrg.id,
+          userId: newUserId,
+          role: 'org_member',
+        },
+      });
+
+      // 7.4 Crear el registro de membresía del cerebro
       const newMembership = await tx.brainMember.create({
         data: {
           brainId,
@@ -189,7 +202,7 @@ export async function POST(
       return { user: newUser, member: newMembership };
     });
 
-    // 7. Retornar respuesta segura sin contraseñas ni hashes
+    // 8. Retornar respuesta segura sin contraseñas ni hashes
     return NextResponse.json(
       {
         message: 'Usuario creado y agregado al cerebro exitosamente.',
@@ -200,6 +213,12 @@ export async function POST(
     );
 
   } catch (error: unknown) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     console.error('Error in create-and-add member endpoint:', error);
     const message = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json(
