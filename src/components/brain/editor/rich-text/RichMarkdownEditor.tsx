@@ -143,6 +143,8 @@ const normalizeImageAlignment = (value: unknown): ImageAlignment => {
 };
 
 const ImageWithAlignment = Image.extend({
+  marks: '_',
+
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -249,7 +251,7 @@ export default function RichMarkdownEditor({
   const [imageLinkError, setImageLinkError] = useState('');
   const [imageLinkHasLink, setImageLinkHasLink] = useState(false);
   const imageLinkPopoverRef = useRef<HTMLDivElement>(null);
-  const imageLinkSelectionPosRef = useRef<number | null>(null);
+  const [imageLinkSelectionPos, setImageLinkSelectionPos] = useState<number | null>(null);
 
   // Close pickers on click outside
   useEffect(() => {
@@ -371,8 +373,10 @@ export default function RichMarkdownEditor({
       const selection = editor.state.selection;
       if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
         const linkMark = selection.node.marks?.find((m: { type: { name: string } }) => m.type.name === 'link');
-        setImageLinkHasLink(!!linkMark?.attrs?.href);
-        imageLinkSelectionPosRef.current = selection.from;
+        const href = linkMark ? String(linkMark.attrs?.href || '') : '';
+        setImageLinkHasLink(!!href);
+        setImageLinkUrl(href);
+        setImageLinkSelectionPos(selection.from);
         return;
       }
 
@@ -544,7 +548,7 @@ export default function RichMarkdownEditor({
       };
     }
 
-    const storedPos = imageLinkSelectionPosRef.current;
+    const storedPos = imageLinkSelectionPos;
     if (typeof storedPos === 'number') {
       const node = state.doc.nodeAt(storedPos);
       if (node?.type.name === 'image') {
@@ -563,7 +567,7 @@ export default function RichMarkdownEditor({
     const selectedImage = getSelectedImageLink();
     if (!selectedImage) return;
 
-    imageLinkSelectionPosRef.current = selectedImage.pos;
+    setImageLinkSelectionPos(selectedImage.pos);
     setImageLinkUrl(selectedImage.href);
     setImageLinkHasLink(!!selectedImage.href);
     setImageLinkError('');
@@ -579,7 +583,7 @@ export default function RichMarkdownEditor({
       setImageLinkError('URL no válida. Usa http, https, mailto o /ruta.');
       return;
     }
-    const pos = imageLinkSelectionPosRef.current;
+    const pos = imageLinkSelectionPos;
     if (typeof pos !== 'number') {
       setImageLinkError('No se pudo localizar la imagen seleccionada.');
       return;
@@ -592,7 +596,7 @@ export default function RichMarkdownEditor({
   };
 
   const removeImageLink = () => {
-    const pos = imageLinkSelectionPosRef.current;
+    const pos = imageLinkSelectionPos;
     if (typeof pos !== 'number') {
       setImageLinkError('No se pudo localizar la imagen seleccionada.');
       return;

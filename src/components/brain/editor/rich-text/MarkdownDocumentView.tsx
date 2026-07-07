@@ -122,6 +122,8 @@ const normalizeImageAlignment = (value: unknown): ImageAlignment => {
 };
 
 const ImageWithAlignment = Image.extend({
+  marks: '_',
+
   addAttributes() {
     return {
       ...this.parent?.(),
