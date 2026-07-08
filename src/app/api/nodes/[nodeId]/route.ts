@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getNodeDetail, updateNodeContent, archiveNodeTree } from '@/services/nodeService';
 import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 import { sanitizeHtml } from '@/lib/content/sanitizeHtml';
+import db from '@/lib/db';
+import { logAuditEvent, AuditAction } from '@/lib/audit';
 
 export async function GET(
   request: Request,
@@ -280,10 +282,31 @@ export async function DELETE(
       );
     }
 
+    const brain = await db.brain.findUnique({
+      where: { id: node.brainId },
+      select: { organizationId: true },
+    });
+    const organizationId = brain?.organizationId || null;
+
     const result = await archiveNodeTree(nodeId, currentUser.id);
     if (!result) {
       return NextResponse.json({ error: 'Nodo no encontrado o eliminado.' }, { status: 404 });
     }
+
+    // Registrar auditoría de archivado de nodo
+    await logAuditEvent({
+      organizationId,
+      actorUserId: currentUser.id,
+      action: AuditAction.NODE_ARCHIVED,
+      targetType: 'node',
+      targetId: nodeId,
+      metadata: {
+        nodeId: nodeId,
+        brainId: node.brainId,
+        nodeTitle: node.title,
+        archivedDescendantsCount: result.count,
+      },
+    });
 
     return NextResponse.json({ success: true, count: result.count }, { status: 200 });
   } catch (error: unknown) {
