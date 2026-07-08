@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, verifyBrainAccess, AuthError, resolveActiveOrganization, verifyOrgAccess } from '@/lib/auth';
+import { getCurrentUser, verifyBrainAccess, AuthError, resolveActiveOrganizationForUser, verifyOrgAccess } from '@/lib/auth';
 import db from '@/lib/db';
 import { BrainRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -46,7 +46,7 @@ export async function POST(
     }
 
     // 3. Resolver la organización activa y verificar que el creador sea ORG_OWNER
-    const activeOrg = await resolveActiveOrganization();
+    const activeOrg = await resolveActiveOrganizationForUser(currentUser.id);
     await verifyOrgAccess(currentUser.id, activeOrg.id, 'org_owner');
 
     // 4. Parsear y validar el cuerpo de la solicitud

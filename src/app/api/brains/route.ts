@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, AuthError, resolveActiveOrganization, verifyOrgAccess } from '@/lib/auth';
+import { getCurrentUser, AuthError, resolveActiveOrganizationForUser, verifyOrgAccess } from '@/lib/auth';
 import db from '@/lib/db';
 import { BrainVisibility } from '@prisma/client';
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     // 1.1 Multi-tenant — Resolve active organization and verify ORG_OWNER access
-    const activeOrg = await resolveActiveOrganization();
+    const activeOrg = await resolveActiveOrganizationForUser(currentUser.id);
     await verifyOrgAccess(currentUser.id, activeOrg.id, 'org_owner');
 
     // 2. Parse payload

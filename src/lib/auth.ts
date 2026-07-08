@@ -50,6 +50,109 @@ export async function deleteSession(sessionToken: string): Promise<void> {
   }
 }
 
+type ActiveOrganizationSource = 'explicit' | 'development_fallback' | 'none';
+
+interface ActiveOrganizationContext {
+  slug: string | null;
+  source: ActiveOrganizationSource;
+}
+
+function isDevelopmentHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase();
+  return (
+    normalized.includes('localhost') ||
+    normalized.includes('127.0.0.1') ||
+    process.env.NODE_ENV === 'development'
+  );
+}
+
+async function getActiveOrganizationContext(): Promise<ActiveOrganizationContext> {
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  const hostSlug = extractOrgSlugFromHost(host) || '';
+  const headerSlug = headersList.get('x-active-org-slug')?.trim() || '';
+
+  if (headerSlug) {
+    const source: ActiveOrganizationSource =
+      isDevelopmentHost(host) && hostSlug && headerSlug === hostSlug
+        ? 'development_fallback'
+        : 'explicit';
+
+    return { slug: headerSlug, source };
+  }
+
+  if (!hostSlug) {
+    return { slug: null, source: 'none' };
+  }
+
+  return {
+    slug: hostSlug,
+    source: isDevelopmentHost(host) ? 'development_fallback' : 'explicit',
+  };
+}
+
+async function resolveOrganizationBySlug(slug: string): Promise<Organization> {
+  const organization = await db.organization.findUnique({
+    where: { slug },
+  });
+
+  if (!organization) {
+    throw new AuthError('La organización especificada no existe.', 404);
+  }
+
+  if (!organization.isActive) {
+    throw new AuthError('La organización está inactiva.', 403);
+  }
+
+  return organization;
+}
+
+async function resolveFallbackOrganizationForUser(userId: string, fallbackSlug: string): Promise<Organization> {
+  const fallbackOrganization = await db.organization.findUnique({
+    where: { slug: fallbackSlug },
+  });
+
+  if (fallbackOrganization && fallbackOrganization.isActive) {
+    const fallbackMembership = await db.organizationMembership.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: fallbackOrganization.id,
+          userId,
+        },
+      },
+    });
+
+    if (fallbackMembership) {
+      return fallbackOrganization;
+    }
+  }
+
+  const activeMemberships = await db.organizationMembership.findMany({
+    where: {
+      userId,
+      organization: {
+        isActive: true,
+      },
+    },
+    include: {
+      organization: true,
+    },
+  });
+
+  if (activeMemberships.length === 0) {
+    throw new AuthError('No tienes una organización activa disponible para esta sesión.', 403);
+  }
+
+  if (activeMemberships.length > 1) {
+    throw new AuthError(
+      'Tienes múltiples organizaciones activas. Debes seleccionar una organización activa explícitamente.',
+      400
+    );
+  }
+
+  return activeMemberships[0].organization;
+}
+
 /**
  * Retrieves the current authenticated user by validating the session cookie.
  * Returns null if the session is invalid, expired, or missing.
@@ -142,7 +245,7 @@ export async function verifyBrainAccess(
   minRole: BrainRole = 'reader'
 ) {
   // 1. Resolve active organization
-  const activeOrg = await resolveActiveOrganization();
+  const activeOrg = await resolveActiveOrganizationForUser(userId);
 
   // 2. Fetch brain to check organization ownership
   const brain = await db.brain.findUnique({
@@ -194,34 +297,32 @@ export async function verifyBrainAccess(
  * Cached per request cycle.
  */
 export const resolveActiveOrganization = cache(async (): Promise<Organization> => {
-  const headersList = await headers();
-
-  // 1. Check internal header first (middleware-injected in future)
-  let slug = headersList.get('x-active-org-slug')?.trim() || '';
-
-  // 2. Fallback: extract from host using the pure tenant helper
-  if (!slug) {
-    const host = headersList.get('host') || '';
-    slug = extractOrgSlugFromHost(host) || '';
-  }
+  const { slug } = await getActiveOrganizationContext();
 
   if (!slug) {
     throw new AuthError('No se pudo determinar la organización activa.', 400);
   }
 
-  const organization = await db.organization.findUnique({
-    where: { slug },
-  });
+  return resolveOrganizationBySlug(slug);
+});
 
-  if (!organization) {
-    throw new AuthError('La organización especificada no existe.', 404);
+/**
+ * Resolves the active Organization for a specific user.
+ * In development fallback mode, if the fallback tenant does not match the user's memberships,
+ * the helper falls back to the user's single active organization.
+ */
+export const resolveActiveOrganizationForUser = cache(async (userId: string): Promise<Organization> => {
+  const context = await getActiveOrganizationContext();
+
+  if (!context.slug) {
+    throw new AuthError('No se pudo determinar la organización activa.', 400);
   }
 
-  if (!organization.isActive) {
-    throw new AuthError('La organización está inactiva.', 403);
+  if (context.source !== 'development_fallback') {
+    return resolveOrganizationBySlug(context.slug);
   }
 
-  return organization;
+  return resolveFallbackOrganizationForUser(userId, context.slug);
 });
 
 /**
@@ -281,4 +382,3 @@ export async function verifySysadmin(): Promise<User> {
 
   return currentUser;
 }
-

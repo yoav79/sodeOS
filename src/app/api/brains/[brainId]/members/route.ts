@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, verifyBrainAccess, AuthError, resolveActiveOrganization } from '@/lib/auth';
+import { getCurrentUser, verifyBrainAccess, AuthError, resolveActiveOrganizationForUser } from '@/lib/auth';
 import db from '@/lib/db';
 import { BrainRole } from '@prisma/client';
 
@@ -130,7 +130,7 @@ export async function POST(
     }
 
     // 3. Resolve active organization
-    const activeOrg = await resolveActiveOrganization();
+    const activeOrg = await resolveActiveOrganizationForUser(currentUser.id);
 
     // 4. Parse and validate JSON body
     let body;
