@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 
 interface OrganizationItem {
@@ -343,13 +344,16 @@ export default function OrganizationsClient() {
                   <th className="px-6 py-4 text-center">Miembros</th>
                   <th className="px-6 py-4 text-center">Cerebros</th>
                   <th className="px-6 py-4">Creada</th>
+                  <th className="px-6 py-4"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {data.items.map((org) => (
                   <tr key={org.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 font-semibold text-slate-900">
-                      {org.name}
+                      <Link href={`/admin/organizations/${org.id}`} className="text-indigo-600 hover:underline">
+                        {org.name}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 text-slate-500 font-mono text-xs">
                       {org.slug}
@@ -368,6 +372,14 @@ export default function OrganizationsClient() {
                     </td>
                     <td className="px-6 py-4 text-slate-500">
                       {formatDate(org.createdAt)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/admin/organizations/${org.id}`}
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                      >
+                        Ver
+                      </Link>
                     </td>
                   </tr>
                 ))}
