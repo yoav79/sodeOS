@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 import db from '@/lib/db';
 import { BrainRole } from '@prisma/client';
+import { logAuditEvent, AuditAction } from '@/lib/audit';
 
 export async function PATCH(
   request: Request,
@@ -65,14 +66,27 @@ export async function PATCH(
 
     // 4. Update role atomically in a transaction protecting the last owner
     try {
+      let previousRole: BrainRole | null = null;
+      let targetUserId: string | null = null;
+      let organizationId: string | null = null;
+
       const updatedMember = await db.$transaction(async (tx) => {
         const targetMember = await tx.brainMember.findUnique({
           where: { id: memberId },
+          include: {
+            brain: {
+              select: { organizationId: true }
+            }
+          }
         });
 
         if (!targetMember || targetMember.brainId !== brainId) {
           throw new Error('NOT_FOUND');
         }
+
+        previousRole = targetMember.role;
+        targetUserId = targetMember.userId;
+        organizationId = targetMember.brain.organizationId;
 
         // If currently owner and trying to downgrade, verify owner count
         if (targetMember.role === 'owner' && role !== 'owner') {
@@ -98,6 +112,21 @@ export async function PATCH(
             },
           },
         });
+      });
+
+      // 4.1 Registrar auditoría de cambio de rol en el cerebro
+      await logAuditEvent({
+        organizationId,
+        actorUserId: currentUser.id,
+        action: AuditAction.BRAIN_MEMBER_ROLE_CHANGED,
+        targetType: 'brain_member',
+        targetId: memberId,
+        metadata: {
+          brainId,
+          userId: targetUserId,
+          previousRole,
+          newRole: role,
+        },
       });
 
       return NextResponse.json({ member: updatedMember }, { status: 200 });
@@ -168,14 +197,25 @@ export async function DELETE(
 
     // 3. Delete member atomically in a transaction protecting the last owner
     try {
+      let targetUserId: string | null = null;
+      let organizationId: string | null = null;
+
       await db.$transaction(async (tx) => {
         const targetMember = await tx.brainMember.findUnique({
           where: { id: memberId },
+          include: {
+            brain: {
+              select: { organizationId: true }
+            }
+          }
         });
 
         if (!targetMember || targetMember.brainId !== brainId) {
           throw new Error('NOT_FOUND');
         }
+
+        targetUserId = targetMember.userId;
+        organizationId = targetMember.brain.organizationId;
 
         // If currently owner, verify owner count
         if (targetMember.role === 'owner') {
@@ -190,6 +230,19 @@ export async function DELETE(
         return tx.brainMember.delete({
           where: { id: memberId },
         });
+      });
+
+      // 3.1 Registrar auditoría de remoción de miembro en el cerebro
+      await logAuditEvent({
+        organizationId,
+        actorUserId: currentUser.id,
+        action: AuditAction.BRAIN_MEMBER_REMOVED,
+        targetType: 'brain_member',
+        targetId: memberId,
+        metadata: {
+          brainId,
+          userId: targetUserId,
+        },
       });
 
       return new Response(null, { status: 204 });
