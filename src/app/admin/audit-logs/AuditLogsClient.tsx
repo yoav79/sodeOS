@@ -242,13 +242,25 @@ export default function AuditLogsClient() {
   return (
     <div className="space-y-6">
       {/* Cabecera */}
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-          Registro de Auditoría Global
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Visualiza de forma cronológica y audita todas las acciones administrativas y de seguridad del tenant.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            Registro de Auditoría Global
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Visualiza de forma cronológica y audita todas las acciones administrativas y de seguridad del tenant.
+          </p>
+        </div>
+        {data && (
+          <div className="shrink-0 bg-slate-100 border border-slate-200 px-4 py-2 rounded-xl text-slate-700 font-semibold text-sm shadow-sm inline-flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+            {data.pagination.total > 0 ? (
+              <span>Mostrando {data.items.length} de {data.pagination.total} logs</span>
+            ) : (
+              <span>0 logs encontrados</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Panel de Filtros */}
@@ -379,17 +391,78 @@ export default function AuditLogsClient() {
           </div>
         ) : !data || data.items.length === 0 ? (
           // Empty State
-          <div className="p-16 text-center space-y-4">
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 inline-flex items-center justify-center">
-              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9m1.5 4h3M9 12h6M9 16h6" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">No se encontraron logs de auditoría</h3>
-            <p className="text-sm text-slate-500 max-w-sm mx-auto">
-              Intenta cambiar los parámetros de filtros establecidos o selecciona un rango de fechas diferente.
-            </p>
-          </div>
+          (() => {
+            const hasAppliedFilters = !!(
+              appliedOrgId.trim() ||
+              appliedActorId.trim() ||
+              appliedAction.trim() ||
+              appliedTargetType.trim() ||
+              appliedFrom.trim() ||
+              appliedTo.trim()
+            );
+
+            return (
+              <div className="p-16 text-center space-y-6 max-w-lg mx-auto">
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 inline-flex items-center justify-center shadow-inner">
+                  <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9m1.5 4h3M9 12h6M9 16h6" />
+                  </svg>
+                </div>
+                {hasAppliedFilters ? (
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-bold text-slate-900">No hay logs que coincidan con los filtros</h3>
+                    <p className="text-sm text-slate-500">
+                      Intenta cambiar los parámetros de filtros establecidos o selecciona un rango de fechas diferente para encontrar el registro de auditoría buscado.
+                    </p>
+                    <div className="pt-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleResetFilters}
+                        className="border border-slate-200 bg-white hover:bg-slate-50 rounded-xl text-slate-700 font-semibold px-5 py-2 shadow-sm"
+                      >
+                        Limpiar Filtros
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 text-left">
+                    <h3 className="text-xl font-bold text-slate-900 text-center">Aún no hay eventos de auditoría</h3>
+                    <p className="text-sm text-slate-500 text-center">
+                      Los logs aparecerán en esta consola cuando se ejecuten acciones administrativas y de seguridad en la aplicación.
+                    </p>
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-3">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                        Acciones de prueba sugeridas:
+                      </span>
+                      <ul className="space-y-2 text-xs text-slate-600 font-medium">
+                        <li className="flex items-start gap-2.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5"></span>
+                          <span>Archivar un nodo de documento en el editor.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5"></span>
+                          <span>Eliminar un archivo adjunto dentro de un nodo.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5"></span>
+                          <span>Crear y asociar un nuevo miembro a un cerebro.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5"></span>
+                          <span>Modificar el rol o remover un miembro de un cerebro.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5"></span>
+                          <span>Eliminar un cerebro (brain) completo de la organización.</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()
         ) : (
           // Tabla de Datos
           <div className="overflow-x-auto">
