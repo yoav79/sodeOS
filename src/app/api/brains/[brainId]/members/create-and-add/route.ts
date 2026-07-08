@@ -4,6 +4,7 @@ import db from '@/lib/db';
 import { BrainRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { logAuditEvent, AuditAction } from '@/lib/audit';
 
 export async function POST(
   request: Request,
@@ -200,6 +201,33 @@ export async function POST(
       });
 
       return { user: newUser, member: newMembership };
+    });
+
+    // 7.5 Registrar auditoría de invitación a la organización y adición al cerebro
+    await logAuditEvent({
+      organizationId: activeOrg.id,
+      actorUserId: currentUser.id,
+      action: AuditAction.ORG_MEMBER_INVITED,
+      targetType: 'user',
+      targetId: result.user.id,
+      metadata: {
+        invitedEmail: cleanEmail,
+        invitedUserId: result.user.id,
+        orgRole: 'org_member',
+      },
+    });
+
+    await logAuditEvent({
+      organizationId: activeOrg.id,
+      actorUserId: currentUser.id,
+      action: AuditAction.BRAIN_MEMBER_ADDED,
+      targetType: 'brain_member',
+      targetId: result.user.id, // Se usa result.user.id ya que el ID de membresía no se retorna de la transacción atómica
+      metadata: {
+        userId: result.user.id,
+        brainId: brainId,
+        role: role as BrainRole,
+      },
     });
 
     // 8. Retornar respuesta segura sin contraseñas ni hashes
