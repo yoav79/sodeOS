@@ -29,6 +29,12 @@ interface OrganizationsResponse {
   pagination: PaginationInfo;
 }
 
+interface OwnerSearchUser {
+  id: string;
+  email: string;
+  name: string | null;
+}
+
 export default function OrganizationsClient() {
   const [data, setData] = useState<OrganizationsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,11 +60,27 @@ export default function OrganizationsClient() {
   const [newSlug, setNewSlug] = useState('');
   const [isSlugDirty, setIsSlugDirty] = useState(false);
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [ownerSearchInput, setOwnerSearchInput] = useState('');
+  const [ownerSearchResults, setOwnerSearchResults] = useState<OwnerSearchUser[]>([]);
+  const [ownerSearching, setOwnerSearching] = useState(false);
+  const [ownerSearchError, setOwnerSearchError] = useState<string | null>(null);
+  const [selectedOwner, setSelectedOwner] = useState<OwnerSearchUser | null>(null);
   const [newPlan, setNewPlan] = useState<'free' | 'pro' | 'enterprise'>('free');
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const resetCreateModalState = () => {
+    setShowCreateModal(false);
+    setCreateError(null);
+    setCreateSuccess(null);
+    setOwnerSearchInput('');
+    setOwnerSearchResults([]);
+    setOwnerSearching(false);
+    setOwnerSearchError(null);
+    setSelectedOwner(null);
+  };
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -76,6 +98,91 @@ export default function OrganizationsClient() {
     setIsSlugDirty(true);
     setNewSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'));
   };
+
+  const handleOwnerEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewOwnerEmail(value);
+    setOwnerSearchInput(value);
+    setOwnerSearchError(null);
+
+    if (selectedOwner && value.trim().toLowerCase() !== selectedOwner.email.toLowerCase()) {
+      setSelectedOwner(null);
+    }
+  };
+
+  const handleSelectOwner = (user: OwnerSearchUser) => {
+    setSelectedOwner(user);
+    setNewOwnerEmail(user.email);
+    setOwnerSearchInput(user.email);
+    setOwnerSearchResults([]);
+    setOwnerSearchError(null);
+  };
+
+  const handleClearOwnerSelection = () => {
+    setSelectedOwner(null);
+    setOwnerSearchResults([]);
+    setOwnerSearchError(null);
+  };
+
+  useEffect(() => {
+    if (!showCreateModal) {
+      return;
+    }
+
+    const query = ownerSearchInput.trim();
+    const selectedEmail = selectedOwner?.email.toLowerCase();
+
+    let active = true;
+    const timeoutId = window.setTimeout(async () => {
+      if (selectedEmail && query.toLowerCase() === selectedEmail) {
+        setOwnerSearchResults([]);
+        setOwnerSearching(false);
+        setOwnerSearchError(null);
+        return;
+      }
+
+      if (query.length < 2) {
+        setOwnerSearchResults([]);
+        setOwnerSearching(false);
+        setOwnerSearchError(null);
+        return;
+      }
+
+      setOwnerSearching(true);
+      setOwnerSearchError(null);
+
+      try {
+        const res = await fetch(`/api/admin/users/search?q=${encodeURIComponent(query)}&limit=10`);
+
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('Acceso denegado. Se requieren privilegios de sysadmin.');
+        }
+
+        if (!res.ok) {
+          throw new Error('Error al buscar usuarios existentes.');
+        }
+
+        const json: { users?: OwnerSearchUser[] } = await res.json();
+        if (active) {
+          setOwnerSearchResults(Array.isArray(json.users) ? json.users : []);
+        }
+      } catch (err: unknown) {
+        if (active) {
+          setOwnerSearchResults([]);
+          setOwnerSearchError(err instanceof Error ? err.message : 'Error inesperado.');
+        }
+      } finally {
+        if (active) {
+          setOwnerSearching(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [ownerSearchInput, selectedOwner, showCreateModal]);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +230,11 @@ export default function OrganizationsClient() {
       setNewSlug('');
       setIsSlugDirty(false);
       setNewOwnerEmail('');
+      setOwnerSearchInput('');
+      setOwnerSearchResults([]);
+      setOwnerSearching(false);
+      setOwnerSearchError(null);
+      setSelectedOwner(null);
       setNewPlan('free');
 
       // Volver a pág 1 y refrescar listado
@@ -131,7 +243,7 @@ export default function OrganizationsClient() {
 
       // Cerrar modal
       setTimeout(() => {
-        setShowCreateModal(false);
+        resetCreateModalState();
         setCreateSuccess(null);
       }, 1500);
 
@@ -539,9 +651,7 @@ export default function OrganizationsClient() {
               </h3>
               <button
                 onClick={() => {
-                  setShowCreateModal(false);
-                  setCreateError(null);
-                  setCreateSuccess(null);
+                  resetCreateModalState();
                 }}
                 className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-xl transition-colors"
               >
@@ -597,17 +707,89 @@ export default function OrganizationsClient() {
 
               <div className="space-y-1.5">
                 <label htmlFor="modal-owner" className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                  Email del Propietario (Existente) *
+                  Propietario Existente *
                 </label>
-                <input
-                  id="modal-owner"
-                  type="email"
-                  required
-                  placeholder="ej. owner@acme.com"
-                  value={newOwnerEmail}
-                  onChange={(e) => setNewOwnerEmail(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <div className="space-y-2">
+                  <input
+                    id="modal-owner"
+                    type="text"
+                    required
+                    placeholder="Busca por nombre o email..."
+                    value={ownerSearchInput}
+                    onChange={handleOwnerEmailChange}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    autoComplete="off"
+                  />
+
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Recomendado: selecciona un usuario existente. Si escribes un email manualmente, el backend seguirá validando que exista.
+                  </p>
+
+                  {selectedOwner && (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-emerald-800 truncate">
+                          {selectedOwner.name || 'Usuario seleccionado'}
+                        </div>
+                        <div className="text-[11px] text-emerald-700 truncate">
+                          {selectedOwner.email}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleClearOwnerSelection}
+                        className="border border-emerald-200 bg-white hover:bg-emerald-100 rounded-lg text-emerald-700 text-[11px] font-semibold px-2.5 py-1"
+                      >
+                        Limpiar selección
+                      </Button>
+                    </div>
+                  )}
+
+                  {!selectedOwner && ownerSearchInput.trim().length < 2 && (
+                    <div className="text-[11px] text-slate-400">
+                      Escribe al menos 2 caracteres para buscar usuarios existentes.
+                    </div>
+                  )}
+
+                  {!selectedOwner && ownerSearching && ownerSearchInput.trim().length >= 2 && (
+                    <div className="text-[11px] text-slate-500">
+                      Buscando usuarios...
+                    </div>
+                  )}
+
+                  {!selectedOwner && ownerSearchError && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
+                      {ownerSearchError}
+                    </div>
+                  )}
+
+                  {!selectedOwner && !ownerSearching && ownerSearchInput.trim().length >= 2 && !ownerSearchError && ownerSearchResults.length > 0 && (
+                    <div className="max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                      {ownerSearchResults.map((user) => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => handleSelectOwner(user)}
+                          className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0"
+                        >
+                          <div className="text-sm font-semibold text-slate-900 truncate">
+                            {user.name || 'Sin nombre'}
+                          </div>
+                          <div className="text-xs text-slate-500 truncate">
+                            {user.email}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {!selectedOwner && !ownerSearching && ownerSearchInput.trim().length >= 2 && !ownerSearchError && ownerSearchResults.length === 0 && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
+                      Sin coincidencias. Puedes escribir un email manualmente si el usuario ya existe.
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -633,9 +815,7 @@ export default function OrganizationsClient() {
                   variant="secondary"
                   disabled={createSubmitting}
                   onClick={() => {
-                    setShowCreateModal(false);
-                    setCreateError(null);
-                    setCreateSuccess(null);
+                    resetCreateModalState();
                   }}
                   className="border border-slate-200 bg-white hover:bg-slate-50 rounded-xl text-slate-700 font-semibold px-4 py-2"
                 >
