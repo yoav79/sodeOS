@@ -48,6 +48,101 @@ export default function OrganizationsClient() {
   const [appliedPlan, setAppliedPlan] = useState('');
   const [appliedIsActive, setAppliedIsActive] = useState('');
 
+  // Estados para la creación de organizaciones
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newSlug, setNewSlug] = useState('');
+  const [isSlugDirty, setIsSlugDirty] = useState(false);
+  const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [newPlan, setNewPlan] = useState<'free' | 'pro' | 'enterprise'>('free');
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewName(value);
+    if (!isSlugDirty) {
+      const suggested = value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      setNewSlug(suggested);
+    }
+  };
+
+  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsSlugDirty(true);
+    setNewSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'));
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateSubmitting(true);
+    setCreateError(null);
+    setCreateSuccess(null);
+
+    if (!newName.trim() || !newSlug.trim() || !newOwnerEmail.trim()) {
+      setCreateError('Todos los campos obligatorios (*) deben ser completados.');
+      setCreateSubmitting(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/organizations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newName.trim(),
+          slug: newSlug.trim(),
+          ownerEmail: newOwnerEmail.trim().toLowerCase(),
+          plan: newPlan,
+        }),
+      });
+
+      if (!res.ok) {
+        let errMsg = 'Error al crear la organización.';
+        try {
+          const errJson = await res.json();
+          if (errJson && typeof errJson.error === 'string') {
+            errMsg = errJson.error;
+          }
+        } catch {
+          // Ignorar error al parsear JSON
+        }
+        throw new Error(errMsg);
+      }
+
+      setCreateSuccess('Organización creada exitosamente.');
+
+      // Limpiar formulario
+      setNewName('');
+      setNewSlug('');
+      setIsSlugDirty(false);
+      setNewOwnerEmail('');
+      setNewPlan('free');
+
+      // Volver a pág 1 y refrescar listado
+      setPage(1);
+      setRefreshTrigger((prev) => prev + 1);
+
+      // Cerrar modal
+      setTimeout(() => {
+        setShowCreateModal(false);
+        setCreateSuccess(null);
+      }, 1500);
+
+    } catch (err: unknown) {
+      console.error(err);
+      setCreateError(err instanceof Error ? err.message : 'Error inesperado.');
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
   const handleRetry = async () => {
     setLoading(true);
     setError(null);
@@ -133,7 +228,7 @@ export default function OrganizationsClient() {
     return () => {
       active = false;
     };
-  }, [page, appliedQ, appliedPlan, appliedIsActive]);
+  }, [page, appliedQ, appliedPlan, appliedIsActive, refreshTrigger]);
 
   const handleApplyFilters = (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,13 +319,24 @@ export default function OrganizationsClient() {
   return (
     <div className="space-y-6">
       {/* Cabecera */}
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-          Gestión de Organizaciones
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Visualiza, filtra y monitorea el estado operativo y plan contratado por cada organización.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            Gestión de Organizaciones
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Visualiza, filtra y monitorea el estado operativo y plan contratado por cada organización.
+          </p>
+        </div>
+        <Button
+          onClick={() => setShowCreateModal(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl shadow-md shadow-indigo-500/10 shrink-0 font-semibold px-4 py-2.5 flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Crear organización
+        </Button>
       </div>
 
       {/* Panel de Filtros */}
@@ -418,6 +524,133 @@ export default function OrganizationsClient() {
             >
               Siguiente
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Creación */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md shadow-2xl p-6 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            {/* Cabecera del Modal */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">
+                Nueva Organización
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setCreateError(null);
+                  setCreateSuccess(null);
+                }}
+                className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-xl transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Alertas */}
+            {createError && (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs font-semibold">
+                {createError}
+              </div>
+            )}
+            {createSuccess && (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs font-semibold">
+                {createSuccess}
+              </div>
+            )}
+
+            {/* Formulario */}
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="modal-name" className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  Nombre de la Organización *
+                </label>
+                <input
+                  id="modal-name"
+                  type="text"
+                  required
+                  placeholder="ej. Acme Corp"
+                  value={newName}
+                  onChange={handleNameChange}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="modal-slug" className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  Slug (Único) *
+                </label>
+                <input
+                  id="modal-slug"
+                  type="text"
+                  required
+                  placeholder="ej. acme-corp"
+                  value={newSlug}
+                  onChange={handleSlugChange}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="modal-owner" className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  Email del Propietario (Existente) *
+                </label>
+                <input
+                  id="modal-owner"
+                  type="email"
+                  required
+                  placeholder="ej. owner@acme.com"
+                  value={newOwnerEmail}
+                  onChange={(e) => setNewOwnerEmail(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="modal-plan" className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  Plan Inicial
+                </label>
+                <select
+                  id="modal-plan"
+                  value={newPlan}
+                  onChange={(e) => setNewPlan(e.target.value as 'free' | 'pro' | 'enterprise')}
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="free">Free</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+
+              {/* Botones de Acción */}
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={createSubmitting}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setCreateError(null);
+                    setCreateSuccess(null);
+                  }}
+                  className="border border-slate-200 bg-white hover:bg-slate-50 rounded-xl text-slate-700 font-semibold px-4 py-2"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={createSubmitting}
+                  className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl font-semibold px-4 py-2 shadow-md shadow-indigo-500/10"
+                >
+                  {createSubmitting ? 'Creando...' : 'Crear'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
