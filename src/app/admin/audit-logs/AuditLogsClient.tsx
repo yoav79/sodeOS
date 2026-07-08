@@ -74,15 +74,24 @@ export default function AuditLogsClient() {
       if (appliedActorId.trim()) queryParams.append('actorUserId', appliedActorId.trim());
       if (appliedAction.trim()) queryParams.append('action', appliedAction.trim());
       if (appliedTargetType.trim()) queryParams.append('targetType', appliedTargetType.trim());
-      if (appliedFrom) queryParams.append('from', appliedFrom);
-      if (appliedTo) queryParams.append('to', appliedTo);
+      if (appliedFrom.trim()) queryParams.append('from', appliedFrom.trim());
+      if (appliedTo.trim()) queryParams.append('to', appliedTo.trim());
 
       const res = await fetch(`/api/admin/audit-logs?${queryParams.toString()}`);
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
           throw new Error('Acceso denegado. Se requieren privilegios de sysadmin.');
         }
-        throw new Error('Error al obtener los logs de auditoría.');
+        let errMsg = 'Error al obtener los logs de auditoría.';
+        try {
+          const errJson = await res.json();
+          if (errJson && typeof errJson.error === 'string') {
+            errMsg = errJson.error;
+          }
+        } catch {
+          // Ignorar error al parsear JSON
+        }
+        throw new Error(errMsg);
       }
       const json: AuditLogsResponse = await res.json();
       setData(json);
@@ -110,15 +119,24 @@ export default function AuditLogsClient() {
         if (appliedActorId.trim()) queryParams.append('actorUserId', appliedActorId.trim());
         if (appliedAction.trim()) queryParams.append('action', appliedAction.trim());
         if (appliedTargetType.trim()) queryParams.append('targetType', appliedTargetType.trim());
-        if (appliedFrom) queryParams.append('from', appliedFrom);
-        if (appliedTo) queryParams.append('to', appliedTo);
+        if (appliedFrom.trim()) queryParams.append('from', appliedFrom.trim());
+        if (appliedTo.trim()) queryParams.append('to', appliedTo.trim());
 
         const res = await fetch(`/api/admin/audit-logs?${queryParams.toString()}`);
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) {
             throw new Error('Acceso denegado. Se requieren privilegios de sysadmin.');
           }
-          throw new Error('Error al obtener los logs de auditoría.');
+          let errMsg = 'Error al obtener los logs de auditoría.';
+          try {
+            const errJson = await res.json();
+            if (errJson && typeof errJson.error === 'string') {
+              errMsg = errJson.error;
+            }
+          } catch {
+            // Ignorar error al parsear JSON
+          }
+          throw new Error(errMsg);
         }
         const json: AuditLogsResponse = await res.json();
         if (active) {

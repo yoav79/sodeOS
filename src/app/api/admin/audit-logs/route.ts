@@ -42,24 +42,31 @@ export async function GET(request: Request) {
     // 3. Validar filtros y fechas
     const where: Prisma.AuditLogWhereInput = {};
 
-    if (organizationId) {
-      where.organizationId = organizationId;
+    const cleanOrgId = organizationId?.trim();
+    const cleanActorUserId = actorUserId?.trim();
+    const cleanAction = action?.trim();
+    const cleanTargetType = targetType?.trim();
+    const cleanFrom = from?.trim();
+    const cleanTo = to?.trim();
+
+    if (cleanOrgId) {
+      where.organizationId = cleanOrgId;
     }
-    if (actorUserId) {
-      where.actorUserId = actorUserId;
+    if (cleanActorUserId) {
+      where.actorUserId = cleanActorUserId;
     }
-    if (action) {
-      where.action = action;
+    if (cleanAction) {
+      where.action = cleanAction;
     }
-    if (targetType) {
-      where.targetType = targetType;
+    if (cleanTargetType) {
+      where.targetType = cleanTargetType;
     }
 
     let fromDate: Date | null = null;
     let toDate: Date | null = null;
 
-    if (from) {
-      const parsedFrom = Date.parse(from);
+    if (cleanFrom) {
+      const parsedFrom = Date.parse(cleanFrom);
       if (isNaN(parsedFrom)) {
         return NextResponse.json(
           { error: 'El parámetro "from" no es una fecha válida en formato ISO.' },
@@ -69,8 +76,8 @@ export async function GET(request: Request) {
       fromDate = new Date(parsedFrom);
     }
 
-    if (to) {
-      const parsedTo = Date.parse(to);
+    if (cleanTo) {
+      const parsedTo = Date.parse(cleanTo);
       if (isNaN(parsedTo)) {
         return NextResponse.json(
           { error: 'El parámetro "to" no es una fecha válida en formato ISO.' },
