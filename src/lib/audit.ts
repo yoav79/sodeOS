@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import db from '@/lib/db';
 
 export const AuditAction = {
+  ORG_CREATED: 'ORG_CREATED',
   ORG_PLAN_CHANGED: 'ORG_PLAN_CHANGED',
   ORG_MEMBER_INVITED: 'ORG_MEMBER_INVITED',
   ORG_MEMBER_REMOVED: 'ORG_MEMBER_REMOVED',
