@@ -264,3 +264,21 @@ export async function verifyOrgAccess(
   return membership;
 }
 
+/**
+ * Verifies if the authenticated user has global system administrator privileges.
+ * Throws an AuthError (401 or 403) if the checks fail.
+ */
+export async function verifySysadmin(): Promise<User> {
+  const currentUser = await getCurrentUser();
+
+  if (!currentUser) {
+    throw new AuthError('No autenticado.', 401);
+  }
+
+  if (!currentUser.isSysadmin) {
+    throw new AuthError('Acceso denegado. Se requieren privilegios de sysadmin.', 403);
+  }
+
+  return currentUser;
+}
+
