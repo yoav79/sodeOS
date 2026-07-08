@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, resolveActiveOrganization, verifyOrgAccess, AuthError } from '@/lib/auth';
+import { getCurrentUser, resolveActiveOrganizationForUser, verifyOrgAccess, AuthError } from '@/lib/auth';
 import { PLAN_LIMITS, getUsageSummary, getCurrentMonthStart } from '@/lib/limits';
 import { UsageFeature } from '@prisma/client';
 
@@ -21,7 +21,7 @@ export async function GET() {
     }
 
     // 2. Resolve active organization and verify access
-    const activeOrg = await resolveActiveOrganization();
+    const activeOrg = await resolveActiveOrganizationForUser(currentUser.id);
     await verifyOrgAccess(currentUser.id, activeOrg.id, 'org_member');
 
     const organizationId = activeOrg.id;
