@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 import db from '@/lib/db';
+import { logAuditEvent, AuditAction } from '@/lib/audit';
 
 export async function DELETE(
   request: Request,
@@ -55,6 +56,19 @@ export async function DELETE(
     // 4. Borrar Brain (dependemos de los onDelete: Cascade del schema Prisma)
     await db.brain.delete({
       where: { id: brainId },
+    });
+
+    // 4.1 Registrar auditoría de borrado de cerebro
+    await logAuditEvent({
+      organizationId: brain.organizationId,
+      actorUserId: currentUser.id,
+      action: AuditAction.BRAIN_DELETED,
+      targetType: 'brain',
+      targetId: brainId,
+      metadata: {
+        brainId: brainId,
+        brainName: brain.name,
+      },
     });
 
     return NextResponse.json({ success: true }, { status: 200 });
