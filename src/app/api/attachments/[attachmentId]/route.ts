@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser, verifyBrainAccess, AuthError } from '@/lib/auth';
 import { deleteAttachmentFile } from '@/lib/storage/files';
 import db from '@/lib/db';
+import { logAuditEvent, AuditAction } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +31,11 @@ export async function DELETE(
         node: {
           select: {
             deletedAt: true,
+          }
+        },
+        brain: {
+          select: {
+            organizationId: true,
           }
         }
       }
@@ -86,6 +92,22 @@ export async function DELETE(
     } catch (r2Error) {
       console.warn('R2 deletion failed or was already deleted for key:', attachment.r2Key, r2Error);
     }
+
+    // 7.1 Registrar auditoría de eliminación de adjunto
+    await logAuditEvent({
+      organizationId: attachment.brain.organizationId,
+      actorUserId: user.id,
+      action: AuditAction.ATTACHMENT_DELETED,
+      targetType: 'attachment',
+      targetId: attachmentId,
+      metadata: {
+        attachmentId: attachmentId,
+        brainId: attachment.brainId,
+        nodeId: attachment.nodeId,
+        fileName: attachment.filename,
+        fileSizeBytes: attachment.size,
+      },
+    });
 
     return NextResponse.json({ success: true }, { status: 200 });
 
