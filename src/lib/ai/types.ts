@@ -1,8 +1,8 @@
 import 'server-only';
 
-export type AIDocumentAction = 'create' | 'format' | 'grammar' | 'spelling';
+export type AIDocumentAction = 'create' | 'format' | 'grammar' | 'spelling' | 'metadata';
 
-export const AI_DOCUMENT_ACTIONS: AIDocumentAction[] = ['create', 'format', 'grammar', 'spelling'];
+export const AI_DOCUMENT_ACTIONS: AIDocumentAction[] = ['create', 'format', 'grammar', 'spelling', 'metadata'];
 
 export const MAX_AI_INSTRUCTION_LENGTH = 500;
 export const MAX_AI_CONTENT_LENGTH = 50000;

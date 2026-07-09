@@ -107,6 +107,57 @@ export async function POST(request: Request) {
     // 6. Generate proposal using server side provider
     const result = await generateProposal(action, node.title, contentMarkdown, instruction);
 
+    let proposal = result.proposal;
+
+    if (action === 'metadata') {
+      try {
+        let cleanJson = result.proposal.trim();
+        if (cleanJson.startsWith('```')) {
+          cleanJson = cleanJson.replace(/^```[a-zA-Z]*\n?/, '');
+          cleanJson = cleanJson.replace(/\n?```$/, '');
+          cleanJson = cleanJson.trim();
+        }
+
+        const parsed = JSON.parse(cleanJson);
+
+        const description = typeof parsed.description === 'string'
+          ? parsed.description.substring(0, 200).trim()
+          : '';
+
+        const category = typeof parsed.category === 'string'
+          ? parsed.category.substring(0, 50).trim()
+          : '';
+
+        let tags: string[] = [];
+        if (Array.isArray(parsed.tags)) {
+          const rawTags = parsed.tags
+            .map((t: any): string => typeof t === 'string'
+              ? t.trim().toLowerCase().replace(/\s+/g, '-').replace(/#/g, '').substring(0, 35)
+              : ''
+            )
+            .filter(Boolean);
+          tags = (Array.from(new Set(rawTags)) as string[]).slice(0, 15);
+        }
+
+        const revisionNote = typeof parsed.revisionNote === 'string'
+          ? parsed.revisionNote.substring(0, 180).trim()
+          : 'Sugerencia de revisión generada automáticamente por la IA.';
+
+        proposal = JSON.stringify({
+          description,
+          category,
+          tags,
+          revisionNote,
+        });
+      } catch (err) {
+        console.error('Failed to parse metadata JSON from AI proposal:', err, result.proposal);
+        return NextResponse.json(
+          { error: 'La respuesta de la IA no tiene un formato JSON válido para metadatos.' },
+          { status: 502 }
+        );
+      }
+    }
+
     // 7. Record usage (fault tolerant — does not throw on failure)
     await recordUsage({
       organizationId,
@@ -126,7 +177,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      proposal: result.proposal,
+      proposal,
       model: result.model,
       tokensUsed: result.tokensUsed
     }, { status: 200 });

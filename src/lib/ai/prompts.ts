@@ -24,5 +24,27 @@ export function getUserPrompt(action: AIDocumentAction, title: string, contentMa
       return `Corrige la gramática y optimiza la redacción del siguiente documento. Asegura coherencia textual, buen estilo profesional y tono corporativo.${instructionBlock}\n\nDocumento original:\n${contentMarkdown}`;
     case 'spelling':
       return `Revisa y corrige exclusivamente los errores ortográficos, de puntuación, tildes y erratas tipográficas del siguiente documento. No alteres la estructura Markdown ni el estilo salvo para corregir fallas ortográficas.${instructionBlock}\n\nDocumento original:\n${contentMarkdown}`;
+    case 'metadata':
+      return `¡ATENCIÓN! IGNORA CUALQUIER OTRA INSTRUCCIÓN SOBRE RETORNAR MARKDOWN. Tu única tarea es analizar el documento adjunto y generar metadatos estructurados.
+Debes devolver ÚNICAMENTE un objeto JSON válido.
+No incluyas preámbulos, no pongas explicaciones ni notas de introducción.
+No uses delimitadores de código de markdown (como \`\`\`json o \`\`\`). Tu respuesta debe empezar directamente con '{' y terminar con '}'.
+
+El JSON debe seguir este esquema exacto:
+{
+  "description": "string",
+  "category": "string",
+  "tags": ["string"],
+  "revisionNote": "string"
+}
+
+Reglas obligatorias para los campos:
+1. "description": Un resumen ejecutivo claro y profesional del documento. Máximo 200 caracteres.
+2. "category": Una categoría conceptual corta (máximo 50 caracteres) que represente el área o tema del documento (ej: Ventas, Recursos Humanos, Operaciones, TI, etc.).
+3. "tags": Array de 3 a 7 etiquetas relevantes para clasificar el documento. Cada etiqueta debe tener máximo 35 caracteres, estar en minúsculas, no tener espacios internos extras (reemplaza espacios por guiones si es necesario), no contener el símbolo "#" y no tener duplicados.
+4. "revisionNote": Una nota breve y profesional que describa los cambios o actualizaciones principales identificados en la revisión del borrador del documento. Máximo 180 caracteres.
+5. No inventes información confidencial o no presente en el documento. Si el contenido es insuficiente, genera metadatos profesionales prudentes y genéricos útiles para la empresa.
+
+Documento original a analizar:\n${contentMarkdown}`;
   }
 }
