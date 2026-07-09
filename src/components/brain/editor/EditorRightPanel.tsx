@@ -284,6 +284,7 @@ export default function EditorRightPanel({
           ) : (
             /* Archivos Tab */
             <EditorFilesTab
+              brainId={brainId || nodeDetail?.brainId || null}
               nodeId={nodeDetail.id}
               canEdit={canEdit}
             />

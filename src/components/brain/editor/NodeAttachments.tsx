@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 
-export interface NodeAttachmentItem {
+export interface BrainAttachmentItem {
   id: string;
   nodeId: string;
+  nodeTitle: string;
   brainId: string;
   uploadedById: string;
   filename: string;
@@ -16,15 +17,20 @@ export interface NodeAttachmentItem {
     name: string | null;
     email: string;
   };
+  extractionStatus: string;
+  extractionError: string | null;
 }
 
 interface NodeAttachmentsProps {
-  nodeId: string;
+  brainId: string;
+  nodeId: string | null;
   canEdit: boolean;
 }
 
-export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProps) {
-  const [attachments, setAttachments] = useState<NodeAttachmentItem[]>([]);
+type FilterMode = 'all' | 'current_node';
+
+export default function NodeAttachments({ brainId, nodeId, canEdit }: NodeAttachmentsProps) {
+  const [attachments, setAttachments] = useState<BrainAttachmentItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<boolean>(false);
@@ -32,6 +38,7 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [trigger, setTrigger] = useState<number>(0);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,10 +48,16 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`/api/nodes/${nodeId}/attachments`);
+
+        let url = `/api/brains/${brainId}/attachments`;
+        if (filterMode === 'current_node' && nodeId) {
+          url += `?nodeId=${nodeId}`;
+        }
+
+        const res = await fetch(url);
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || 'Error al cargar los adjuntos.');
+          throw new Error(data.error || 'Error al cargar los archivos.');
         }
         const data = await res.json();
         if (active) {
@@ -52,7 +65,7 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
         }
       } catch (err: unknown) {
         if (active) {
-          const msg = err instanceof Error ? err.message : 'Error desconocido al cargar adjuntos.';
+          const msg = err instanceof Error ? err.message : 'Error desconocido al cargar archivos.';
           setError(msg);
         }
       } finally {
@@ -67,14 +80,18 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
     return () => {
       active = false;
     };
-  }, [nodeId, trigger]);
+  }, [brainId, nodeId, filterMode, trigger]);
 
   const fetchAttachments = () => {
     setTrigger((prev) => prev + 1);
   };
 
   const uploadSingleFile = async (file: File) => {
-    // Basic local client validation
+    if (!nodeId) {
+      setUploadError('Selecciona un nodo para subir archivos.');
+      return;
+    }
+
     if (file.size === 0) {
       setUploadError('El archivo seleccionado está vacío.');
       return;
@@ -101,8 +118,8 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
         throw new Error(data.error || 'Error al subir el archivo.');
       }
 
-      // Add to list and clear input
-      setAttachments((prev) => [data.attachment, ...prev]);
+      // Refresh list
+      fetchAttachments();
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -121,21 +138,21 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!canEdit) return;
+    if (!canEdit || !nodeId) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!canEdit) return;
+    if (!canEdit || !nodeId) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    if (!canEdit) return;
+    if (!canEdit || !nodeId) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -147,12 +164,12 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
   };
 
   const handleDelete = async (id: string, filename: string) => {
-    const confirmed = window.confirm(`¿Estás seguro de que deseas eliminar el adjunto "${filename}"?`);
+    const confirmed = window.confirm(`¿Estás seguro de que deseas eliminar el archivo "${filename}"?`);
     if (!confirmed) return;
 
     try {
       setDeletingId(id);
-      setUploadError(null); // Clear previous upload errors
+      setUploadError(null);
 
       const res = await fetch(`/api/attachments/${id}`, {
         method: 'DELETE',
@@ -160,12 +177,12 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Error al eliminar el adjunto.');
+        throw new Error(data.error || 'Error al eliminar el archivo.');
       }
 
       setAttachments((prev) => prev.filter((item) => item.id !== id));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al eliminar adjunto.';
+      const msg = err instanceof Error ? err.message : 'Error al eliminar archivo.';
       alert(msg);
     } finally {
       setDeletingId(null);
@@ -178,6 +195,23 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const getExtractionStatusBadge = (status: string): { label: string; className: string } => {
+    switch (status) {
+      case 'done':
+        return { label: 'Listo', className: 'bg-emerald-50 text-emerald-600 border-emerald-100' };
+      case 'processing':
+        return { label: 'Procesando', className: 'bg-amber-50 text-amber-600 border-amber-100' };
+      case 'pending':
+        return { label: 'Pendiente', className: 'bg-slate-50 text-slate-500 border-slate-100' };
+      case 'failed':
+        return { label: 'Falló', className: 'bg-red-50 text-red-600 border-red-100' };
+      case 'unsupported':
+        return { label: 'No extraíble', className: 'bg-slate-50 text-slate-400 border-slate-100' };
+      default:
+        return { label: status, className: 'bg-slate-50 text-slate-500 border-slate-100' };
+    }
   };
 
   const getFileColorClasses = (contentType: string): string => {
@@ -244,18 +278,46 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
 
   return (
     <div className="space-y-4">
-      {/* Header section with total count */}
+      {/* Header with filter */}
       <div className="flex items-center justify-between pb-1 px-1">
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-          Adjuntos del nodo
+          Archivos del cerebro
         </h4>
         <span className="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-full px-2.5 py-0.5 border border-slate-200/50 font-mono">
           {attachments.length}
         </span>
       </div>
 
-      {/* Upload Zone (Drag & Drop) */}
-      {canEdit && (
+      {/* Filter toggle */}
+      {nodeId && (
+        <div className="flex gap-1 p-0.5 bg-slate-100 rounded-lg border border-slate-200/50">
+          <button
+            type="button"
+            onClick={() => setFilterMode('all')}
+            className={`flex-1 text-[10px] font-semibold py-1.5 px-2 rounded-md transition-all ${
+              filterMode === 'all'
+                ? 'bg-white text-slate-700 shadow-xs border border-slate-200/50'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Todos los archivos
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode('current_node')}
+            className={`flex-1 text-[10px] font-semibold py-1.5 px-2 rounded-md transition-all ${
+              filterMode === 'current_node'
+                ? 'bg-white text-slate-700 shadow-xs border border-slate-200/50'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Subidos desde este nodo
+          </button>
+        </div>
+      )}
+
+      {/* Upload Zone (Drag & Drop) - only when nodeId is available */}
+      {canEdit && nodeId && (
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -295,7 +357,7 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
                     Arrastra archivos aquí o <span className="text-blue-600 hover:underline">haz clic para seleccionar</span>
                   </p>
                   <p className="text-[9px] text-slate-400">
-                    Formatos permitidos: imágenes, PDF, textos. Máx. 20 MB
+                    El archivo se subirá al cerebro usando el nodo actual como origen. Formatos: imágenes, PDF, textos. Máx. 20 MB
                   </p>
                 </div>
               </>
@@ -304,10 +366,17 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
         </div>
       )}
 
+      {/* No nodeId message */}
+      {canEdit && !nodeId && (
+        <div className="text-[10px] text-slate-500 bg-slate-50 border border-slate-200/60 rounded-xl p-3 text-center">
+          Selecciona un documento para subir archivos al cerebro.
+        </div>
+      )}
+
       {/* Errors */}
       {uploadError && (
         <div className="text-[10px] text-red-700 bg-red-50 border border-red-100 rounded-xl p-2.5 font-medium">
-          ⚠️ {uploadError}
+          {uploadError}
         </div>
       )}
 
@@ -315,11 +384,11 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
       {loading ? (
         <div className="flex items-center justify-center py-6 gap-2 text-xs text-slate-400">
           <div className="w-4 h-4 border border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-          <span>Cargando adjuntos...</span>
+          <span>Cargando archivos...</span>
         </div>
       ) : error ? (
         <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3 font-semibold space-y-2">
-          <p>⚠️ Error: {error}</p>
+          <p>Error: {error}</p>
           <button
             type="button"
             onClick={fetchAttachments}
@@ -336,9 +405,13 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
             </svg>
           </div>
           <div>
-            <h3 className="text-xs font-semibold text-slate-600">Sin archivos adjuntos</h3>
+            <h3 className="text-xs font-semibold text-slate-600">
+              {filterMode === 'current_node' ? 'Sin archivos en este nodo' : 'Sin archivos en el cerebro'}
+            </h3>
             <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] mx-auto leading-relaxed">
-              Sube imágenes o documentos para vincularlos directamente a este documento.
+              {filterMode === 'current_node'
+                ? 'No hay archivos subidos desde este documento.'
+                : 'Sube imágenes o documentos para empezar a construir la biblioteca del cerebro.'}
             </p>
           </div>
         </div>
@@ -348,6 +421,7 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
             const isImage = item.contentType.startsWith('image/');
             const isInline = isImage || item.contentType === 'application/pdf' || item.contentType.startsWith('text/');
             const isDeleting = deletingId === item.id;
+            const extractionBadge = getExtractionStatusBadge(item.extractionStatus);
 
             return (
               <div
@@ -389,16 +463,30 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
                       {item.filename}
                     </p>
                     
-                    {/* Size and Content Type */}
-                    <div className="flex items-center gap-1.5 text-[9px] text-slate-400 font-semibold">
+                    {/* Size, Content Type, and Extraction Status */}
+                    <div className="flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 font-semibold">
                       <span className="px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200/30 text-[8px] font-bold text-slate-500 uppercase tracking-wide">
                         {item.contentType.split('/')[1] || 'FILE'}
                       </span>
-                      <span>•</span>
+                      <span>·</span>
                       <span>{formatBytes(item.size)}</span>
+                      <span>·</span>
+                      <span className={`px-1.5 py-0.2 rounded border text-[8px] font-bold ${extractionBadge.className}`}>
+                        {extractionBadge.label}
+                      </span>
                     </div>
 
-                    {/* Uploader & Date with colored icons */}
+                    {/* Node origin */}
+                    <div className="flex items-center gap-1 text-[9px] text-slate-400 font-medium">
+                      <svg className="w-3 h-3 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                      <span className="truncate" title={item.nodeTitle}>
+                        Subido desde: {item.nodeTitle}
+                      </span>
+                    </div>
+
+                    {/* Uploader & Date */}
                     <div className="flex items-center gap-3 text-[9px] text-slate-400 font-medium">
                       <span className="flex items-center gap-1 min-w-0">
                         <svg className="w-3 h-3 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -410,7 +498,7 @@ export default function NodeAttachments({ nodeId, canEdit }: NodeAttachmentsProp
                       </span>
                       <span className="flex items-center gap-1 shrink-0 font-mono">
                         <svg className="w-3 h-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         <span>
                           {new Date(item.createdAt).toLocaleDateString('es-ES', {
