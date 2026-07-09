@@ -120,6 +120,7 @@ export default function EditorAgentTab({
   const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = useState<boolean>(false);
   const [agentApplyMessage, setAgentApplyMessage] = useState<string | null>(null);
   const [agentEnableWebSearch, setAgentEnableWebSearch] = useState<boolean>(false);
+  const [isOutputModeHelpOpen, setIsOutputModeHelpOpen] = useState<boolean>(false);
 
   // Outputs
   const [agentPlan, setAgentPlan] = useState<AgentPlan | null>(null);
@@ -373,9 +374,59 @@ export default function EditorAgentTab({
 
       {/* Selector de modo de salida */}
       <div className="space-y-1.5">
-        <label className="text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider block">
-          Formato de Salida
-        </label>
+        <div className="flex items-center justify-between">
+          <label className="text-[10.5px] font-semibold text-slate-500 uppercase tracking-wider block">
+            Formato de Salida
+          </label>
+          <button
+            type="button"
+            onClick={() => setIsOutputModeHelpOpen(!isOutputModeHelpOpen)}
+            aria-label="Ver ayuda sobre formatos de salida"
+            className="text-[10px] text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 transition-colors p-0.5 rounded hover:bg-slate-100"
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+            </svg>
+            <span>Ayuda</span>
+          </button>
+        </div>
+
+        {/* Panel de ayuda contextual */}
+        {isOutputModeHelpOpen && (
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5 text-[10.5px] leading-relaxed text-slate-600">
+            <h5 className="font-bold text-slate-700 text-[11px] border-b border-slate-200/60 pb-1">
+              Guía de formatos de salida:
+            </h5>
+            
+            <div className="space-y-2">
+              <div>
+                <span className="font-bold text-slate-700 block">💬 Respuesta directa (Pregunta)</span>
+                <span className="text-slate-500">Para responder dudas, explicaciones o diagnósticos. El Agente responde en modo conversación, no genera texto para insertar.</span>
+              </div>
+              
+              <div>
+                <span className="font-bold text-slate-700 block">📝 Propuesta de nuevo contenido</span>
+                <span className="text-slate-500">Genera bloques de texto formateados en Markdown listos para insertar al final, reemplazar o comparar en tu documento.</span>
+              </div>
+              
+              <div>
+                <span className="font-bold text-slate-700 block">📊 Resumen estructurado</span>
+                <span className="text-slate-500">Sintetiza la información obtenida del Cerebro o de la web externa, ideal para destacar puntos clave, conclusiones y riesgos.</span>
+              </div>
+              
+              <div>
+                <span className="font-bold text-slate-700 block">🔄 Reescritura del actual</span>
+                <span className="text-slate-500">Toma el contenido de tu documento y lo reescribe integrando los hallazgos de forma fluida, clara y con tono profesional.</span>
+              </div>
+              
+              <div>
+                <span className="font-bold text-slate-700 block">📋 Estructura / Outline</span>
+                <span className="text-slate-500">Crea un esquema o índice detallado del documento con descripciones de qué incluir en cada sección antes de redactar.</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <select
           value={agentOutputMode}
           onChange={(e) => setAgentOutputMode(e.target.value as AgentOutputMode)}
