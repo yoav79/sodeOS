@@ -2085,16 +2085,17 @@ ${nodeDetail.contentMarkdown}`;
                   editChangeNote={editChangeNote}
                   saveError={saveError}
                   isSaving={isSaving}
+                  canEdit={canEditBrain}
                   onEditTitleChange={setEditTitle}
                   onEditDescriptionChange={setEditDescription}
                   onEditContentChange={setEditContent}
                   onEditStatusChange={setEditStatus}
-                   onEditCategoryChange={setEditCategory}
-                   onEditTagsChange={setEditTags}
-                   onEditChangeNoteChange={setEditChangeNote}
-                   onSave={handleSave}
-                   onCancel={handleCancelEdit}
-                 />
+                  onEditCategoryChange={setEditCategory}
+                  onEditTagsChange={setEditTags}
+                  onEditChangeNoteChange={setEditChangeNote}
+                  onSave={handleSave}
+                  onCancel={handleCancelEdit}
+                />
               ) : (
                 /* READ-ONLY VIEW */
                 <EditorDocumentView

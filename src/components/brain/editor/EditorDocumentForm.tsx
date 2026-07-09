@@ -5,6 +5,7 @@ import { Node } from '@/types';
 import RichMarkdownEditor from './rich-text/RichMarkdownEditor';
 import ConfirmModal from './modals/ConfirmModal';
 import SaveReviewModal from './modals/SaveReviewModal';
+import ProofreadDiffModal from './modals/ProofreadDiffModal';
 
 
 
@@ -19,6 +20,7 @@ interface EditorDocumentFormProps {
   editChangeNote: string;
   saveError: string | null;
   isSaving: boolean;
+  canEdit?: boolean;
   onEditTitleChange: (val: string) => void;
   onEditDescriptionChange: (val: string) => void;
   onEditContentChange: (val: string) => void;
@@ -41,6 +43,7 @@ export default function EditorDocumentForm({
   editChangeNote,
   saveError,
   isSaving,
+  canEdit = true,
   onEditTitleChange,
   onEditDescriptionChange,
   onEditContentChange,
@@ -195,7 +198,60 @@ export default function EditorDocumentForm({
     }
   };
 
+  const [isCheckingSpelling, setIsCheckingSpelling] = useState<boolean>(false);
+  const [spellingError, setSpellingError] = useState<string | null>(null);
+  const [spellingProposal, setSpellingProposal] = useState<string | null>(null);
+  const [isDiffModalOpen, setIsDiffModalOpen] = useState<boolean>(false);
 
+  const handleCheckSpelling = async () => {
+    if (!editContent.trim() || isCheckingSpelling) return;
+
+    setIsCheckingSpelling(true);
+    setSpellingError(null);
+    setSpellingProposal(null);
+
+    try {
+      const response = await fetch('/api/ai/document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          brainId: nodeDetail.brainId,
+          nodeId: nodeDetail.id,
+          action: 'grammar',
+          contentMarkdown: editContent,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        let userMessage = data.error || 'Error al procesar la revisión.';
+        if (response.status === 401) {
+          userMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        } else if (response.status === 403) {
+          userMessage = 'No tienes permisos suficientes para usar el asistente de IA.';
+        } else if (response.status === 413) {
+          userMessage = 'El documento es demasiado largo para ser revisado por la IA.';
+        } else if (response.status === 429) {
+          userMessage = 'Límite de solicitudes de IA mensual de la organización alcanzado.';
+        } else if (response.status === 503) {
+          userMessage = 'El servicio de IA no está disponible o falta configuración en el servidor.';
+        }
+        throw new Error(userMessage);
+      }
+
+      const proposal = data.proposal || '';
+      setSpellingProposal(proposal);
+      setIsDiffModalOpen(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red o del servidor al procesar la revisión.';
+      setSpellingError(message);
+    } finally {
+      setIsCheckingSpelling(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -256,6 +312,25 @@ export default function EditorDocumentForm({
             <span className="hidden sm:inline">Configuración</span>
           </button>
 
+          {/* Revisar ortografía Button */}
+          {canEdit !== false && (
+            <button
+              type="button"
+              onClick={handleCheckSpelling}
+              disabled={isCheckingSpelling || isSaving || !editContent.trim()}
+              title="Revisar ortografía y gramática con IA"
+              aria-label="Revisar ortografía y gramática con IA"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCheckingSpelling ? (
+                <div className="w-3.5 h-3.5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <span className="text-violet-600">✨</span>
+              )}
+              <span>Revisar ortografía</span>
+            </button>
+          )}
+
           {/* Cancelar */}
           <button
             onClick={handleCancelClick}
@@ -293,6 +368,25 @@ export default function EditorDocumentForm({
       {saveError && (
         <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center gap-2">
           <span>⚠️ {saveError}</span>
+        </div>
+      )}
+
+      {spellingError && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span>⚠️ {spellingError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSpellingError(null)}
+            className="text-red-400 hover:text-red-600 transition-colors"
+            title="Cerrar mensaje"
+            aria-label="Cerrar mensaje"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
 
@@ -371,6 +465,17 @@ export default function EditorDocumentForm({
         isDestructive
         onConfirm={confirmDiscardChanges}
         onClose={closeDiscardConfirm}
+      />
+
+      <ProofreadDiffModal
+        isOpen={isDiffModalOpen}
+        onClose={() => setIsDiffModalOpen(false)}
+        baseText={editContent}
+        compareText={spellingProposal || ''}
+        onApply={() => {
+          onEditContentChange(spellingProposal || '');
+          setIsDiffModalOpen(false);
+        }}
       />
     </div>
   );
