@@ -266,19 +266,16 @@ export default function EditorDocumentForm({
       return;
     }
 
-    const hasExistingData =
-      editDescription.trim() !== '' ||
-      editCategory.trim() !== '' ||
-      editTags.length > 0 ||
-      editChangeNote.trim() !== '';
+    const shouldFillDescription = editDescription.trim() === '';
+    const shouldFillCategory = editCategory.trim() === '';
+    const shouldFillTags = editTags.length === 0;
+    const shouldFillChangeNote = editChangeNote.trim() === '';
 
-    if (hasExistingData) {
-      const confirmFill = window.confirm(
-        'Ya hay campos completados. La IA reemplazará descripción, categoría, etiquetas y nota de revisión. ¿Deseas continuar?'
+    if (!shouldFillDescription && !shouldFillCategory && !shouldFillTags && !shouldFillChangeNote) {
+      setAutoFillMetadataError(
+        'Todos los campos ya tienen contenido. Borra algún campo si quieres que la IA lo sugiera nuevamente.'
       );
-      if (!confirmFill) {
-        return;
-      }
+      return;
     }
 
     setIsAutoFillingMetadata(true);
@@ -318,33 +315,50 @@ export default function EditorDocumentForm({
 
       const parsed = JSON.parse(data.proposal);
 
-      const description = typeof parsed.description === 'string'
-        ? parsed.description.substring(0, 200).trim()
-        : '';
-      const category = typeof parsed.category === 'string'
-        ? parsed.category.substring(0, 50).trim()
-        : '';
-      const revisionNote = typeof parsed.revisionNote === 'string'
-        ? parsed.revisionNote.substring(0, 180).trim()
-        : '';
+      let didApplyAny = false;
 
-      let tags: string[] = [];
-      if (Array.isArray(parsed.tags)) {
-        const rawTags = parsed.tags
-          .map((t: unknown): string => typeof t === 'string'
-            ? t.trim().toLowerCase().replace(/\s+/g, '-').replace(/#/g, '').substring(0, 35)
-            : ''
-          )
-          .filter(Boolean);
-        tags = (Array.from(new Set(rawTags)) as string[]).slice(0, 15);
+      if (shouldFillDescription) {
+        const description = typeof parsed.description === 'string'
+          ? parsed.description.substring(0, 200).trim()
+          : '';
+        onEditDescriptionChange(description);
+        didApplyAny = true;
       }
 
-      onEditDescriptionChange(description);
-      onEditCategoryChange(category);
-      onEditTagsChange(tags);
-      onEditChangeNoteChange(revisionNote);
+      if (shouldFillCategory) {
+        const category = typeof parsed.category === 'string'
+          ? parsed.category.substring(0, 50).trim()
+          : '';
+        onEditCategoryChange(category);
+        didApplyAny = true;
+      }
+
+      if (shouldFillTags) {
+        let tags: string[] = [];
+        if (Array.isArray(parsed.tags)) {
+          const rawTags = parsed.tags
+            .map((t: unknown): string => typeof t === 'string'
+              ? t.trim().toLowerCase().replace(/\s+/g, '-').replace(/#/g, '').substring(0, 35)
+              : ''
+            )
+            .filter(Boolean);
+          tags = (Array.from(new Set(rawTags)) as string[]).slice(0, 15);
+        }
+        onEditTagsChange(tags);
+        didApplyAny = true;
+      }
+
+      if (shouldFillChangeNote) {
+        const revisionNote = typeof parsed.revisionNote === 'string'
+          ? parsed.revisionNote.substring(0, 180).trim()
+          : 'Sugerencia de revisión generada automáticamente por la IA.';
+        onEditChangeNoteChange(revisionNote);
+        didApplyAny = true;
+      }
       
-      setAutoFillMetadataError(null);
+      if (didApplyAny) {
+        setAutoFillMetadataError(null);
+      }
     } catch (error: unknown) {
       console.error('Error autofilling metadata:', error);
       const message = error instanceof Error ? error.message : 'Ocurrió un error inesperado.';
