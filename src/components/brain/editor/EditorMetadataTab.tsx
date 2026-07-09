@@ -46,6 +46,12 @@ const getStatusDetails = (status: string) => {
   }
 };
 
+const getResponsibleLabel = (userId?: string | null) => {
+  if (!userId) return 'Sin responsable asignado';
+  if (userId === '00000000-0000-0000-0000-000000000001') return 'Usuario Demo';
+  return 'Responsable asignado';
+};
+
 export default function EditorMetadataTab({
   nodeDetail,
   copied,
@@ -126,54 +132,8 @@ export default function EditorMetadataTab({
               <span className="font-medium text-[11px]">Responsable</span>
             </div>
             <span className="font-semibold text-slate-700">
-              {nodeDetail.responsibleUserId === '00000000-0000-0000-0000-000000000001' ? 'Usuario Demo' : nodeDetail.responsibleUserId.slice(-8)}
+              {getResponsibleLabel(nodeDetail.responsibleUserId)}
             </span>
-          </div>
-
-          {/* Ruta (Slug) */}
-          <div className="flex items-center justify-between text-xs py-0.5">
-            <div className="flex items-center gap-2.5 text-slate-500">
-              <div className="w-5 h-5 rounded-md bg-cyan-50/80 flex items-center justify-center border border-cyan-100/60 text-cyan-600 shrink-0">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              </div>
-              <span className="font-medium text-[11px]">Ruta (Slug)</span>
-            </div>
-            <span className="font-mono text-[10px] text-slate-600 bg-slate-50 border border-slate-200/60 rounded px-1.5 py-0.5 truncate max-w-[140px]" title={`/${nodeDetail.slug}`}>
-              /{nodeDetail.slug}
-            </span>
-          </div>
-
-          {/* ID Único */}
-          <div className="flex items-center justify-between text-xs py-0.5">
-            <div className="flex items-center gap-2.5 text-slate-500">
-              <div className="w-5 h-5 rounded-md bg-slate-100/80 flex items-center justify-center border border-slate-200/40 text-slate-600 shrink-0">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-              </div>
-              <span className="font-medium text-[11px]">ID Único</span>
-            </div>
-            <div className="flex items-center gap-1 font-mono text-[10px] text-slate-600 bg-slate-50 border border-slate-200/60 rounded pl-1.5 pr-0.5 py-0.5">
-              <span>{nodeDetail.id.slice(0, 8)}...{nodeDetail.id.slice(-4)}</span>
-              <button
-                type="button"
-                onClick={() => onCopyId(nodeDetail.id)}
-                className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded hover:bg-slate-200/60"
-                title="Copiar ID completo"
-              >
-                {copied ? (
-                  <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2" />
-                  </svg>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -194,11 +154,13 @@ export default function EditorMetadataTab({
               <span className="font-medium text-[11px]">Creado</span>
             </div>
             <span className="font-semibold text-slate-700">
-              {new Date(nodeDetail.createdAt).toLocaleDateString('es-ES', {
+              {nodeDetail.createdAt ? new Date(nodeDetail.createdAt).toLocaleString('es-ES', {
                 day: '2-digit',
                 month: 'short',
-                year: 'numeric'
-              })}
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }) : ''}
             </span>
           </div>
 
@@ -213,42 +175,67 @@ export default function EditorMetadataTab({
               <span className="font-medium text-[11px]">Actualizado</span>
             </div>
             <span className="font-semibold text-slate-700">
-              {new Date(nodeDetail.updatedAt).toLocaleDateString('es-ES', {
+              {nodeDetail.updatedAt ? new Date(nodeDetail.updatedAt).toLocaleString('es-ES', {
                 day: '2-digit',
                 month: 'short',
-                year: 'numeric'
-              })}
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }) : ''}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Sección 4: Detalles técnicos */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs space-y-4">
+        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Detalles técnicos</h4>
+        
+        <div className="space-y-3">
+          {/* Ruta (Slug) */}
+          <div className="flex items-center justify-between text-xs py-0.5">
+            <div className="flex items-center gap-2.5 text-slate-500">
+              <div className="w-5 h-5 rounded-md bg-cyan-50/80 flex items-center justify-center border border-cyan-100/60 text-cyan-600 shrink-0">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <span className="font-medium text-[11px]" title="Identificador de ruta técnico e interno de la base de datos">Ruta (Slug)</span>
+            </div>
+            <span className="font-mono text-[10px] text-slate-600 bg-slate-50 border border-slate-200/60 rounded px-1.5 py-0.5 truncate max-w-[140px]" title={`Identificador técnico interno: /${nodeDetail.slug}`}>
+              /{nodeDetail.slug}
             </span>
           </div>
 
-          {/* Última revisión */}
+          {/* ID Único */}
           <div className="flex items-center justify-between text-xs py-0.5">
             <div className="flex items-center gap-2.5 text-slate-500">
-              <div className="w-5 h-5 rounded-md bg-orange-50/80 flex items-center justify-center border border-orange-100/60 text-orange-600 shrink-0">
+              <div className="w-5 h-5 rounded-md bg-slate-100/80 flex items-center justify-center border border-slate-200/40 text-slate-600 shrink-0">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                 </svg>
               </div>
-              <span className="font-medium text-[11px]">Última revisión</span>
+              <span className="font-medium text-[11px]" title="Identificador único (UUID) del nodo en la base de datos">ID Único</span>
             </div>
-            <span className="font-semibold text-slate-700">
-              {nodeDetail.reviewedAt ? new Date(nodeDetail.reviewedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Pendiente'}
-            </span>
-          </div>
-
-          {/* Próxima revisión */}
-          <div className="flex items-center justify-between text-xs py-0.5">
-            <div className="flex items-center gap-2.5 text-slate-500">
-              <div className="w-5 h-5 rounded-md bg-amber-50/80 flex items-center justify-center border border-amber-100/60 text-amber-600 shrink-0">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span className="font-medium text-[11px]">Próxima revisión</span>
+            <div className="flex items-center gap-1 font-mono text-[10px] text-slate-600 bg-slate-50 border border-slate-200/60 rounded pl-1.5 pr-0.5 py-0.5">
+              <span>{nodeDetail.id.slice(0, 8)}...{nodeDetail.id.slice(-4)}</span>
+              <button
+                type="button"
+                onClick={() => onCopyId(nodeDetail.id)}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded hover:bg-slate-200/60"
+                title="Copiar ID completo"
+              >
+                {copied ? (
+                  <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2" />
+                  </svg>
+                )}
+              </button>
             </div>
-            <span className="font-semibold text-slate-700">
-              {nodeDetail.nextReviewAt ? new Date(nodeDetail.nextReviewAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : 'No programada'}
-            </span>
           </div>
         </div>
       </div>
