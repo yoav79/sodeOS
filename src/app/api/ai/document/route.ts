@@ -131,7 +131,7 @@ export async function POST(request: Request) {
         let tags: string[] = [];
         if (Array.isArray(parsed.tags)) {
           const rawTags = parsed.tags
-            .map((t: any): string => typeof t === 'string'
+            .map((t: unknown): string => typeof t === 'string'
               ? t.trim().toLowerCase().replace(/\s+/g, '-').replace(/#/g, '').substring(0, 35)
               : ''
             )

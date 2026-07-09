@@ -253,6 +253,107 @@ export default function EditorDocumentForm({
     }
   };
 
+  const [isAutoFillingMetadata, setIsAutoFillingMetadata] = useState<boolean>(false);
+  const [autoFillMetadataError, setAutoFillMetadataError] = useState<string | null>(null);
+
+  const handleAutoFillMetadata = async () => {
+    if (!editContent.trim()) {
+      setAutoFillMetadataError('Se requiere contenido en el documento para generar metadatos.');
+      return;
+    }
+    if (!nodeDetail.id || !nodeDetail.brainId) {
+      setAutoFillMetadataError('Falta información del nodo o del cerebro.');
+      return;
+    }
+
+    const hasExistingData =
+      editDescription.trim() !== '' ||
+      editCategory.trim() !== '' ||
+      editTags.length > 0 ||
+      editChangeNote.trim() !== '';
+
+    if (hasExistingData) {
+      const confirmFill = window.confirm(
+        'Ya hay campos completados. La IA reemplazará descripción, categoría, etiquetas y nota de revisión. ¿Deseas continuar?'
+      );
+      if (!confirmFill) {
+        return;
+      }
+    }
+
+    setIsAutoFillingMetadata(true);
+    setAutoFillMetadataError(null);
+
+    try {
+      const response = await fetch('/api/ai/document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          brainId: nodeDetail.brainId,
+          nodeId: nodeDetail.id,
+          action: 'metadata',
+          contentMarkdown: editContent,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        let userMessage = data.error || 'Error al generar los metadatos.';
+        if (response.status === 401) {
+          userMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        } else if (response.status === 403) {
+          userMessage = 'No tienes permisos suficientes para usar el asistente de IA.';
+        } else if (response.status === 413) {
+          userMessage = 'El documento es demasiado largo para generar metadatos.';
+        } else if (response.status === 429) {
+          userMessage = 'Límite de solicitudes de IA mensual de la organización alcanzado.';
+        } else if (response.status === 502) {
+          userMessage = 'La respuesta de la IA no tiene un formato válido.';
+        }
+        throw new Error(userMessage);
+      }
+
+      const parsed = JSON.parse(data.proposal);
+
+      const description = typeof parsed.description === 'string'
+        ? parsed.description.substring(0, 200).trim()
+        : '';
+      const category = typeof parsed.category === 'string'
+        ? parsed.category.substring(0, 50).trim()
+        : '';
+      const revisionNote = typeof parsed.revisionNote === 'string'
+        ? parsed.revisionNote.substring(0, 180).trim()
+        : '';
+
+      let tags: string[] = [];
+      if (Array.isArray(parsed.tags)) {
+        const rawTags = parsed.tags
+          .map((t: unknown): string => typeof t === 'string'
+            ? t.trim().toLowerCase().replace(/\s+/g, '-').replace(/#/g, '').substring(0, 35)
+            : ''
+          )
+          .filter(Boolean);
+        tags = (Array.from(new Set(rawTags)) as string[]).slice(0, 15);
+      }
+
+      onEditDescriptionChange(description);
+      onEditCategoryChange(category);
+      onEditTagsChange(tags);
+      onEditChangeNoteChange(revisionNote);
+      
+      setAutoFillMetadataError(null);
+    } catch (error: unknown) {
+      console.error('Error autofilling metadata:', error);
+      const message = error instanceof Error ? error.message : 'Ocurrió un error inesperado.';
+      setAutoFillMetadataError(message);
+    } finally {
+      setIsAutoFillingMetadata(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Cabecera del Modo Edición Sticky */}
@@ -439,6 +540,10 @@ export default function EditorDocumentForm({
         onRemoveTag={removeTag}
         onClose={closeConfigModal}
         onConfirm={handleConfirmSave}
+        onAutoFillMetadata={handleAutoFillMetadata}
+        isAutoFillingMetadata={isAutoFillingMetadata}
+        autoFillMetadataError={autoFillMetadataError}
+        canAutoFillMetadata={editContent.trim().length > 0}
       />
 
       <ConfirmModal

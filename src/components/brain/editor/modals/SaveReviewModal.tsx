@@ -24,6 +24,10 @@ interface SaveReviewModalProps {
   onRemoveTag: (index: number) => void;
   onClose: () => void;
   onConfirm: () => void;
+  onAutoFillMetadata?: () => void;
+  isAutoFillingMetadata?: boolean;
+  autoFillMetadataError?: string | null;
+  canAutoFillMetadata?: boolean;
 }
 
 export default function SaveReviewModal({
@@ -48,6 +52,10 @@ export default function SaveReviewModal({
   onRemoveTag,
   onClose,
   onConfirm,
+  onAutoFillMetadata,
+  isAutoFillingMetadata = false,
+  autoFillMetadataError = null,
+  canAutoFillMetadata = true,
 }: SaveReviewModalProps) {
   if (!isOpen) return null;
 
@@ -91,11 +99,42 @@ export default function SaveReviewModal({
             </div>
           )}
 
+          {autoFillMetadataError && (
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+              ⚠️ {autoFillMetadataError}
+            </div>
+          )}
+
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Documento</label>
             <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-800">
               {title || 'Sin título'}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 pt-1 pb-1">
+            <button
+              type="button"
+              onClick={onAutoFillMetadata}
+              disabled={isSaving || isAutoFillingMetadata || !canAutoFillMetadata}
+              className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-violet-200 bg-violet-50/50 hover:bg-violet-50 text-violet-700 text-xs font-bold transition-all shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAutoFillingMetadata ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Generando metadatos...</span>
+                </>
+              ) : (
+                <>
+                  <span>✨ Autocompletar con IA</span>
+                </>
+              )}
+            </button>
+            {!canAutoFillMetadata && (
+              <span className="text-[10px] text-slate-400 font-semibold text-center mt-0.5">
+                Se requiere contenido en el documento para generar metadatos.
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
