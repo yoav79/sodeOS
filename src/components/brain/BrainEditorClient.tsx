@@ -2118,6 +2118,7 @@ ${nodeDetail.contentMarkdown}`;
 
         {/* Panel Derecho (Metadatos & Historial) */}
         <EditorRightPanel
+          brainId={brainId}
           selectedNodeId={selectedNodeId}
           nodeDetail={nodeDetail}
           detailLoading={detailLoading}

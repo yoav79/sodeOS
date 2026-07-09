@@ -17,7 +17,9 @@ Reglas obligatorias de comportamiento:
 5. Formato: Tu respuesta debe estar redactada en Markdown claro, legible y estructurado de forma profesional.
 6. Fuentes Consultadas: Tu respuesta DEBE finalizar obligatoriamente con una sección con el título "## Fuentes consultadas".
    - En esta sección, debes listar de forma numerada únicamente las fuentes que aparecen en el contexto provisto y que realmente aportaron información útil para construir tu respuesta.
-   - No incluyas fuentes que no hayan sido utilizadas o que no formen parte del contexto provisto.`;
+   - No incluyas fuentes que no hayan sido utilizadas o que no formen parte del contexto provisto.
+7. Consultas Estructurales: Si el contexto documental incluye un "Resumen estructural del cerebro" con conteos globales y una lista de nodos, utiliza siempre los conteos globales provistos para responder preguntas sobre la cantidad total de documentos, raíces y subnodos. No intentes deducir o recalcular los conteos contando manualmente las líneas de la lista detallada de nodos, ya que esta podría estar truncada.
+8. Documentos o Secciones Solicitadas: Si el contexto documental especifica un "Documento solicitado" o una "Sección encontrada", enfoca tu respuesta en dicha sección o documento provisto, respondiendo a la consulta directamente a partir de la información de ese bloque.`;
 
 interface UserPromptParams {
   query: string;

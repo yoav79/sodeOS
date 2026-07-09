@@ -20,6 +20,9 @@ export interface AttachmentContextResult {
   chunkIndex: number;
   excerpt: string;
   truncated: boolean;
+  sourceNodeId?: string;
+  sourceNodeTitle?: string;
+  location?: 'current_node' | 'other_node';
 }
 
 export interface GetAttachmentContextOutput {
@@ -78,12 +81,53 @@ export const getAttachmentContext: AgentToolDefinition<GetAttachmentContextInput
               chunkIndex: 'asc',
             },
           },
+          node: {
+            select: {
+              title: true,
+            },
+          },
         },
       });
 
       // Filter to keep only attachments that have matching chunks
-      const validAttachments = attachments.filter((att) => att.chunks.length > 0);
-      const totalFilesFound = validAttachments.length;
+      let validAttachments = attachments.filter((att) => att.chunks.length > 0);
+      let totalFilesFound = validAttachments.length;
+      let isFallback = false;
+
+      if (totalFilesFound === 0) {
+        // Fallback: search in the entire brain
+        isFallback = true;
+        const fallbackAttachments = await db.nodeAttachment.findMany({
+          where: {
+            brainId: ctx.brainId,
+            nodeId: {
+              not: ctx.nodeId,
+            },
+            extractionStatus: 'done',
+          },
+          include: {
+            chunks: {
+              where: query ? {
+                content: {
+                  contains: query,
+                  mode: 'insensitive',
+                },
+              } : undefined,
+              orderBy: {
+                chunkIndex: 'asc',
+              },
+            },
+            node: {
+              select: {
+                title: true,
+              },
+            },
+          },
+        });
+
+        validAttachments = fallbackAttachments.filter((att) => att.chunks.length > 0);
+        totalFilesFound = validAttachments.length;
+      }
 
       if (totalFilesFound === 0) {
         return makeSuccessResult(
@@ -95,7 +139,7 @@ export const getAttachmentContext: AgentToolDefinition<GetAttachmentContextInput
             totalFilesFound: 0,
           },
           { itemCount: 0 },
-          ['No se encontraron archivos de texto procesados o fragmentos que coincidan con la búsqueda en este nodo.']
+          ['No se encontraron archivos de texto procesados o fragmentos que coincidan con la búsqueda en este cerebro o nodo actual.']
         );
       }
 
@@ -103,6 +147,10 @@ export const getAttachmentContext: AgentToolDefinition<GetAttachmentContextInput
       let accumulatedChars = 0;
       let limitReached = false;
       const warnings: string[] = [];
+
+      if (isFallback) {
+        warnings.push('No se encontraron adjuntos relevantes en el nodo actual; se encontraron resultados en otros nodos del mismo cerebro.');
+      }
 
       // Process up to maxFiles
       const slicedAttachments = validAttachments.slice(0, maxFiles);
@@ -129,6 +177,9 @@ export const getAttachmentContext: AgentToolDefinition<GetAttachmentContextInput
             chunkIndex: chunk.chunkIndex,
             excerpt,
             truncated,
+            sourceNodeId: att.nodeId,
+            sourceNodeTitle: att.node.title,
+            location: isFallback ? 'other_node' : 'current_node',
           });
 
           accumulatedChars += excerpt.length;

@@ -9,6 +9,7 @@ import EditorFilesTab from './EditorFilesTab';
 import EditorAITab from './EditorAITab';
 
 interface EditorRightPanelProps {
+  brainId: string | null;
   selectedNodeId: string | null;
   nodeDetail: Node | null;
   detailLoading: boolean;
@@ -39,6 +40,7 @@ interface EditorRightPanelProps {
 }
 
 export default function EditorRightPanel({
+  brainId,
   selectedNodeId,
   nodeDetail,
   detailLoading,
@@ -63,6 +65,7 @@ export default function EditorRightPanel({
   onInsertAIProposal,
   onReplaceWithAIProposal,
   onCompareAIProposal,
+  isEditing = false,
 }: EditorRightPanelProps) {
   if (isCollapsed) {
     return (
@@ -222,7 +225,20 @@ export default function EditorRightPanel({
 
       {/* Tab Content */}
       <div className={`flex-1 min-h-0 bg-slate-50/20 ${rightPanelTab !== 'ai' ? 'overflow-y-auto p-4' : 'overflow-hidden flex flex-col'}`}>
-        {!selectedNodeId ? (
+        {rightPanelTab === 'ai' ? (
+          /* IA Tab */
+          <EditorAITab
+            brainId={brainId || nodeDetail?.brainId || null}
+            nodeId={nodeDetail?.id || null}
+            nodeTitle={nodeDetail?.title || null}
+            contentMarkdown={contentMarkdown}
+            canApply={canEdit}
+            isEditing={isEditing}
+            onInsertAIProposal={onInsertAIProposal}
+            onReplaceWithAIProposal={onReplaceWithAIProposal}
+            onCompareAIProposal={onCompareAIProposal}
+          />
+        ) : !selectedNodeId ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 gap-3">
             <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center border border-slate-200/60 shadow-sm">
               <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -265,23 +281,11 @@ export default function EditorRightPanel({
               onCompareVersion={onCompareVersion}
               activeComparisonVersionId={activeComparisonVersionId}
             />
-          ) : rightPanelTab === 'files' ? (
+          ) : (
             /* Archivos Tab */
             <EditorFilesTab
               nodeId={nodeDetail.id}
               canEdit={canEdit}
-            />
-          ) : (
-            /* IA Tab */
-            <EditorAITab
-              brainId={nodeDetail.brainId}
-              nodeId={nodeDetail.id}
-              nodeTitle={nodeDetail.title}
-              contentMarkdown={contentMarkdown}
-              canApply={canEdit}
-              onInsertAIProposal={onInsertAIProposal}
-              onReplaceWithAIProposal={onReplaceWithAIProposal}
-              onCompareAIProposal={onCompareAIProposal}
             />
           )
         ) : (

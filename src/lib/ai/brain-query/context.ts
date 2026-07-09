@@ -139,6 +139,136 @@ function appendSectionsWithinLimit(items: BrainQueryContextItem[], maxContextCha
   };
 }
 
+function isStructuralQuery(query: string): boolean {
+  const q = query.toLowerCase();
+  
+  // Terms asking for quantity or counts
+  const countTerms = [
+    'cuántos',
+    'cuantos',
+    'cuántas',
+    'cuantas',
+    'cantidad',
+    'total',
+    'conteo',
+    'número',
+    'numero',
+    'inventario',
+    'resumen estructural',
+  ];
+  
+  // Terms representing structure
+  const structureTerms = [
+    'documentos',
+    'nodos',
+    'subnodos',
+    'ramas',
+    'estructura',
+    'árbol',
+    'arbol',
+    'jerarquía',
+    'jerarquia',
+    'componen este cerebro',
+    'componen el cerebro',
+  ];
+  
+  const hasCount = countTerms.some((term) => q.includes(term));
+  const hasStructure = structureTerms.some((term) => q.includes(term));
+  
+  if (hasCount && hasStructure) {
+    return true;
+  }
+  
+  const explicitStructure = [
+    'estructura del cerebro',
+    'jerarquía del cerebro',
+    'arbol de nodos',
+    'árbol de nodos',
+    'componen este cerebro',
+    'componen el cerebro',
+  ];
+  
+  if (explicitStructure.some((term) => q.includes(term))) {
+    return true;
+  }
+  
+  return false;
+}
+
+function extractMentionedDocumentName(query: string): string | null {
+  const q = query.toLowerCase();
+  const regex = /(?:en\s+el\s+|del\s+|de\s+)?(?:documento|docuemnto|doc)\s+(?:de\s+|del\s+)?([a-z0-9\s_-]+)/i;
+  const match = q.match(regex);
+  if (match && match[1]) {
+    const candidate = match[1].trim();
+    if (candidate.length >= 2) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function normalizeStringForComparison(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function extractSectionContent(content: string, query: string): { sectionText: string; sectionName: string } | null {
+  const q = query.toLowerCase();
+  
+  const sectionKeywords = [
+    { name: 'Fuentes consultadas', keys: ['fuentes consultadas', 'fuentes'] },
+    { name: 'Referencias', keys: ['referencias'] },
+    { name: 'Bibliografía', keys: ['bibliografia', 'bibliografía'] },
+    { name: 'Enlaces/Links', keys: ['links', 'enlaces'] },
+  ];
+  
+  const matchedSection = sectionKeywords.find((sec) => sec.keys.some((k) => q.includes(k)));
+  if (!matchedSection) return null;
+  
+  const lines = content.split('\n');
+  let sectionStartIndex = -1;
+  let detectedName = matchedSection.name;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const lineLower = lines[i].toLowerCase();
+    const isSectionHeader = matchedSection.keys.some((k) => {
+      const cleanLine = lineLower.replace(/[#*_\-]/g, '').trim();
+      return cleanLine === k || cleanLine.startsWith(k);
+    });
+    
+    if (isSectionHeader) {
+      sectionStartIndex = i;
+      detectedName = lines[i].replace(/[#*_\-]/g, '').trim() || matchedSection.name;
+      break;
+    }
+  }
+  
+  if (sectionStartIndex !== -1) {
+    const sectionLines: string[] = [];
+    sectionLines.push(lines[sectionStartIndex]);
+    
+    for (let i = sectionStartIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      const lineTrimmed = line.trim();
+      if (lineTrimmed.startsWith('#')) {
+        break;
+      }
+      sectionLines.push(line);
+    }
+    
+    return {
+      sectionText: sectionLines.join('\n'),
+      sectionName: detectedName,
+    };
+  }
+  
+  return null;
+}
+
 export async function getBrainQueryContext(params: {
   brainId: string;
   query: string;
@@ -147,7 +277,6 @@ export async function getBrainQueryContext(params: {
   const brainId = params.brainId.trim();
   const query = normalizeQuery(params.query);
   const maxContextChars = Math.min(Math.max(params.maxContextChars ?? DEFAULT_MAX_CONTEXT_CHARS, 500), 20000);
-  const terms = extractQueryTerms(query);
 
   if (!brainId) {
     return {
@@ -157,6 +286,259 @@ export async function getBrainQueryContext(params: {
       warnings: ['No se pudo recuperar contexto porque el brainId es inválido.'],
     };
   }
+
+  // Check if query is structural/inventory based
+  if (isStructuralQuery(query)) {
+    try {
+      const allNodes = await db.node.findMany({
+        where: {
+          brainId,
+          deletedAt: null,
+          status: {
+            not: 'archived',
+          },
+        },
+        orderBy: [
+          { parentId: 'asc' },
+          { position: 'asc' },
+          { title: 'asc' },
+        ],
+        select: {
+          id: true,
+          title: true,
+          parentId: true,
+          status: true,
+          description: true,
+        },
+      });
+
+      const nodeMap = new Map<string, typeof allNodes[0]>();
+      for (const n of allNodes) {
+        nodeMap.set(n.id, n);
+      }
+
+      // Helper to calculate depth of a node
+      const getDepth = (nodeId: string): number => {
+        let depth = 0;
+        let currentId = nodeId;
+        const visited = new Set<string>();
+        while (currentId) {
+          if (visited.has(currentId)) break;
+          visited.add(currentId);
+          const parent = nodeMap.get(currentId)?.parentId;
+          if (parent) {
+            depth++;
+            currentId = parent;
+          } else {
+            break;
+          }
+        }
+        return depth;
+      };
+
+      let maxDepth = 0;
+      for (const n of allNodes) {
+        const d = getDepth(n.id);
+        if (d > maxDepth) {
+          maxDepth = d;
+        }
+      }
+
+      const totalNodes = allNodes.length;
+      const rootNodes = allNodes.filter((n) => !n.parentId).length;
+      const subNodes = allNodes.filter((n) => n.parentId).length;
+
+      const summaryText = [
+        'Resumen estructural del cerebro:',
+        `- Total de documentos/nodos activos: ${totalNodes}`,
+        `- Nodos raíz (principales): ${rootNodes}`,
+        `- Subnodos (secundarios/hijos): ${subNodes}`,
+        `- Profundidad máxima de la jerarquía: ${maxDepth + 1} niveles`,
+      ].join('\n');
+
+      const childrenMap = new Map<string | null, typeof allNodes>();
+      for (const n of allNodes) {
+        const parent = n.parentId;
+        if (!childrenMap.has(parent)) {
+          childrenMap.set(parent, []);
+        }
+        childrenMap.get(parent)!.push(n);
+      }
+
+      const roots = childrenMap.get(null) || [];
+      const lines: string[] = [];
+
+      const renderTree = (nodeId: string, indent: string) => {
+        const node = nodeMap.get(nodeId);
+        if (!node) return;
+        lines.push(`${indent}- ${node.title} (ID: ${node.id}, Estado: ${node.status})`);
+        
+        const children = childrenMap.get(nodeId) || [];
+        for (const child of children) {
+          renderTree(child.id, indent + '  ');
+        }
+      };
+
+      for (const r of roots) {
+        renderTree(r.id, '');
+      }
+
+      const fullTreeText = lines.join('\n');
+      const maxTreeChars = maxContextChars - summaryText.length - 200;
+      let treeText = fullTreeText;
+      const warnings: string[] = [];
+
+      if (treeText.length > maxTreeChars) {
+        treeText = treeText.substring(0, maxTreeChars) + '\n... [Lista de nodos truncada debido al límite de caracteres]';
+        warnings.push('La lista detallada del inventario de nodos fue truncada para respetar el límite de caracteres, pero los conteos globales son exactos.');
+      }
+
+      const contextText = `${summaryText}\n\nInventario detallado de nodos y jerarquía:\n${treeText}`;
+
+      const renderedNodes = allNodes.filter((n) => treeText.includes(n.id));
+      const items: BrainQueryContextItem[] = renderedNodes.map((n) => ({
+        source: {
+          type: 'document',
+          id: n.id,
+          title: n.title,
+          nodeId: n.id,
+        },
+        text: `Documento: ${n.title} (ID: ${n.id}, parentId: ${n.parentId || 'Ninguno'}, status: ${n.status}, descripción: ${n.description || 'Ninguna'})`,
+        score: 1.0,
+      }));
+
+      const sources = dedupeSources(items.map((item) => item.source));
+
+      return {
+        items,
+        contextText,
+        sources,
+        warnings,
+      };
+    } catch (err: unknown) {
+      console.error('Error fetching structural context:', err);
+      // fallback to normal query flow if DB call fails
+    }
+  }
+
+  // Check if query mentions a specific document
+  const candidateName = extractMentionedDocumentName(query);
+  let bestNode: {
+    id: string;
+    title: string;
+    contentMarkdown: string;
+    description: string | null;
+    status: import('@prisma/client').NodeStatus;
+  } | undefined = undefined;
+  let specificDocWarning: string | null = null;
+
+  if (candidateName) {
+    try {
+      const normalizedCandidate = normalizeStringForComparison(candidateName);
+      const allNodes = await db.node.findMany({
+        where: {
+          brainId,
+          deletedAt: null,
+          status: {
+            not: 'archived',
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          contentMarkdown: true,
+          description: true,
+          status: true,
+        },
+      });
+
+      bestNode = allNodes.find((n) => normalizeStringForComparison(n.title) === normalizedCandidate);
+
+      if (!bestNode) {
+        bestNode = allNodes.find((n) => {
+          const normTitle = normalizeStringForComparison(n.title);
+          return normTitle.includes(normalizedCandidate) || normalizedCandidate.includes(normTitle);
+        });
+      }
+
+      if (!bestNode) {
+        specificDocWarning = `Se mencionó el documento "${candidateName}" pero no se encontró ninguna coincidencia exacta en el cerebro.`;
+      }
+    } catch (err: unknown) {
+      console.error('Error fetching specific document context:', err);
+    }
+  }
+
+  if (bestNode) {
+    const sectionInfo = extractSectionContent(bestNode.contentMarkdown, query);
+    const warnings: string[] = [];
+
+    let contextText = '';
+    if (sectionInfo) {
+      contextText = [
+        `Documento solicitado: ${bestNode.title} (ID: ${bestNode.id})`,
+        `Sección encontrada: ${sectionInfo.sectionName}`,
+        '',
+        'Contenido de la sección:',
+        '=========================================',
+        sectionInfo.sectionText,
+        '=========================================',
+      ].join('\n');
+
+      const docHeader = `\n\nContenido completo del documento:\n=========================================\n`;
+      const availableChars = maxContextChars - contextText.length - docHeader.length - 100;
+      if (availableChars > 200) {
+        contextText += docHeader + truncateAtWordBoundary(bestNode.contentMarkdown, availableChars) + '\n=========================================\n';
+      }
+    } else {
+      const sectionKeywords = ['fuentes', 'referencias', 'bibliografía', 'bibliografia', 'links', 'enlaces'];
+      const queryMentionsSection = sectionKeywords.some((k) => query.toLowerCase().includes(k));
+      
+      if (queryMentionsSection) {
+        warnings.push(`Se detectó una consulta sobre una sección específica del documento "${bestNode.title}", pero no se encontró un encabezado o sección con ese nombre en el contenido.`);
+      }
+
+      contextText = [
+        `Documento solicitado: ${bestNode.title} (ID: ${bestNode.id})`,
+        '',
+        'Contenido del documento:',
+        '=========================================',
+        truncateAtWordBoundary(bestNode.contentMarkdown, maxContextChars - 200),
+        '=========================================',
+      ].join('\n');
+    }
+
+    const items: BrainQueryContextItem[] = [
+      {
+        source: {
+          type: 'document',
+          id: bestNode.id,
+          title: bestNode.title,
+          nodeId: bestNode.id,
+        },
+        text: bestNode.contentMarkdown,
+        score: 1.0,
+      },
+    ];
+
+    const sources: BrainQuerySource[] = [
+      {
+        type: 'document',
+        id: bestNode.id,
+        title: bestNode.title,
+        nodeId: bestNode.id,
+      },
+    ];
+
+    return {
+      items,
+      contextText,
+      sources,
+      warnings,
+    };
+  }
+
+  const terms = extractQueryTerms(query);
 
   if (!terms.length) {
     return {
@@ -307,6 +689,9 @@ export async function getBrainQueryContext(params: {
   }
 
   const { contextText, warnings } = appendSectionsWithinLimit(items, maxContextChars);
+  if (specificDocWarning) {
+    warnings.push(specificDocWarning);
+  }
 
   return {
     items,

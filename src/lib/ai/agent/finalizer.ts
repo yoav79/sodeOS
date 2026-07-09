@@ -214,6 +214,9 @@ function sanitizeData(toolName: string, data: any): any {
         if (typeof item.chunkIndex === 'number') itemRes.chunkIndex = item.chunkIndex;
         if (typeof item.excerpt === 'string') itemRes.excerpt = item.excerpt;
         if (typeof item.truncated === 'boolean') itemRes.truncated = item.truncated;
+        if (typeof item.sourceNodeId === 'string') itemRes.sourceNodeId = item.sourceNodeId;
+        if (typeof item.sourceNodeTitle === 'string') itemRes.sourceNodeTitle = item.sourceNodeTitle;
+        if (typeof item.location === 'string') itemRes.location = item.location;
         return itemRes;
       });
     }
@@ -333,7 +336,7 @@ export function buildAgentFinalizerContext(
       if (resultsCount > 0) {
         getAttachmentContextStatus = 'getAttachmentContext ejecutado con resultados.';
       } else {
-        getAttachmentContextStatus = 'Solo puedo consultar archivos procesados (TXT, MD, PDF o DOCX) del nodo actual. No se encontraron archivos procesados o chunks válidos en este nodo.';
+        getAttachmentContextStatus = 'Solo puedo consultar archivos procesados (TXT, MD, PDF o DOCX) del nodo actual o del mismo cerebro. No se encontraron archivos procesados o chunks válidos en este cerebro.';
       }
     } else {
       getAttachmentContextStatus = `getAttachmentContext fallido durante la ejecución: ${attachmentsObs.errorMessage || 'Error desconocido'}`;
@@ -479,7 +482,7 @@ Reglas fundamentales de comportamiento:
     - Si la búsqueda web no fue autorizada por el usuario: "La búsqueda web requiere autorización explícita."
     - Si la búsqueda web fue autorizada pero no se planificó o no se ejecutó: "No se ejecutó una búsqueda web en este plan." o "La búsqueda web está disponible, pero este plan no la utilizó."
     - Si la búsqueda web fue bloqueada por permisos: "La búsqueda web requiere permisos de edición."
-    - Si getAttachmentContext se ejecutó sin chunks: "Solo puedo consultar archivos procesados (TXT/MD/PDF/DOCX) del nodo actual."
+    - Si getAttachmentContext se ejecutó sin chunks: "Solo puedo consultar archivos procesados (TXT/MD/PDF/DOCX) del nodo actual o del mismo cerebro."
     - Si se pregunta por PDF/DOCX y no hay chunks: "Los archivos PDF/DOCX están soportados, pero no encontré texto extraído disponible para este archivo. Puede estar pendiente, haber fallado la extracción o no contener texto seleccionable."`;
 }
 
