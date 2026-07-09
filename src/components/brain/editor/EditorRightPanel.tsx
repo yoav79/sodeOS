@@ -221,7 +221,7 @@ export default function EditorRightPanel({
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto p-4 bg-slate-50/20">
+      <div className={`flex-1 min-h-0 bg-slate-50/20 ${rightPanelTab !== 'ai' ? 'overflow-y-auto p-4' : 'overflow-hidden flex flex-col'}`}>
         {!selectedNodeId ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 gap-3">
             <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center border border-slate-200/60 shadow-sm">
