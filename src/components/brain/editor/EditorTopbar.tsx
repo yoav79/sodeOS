@@ -145,7 +145,7 @@ export default function EditorTopbar({
   }, [setIsRemoteSearchOpen]);
 
   return (
-    <header className="h-12 border-b border-slate-200 bg-white/95 backdrop-blur-md flex items-center justify-between px-4 z-10 shrink-0 print-hide">
+    <header className="h-12 border-b border-slate-200 bg-white/95 backdrop-blur-md flex items-center justify-between px-4 z-30 shrink-0 print-hide">
       <div className="flex items-center gap-4 min-w-0">
         <div 
           className="flex items-center gap-2.5 shrink-0 cursor-pointer group select-none transition-transform active:scale-[0.98] duration-150" 
