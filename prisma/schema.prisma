@@ -313,6 +313,13 @@ model NodeAttachment {
   extractionStatus AttachmentExtractionStatus @default(pending) @map("extraction_status")
   extractionError  String?                    @map("extraction_error")
 
+  // Metadata fields
+  processedAt      DateTime?                  @map("processed_at")
+  wordCount        Int?                       @map("word_count")
+  characterCount   Int?                       @map("character_count")
+  pageCount        Int?                       @map("page_count")
+  metadataJson     Json?                      @map("metadata_json")
+
   // Relations
   node       Node                  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
   brain      Brain                 @relation(fields: [brainId], references: [id], onDelete: Cascade)

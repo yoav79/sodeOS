@@ -36,10 +36,6 @@ function emptyContext(warnings: string[] = []): BrainQueryContextResult {
   };
 }
 
-function asksForUnavailableMetadata(query: string): boolean {
-  const q = query.toLowerCase();
-  return /(páginas|paginas|page count|autor|idioma|lenguaje|palabras|word count)/.test(q);
-}
 
 function extractMarkdownHeadings(content: string): string[] {
   return content
@@ -544,10 +540,6 @@ export async function retrieveMetadataLikeContext(
     return emptyContext(['La consulta pide metadata documental, pero no se detectó un documento específico.']);
   }
 
-  if (asksForUnavailableMetadata(query)) {
-    warnings.push('Algunos datos solicitados (páginas, autor, idioma o conteo de palabras) todavía no están persistidos como metadata documental; no se inventarán valores.');
-  }
-
   if (scope.document.kind === 'node' && scope.document.nodeId) {
     const node = await db.node.findFirst({
       where: {
@@ -567,6 +559,20 @@ export async function retrieveMetadataLikeContext(
     });
 
     if (!node) return emptyContext(['No se encontró el documento solicitado para recuperar metadata disponible.']);
+
+    const q = query.toLowerCase();
+    if (/(autor|author|creador|creator)/.test(q)) {
+      warnings.push('El autor de los documentos no se persiste en esta fase del sistema; no se inventarán valores.');
+    }
+    if (/(idioma|lenguaje|language)/.test(q)) {
+      warnings.push('El idioma de los documentos no se persiste en esta fase del sistema; no se inventarán valores.');
+    }
+    if (/(pág|pag|page)/.test(q)) {
+      warnings.push('El número de páginas no está disponible para documentos internos.');
+    }
+    if (/(palabra|word)/.test(q)) {
+      warnings.push('El conteo de palabras no está disponible para documentos internos.');
+    }
 
     const text = [
       `Metadata disponible del documento/nodo: ${node.title}`,
@@ -596,6 +602,24 @@ export async function retrieveMetadataLikeContext(
 
     if (!attachment) return emptyContext(['No se encontró el archivo solicitado para recuperar metadata disponible.']);
 
+    const q = query.toLowerCase();
+    if (/(autor|author|creador|creator)/.test(q)) {
+      warnings.push('El autor del archivo no se persiste en esta fase del sistema; no se inventarán valores.');
+    }
+    if (/(idioma|lenguaje|language)/.test(q)) {
+      warnings.push('El idioma del archivo no se persiste en esta fase del sistema; no se inventarán valores.');
+    }
+    if (/(pág|pag|page)/.test(q)) {
+      if (attachment.pageCount === null) {
+        warnings.push('El número de páginas no está disponible para este archivo o aún no fue procesado con metadata de páginas.');
+      }
+    }
+    if (/(palabra|word)/.test(q)) {
+      if (attachment.wordCount === null) {
+        warnings.push('El conteo de palabras no está disponible para este archivo o aún no fue procesado.');
+      }
+    }
+
     const text = [
       `Metadata disponible del archivo: ${attachment.filename}`,
       `- Filename: ${attachment.filename}`,
@@ -604,6 +628,10 @@ export async function retrieveMetadataLikeContext(
       `- Fecha de subida en sodeOS: ${attachment.createdAt.toISOString()}`,
       `- Estado de extracción: ${attachment.extractionStatus}`,
       attachment.extractionError ? `- Error de extracción: ${attachment.extractionError}` : null,
+      attachment.processedAt ? `- Procesado en sodeOS: ${attachment.processedAt.toISOString()}` : '- Fecha de procesamiento: no hay fecha de procesamiento registrada',
+      attachment.pageCount !== null ? `- Número de páginas: ${attachment.pageCount}` : null,
+      attachment.wordCount !== null ? `- Cantidad de palabras: ${attachment.wordCount}` : null,
+      attachment.characterCount !== null ? `- Cantidad de caracteres: ${attachment.characterCount}` : null,
       `- Nodo origen: ${attachment.node.title}`,
     ].filter(Boolean).join('\n');
 

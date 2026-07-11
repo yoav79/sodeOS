@@ -88,6 +88,10 @@ export async function GET(
       uploadedBy: att.uploadedBy,
       extractionStatus: att.extractionStatus,
       extractionError: att.extractionError,
+      processedAt: att.processedAt,
+      wordCount: att.wordCount,
+      characterCount: att.characterCount,
+      pageCount: att.pageCount,
     }));
 
     return NextResponse.json({ attachments: mappedAttachments }, { status: 200 });

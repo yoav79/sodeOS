@@ -19,6 +19,10 @@ export interface BrainAttachmentItem {
   };
   extractionStatus: string;
   extractionError: string | null;
+  processedAt?: string | Date | null;
+  wordCount?: number | null;
+  characterCount?: number | null;
+  pageCount?: number | null;
 }
 
 interface NodeAttachmentsProps {
@@ -470,6 +474,21 @@ export default function NodeAttachments({ brainId, nodeId, canEdit }: NodeAttach
                       </span>
                       <span>·</span>
                       <span>{formatBytes(item.size)}</span>
+                      
+                      {item.pageCount !== undefined && item.pageCount !== null && (
+                        <>
+                          <span>·</span>
+                          <span>{item.pageCount} {item.pageCount === 1 ? 'pág.' : 'págs.'}</span>
+                        </>
+                      )}
+
+                      {item.wordCount !== undefined && item.wordCount !== null && (
+                        <>
+                          <span>·</span>
+                          <span>{item.wordCount.toLocaleString()} {item.wordCount === 1 ? 'palabra' : 'palabras'}</span>
+                        </>
+                      )}
+
                       <span>·</span>
                       <span className={`px-1.5 py-0.2 rounded border text-[8px] font-bold ${extractionBadge.className}`}>
                         {extractionBadge.label}

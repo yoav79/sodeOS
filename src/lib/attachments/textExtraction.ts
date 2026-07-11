@@ -1,12 +1,11 @@
 import 'server-only';
 import db from '@/lib/db';
-import { AttachmentExtractionStatus } from '@prisma/client';
+import { AttachmentExtractionStatus, UsageFeature, Prisma } from '@prisma/client';
 import { PDFParse } from 'pdf-parse';
 import * as mammoth from 'mammoth';
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import path from 'path';
 import { recordUsage } from '@/lib/usage';
-import { UsageFeature } from '@prisma/client';
 
 // Configure PDFJS legacy worker for stable operation in Next.js Server / Turbopack
 if (typeof window === 'undefined') {
@@ -106,6 +105,7 @@ export async function processAttachmentExtraction(
       where: { id: attachmentId },
       data: {
         extractionStatus: AttachmentExtractionStatus.unsupported,
+        processedAt: new Date(),
       },
     });
     return;
@@ -133,6 +133,7 @@ export async function processAttachmentExtraction(
       data: {
         extractionStatus: AttachmentExtractionStatus.failed,
         extractionError: sizeError,
+        processedAt: new Date(),
       },
     });
     return;
@@ -148,14 +149,31 @@ export async function processAttachmentExtraction(
     });
 
     let rawText = '';
+    let pageCount: number | null = null;
+    let metadataJson: Prisma.InputJsonValue | null = null;
 
     if (isPdf) {
       // 3a. Extract text from PDF buffer
       try {
         const parser = new PDFParse(new Uint8Array(buffer));
         const parsed = await parser.getText();
+        const parsedObj = parsed as unknown as Record<string, unknown>;
         const hasActualText = parsed.pages && parsed.pages.some((page: { text: string; num: number }) => page.text && page.text.trim().length > 0);
         rawText = hasActualText ? (parsed.text || '') : '';
+        
+        // Page count
+        if (typeof parsedObj.numpages === 'number') {
+          pageCount = parsedObj.numpages;
+        } else if (parsed.pages && Array.isArray(parsed.pages)) {
+          pageCount = parsed.pages.length;
+        }
+
+        // Metadata
+        metadataJson = {
+          extractor: 'pdf-parse',
+          version: typeof parsedObj.version === 'string' ? parsedObj.version : null,
+          info: parsedObj.info ? (parsedObj.info as Prisma.InputJsonValue) : null,
+        } as Prisma.InputJsonValue;
       } catch (pdfErr: unknown) {
         console.error(`Error parsing PDF for attachment ${attachmentId}:`, pdfErr);
         const rawErr = pdfErr instanceof Error ? pdfErr.message : 'Error desconocido';
@@ -165,6 +183,11 @@ export async function processAttachmentExtraction(
           data: {
             extractionStatus: AttachmentExtractionStatus.failed,
             extractionError: `Error al procesar el archivo PDF: ${safeErrorMsg}`,
+            processedAt: new Date(),
+            characterCount: null,
+            wordCount: null,
+            pageCount: null,
+            metadataJson: Prisma.DbNull,
           },
         });
         return;
@@ -174,6 +197,10 @@ export async function processAttachmentExtraction(
       try {
         const result = await mammoth.extractRawText({ buffer });
         rawText = result.value || '';
+        metadataJson = {
+          extractor: 'mammoth',
+          messages: result.messages && result.messages.length > 0 ? (result.messages as unknown as Prisma.InputJsonValue) : null,
+        } as Prisma.InputJsonValue;
       } catch (docxErr: unknown) {
         console.error(`Error parsing DOCX for attachment ${attachmentId}:`, docxErr);
         const rawErr = docxErr instanceof Error ? docxErr.message : 'Error desconocido';
@@ -183,6 +210,11 @@ export async function processAttachmentExtraction(
           data: {
             extractionStatus: AttachmentExtractionStatus.failed,
             extractionError: `Error al procesar el archivo DOCX: ${safeErrorMsg}`,
+            processedAt: new Date(),
+            characterCount: null,
+            wordCount: null,
+            pageCount: null,
+            metadataJson: Prisma.DbNull,
           },
         });
         return;
@@ -190,6 +222,9 @@ export async function processAttachmentExtraction(
     } else {
       // 3c. Decode buffer as UTF-8 for plain text / markdown
       rawText = buffer.toString('utf8');
+      metadataJson = {
+        extractor: 'utf8-decode',
+      } as Prisma.InputJsonValue;
     }
 
     // 4. Normalize and clean text
@@ -215,6 +250,11 @@ export async function processAttachmentExtraction(
         data: {
           extractionStatus: AttachmentExtractionStatus.failed,
           extractionError: emptyError,
+          processedAt: new Date(),
+          characterCount: null,
+          wordCount: null,
+          pageCount: null,
+          metadataJson: Prisma.DbNull,
         },
       });
       return;
@@ -250,6 +290,11 @@ export async function processAttachmentExtraction(
         data: {
           extractionStatus: AttachmentExtractionStatus.done,
           extractionError: null,
+          processedAt: new Date(),
+          characterCount: text.length,
+          wordCount: text.split(/\s+/).filter(Boolean).length,
+          pageCount,
+          metadataJson: metadataJson ?? Prisma.DbNull,
         },
       });
     });
@@ -289,6 +334,11 @@ export async function processAttachmentExtraction(
       data: {
         extractionStatus: AttachmentExtractionStatus.failed,
         extractionError: `Fallo en el pipeline de extracción: ${safeErrorMsg}`,
+        processedAt: new Date(),
+        characterCount: null,
+        wordCount: null,
+        pageCount: null,
+        metadataJson: Prisma.DbNull,
       },
     }).catch((dbErr) => {
       console.error(`Double fault: failed to save extraction error for ${attachmentId}:`, dbErr);
