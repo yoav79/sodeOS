@@ -22,6 +22,10 @@ import type { ResolvedDocumentTarget, ResolvedQueryScope } from './scope';
 const MAX_DOCUMENT_RESULTS = 4;
 const MAX_CHUNK_RESULTS = 6;
 
+function asksForCharacterCount(query: string): boolean {
+  return /(letras|letra|caracteres|carácter|caracter|character count)/i.test(query);
+}
+
 interface RetrieveNormalOptions {
   document?: ResolvedDocumentTarget;
   warnings?: string[];
@@ -573,6 +577,9 @@ export async function retrieveMetadataLikeContext(
     if (/(palabra|word)/.test(q)) {
       warnings.push('El conteo de palabras no está disponible para documentos internos.');
     }
+    if (asksForCharacterCount(query)) {
+      warnings.push('El conteo de letras/caracteres no está disponible para documentos internos.');
+    }
 
     const text = [
       `Metadata disponible del documento/nodo: ${node.title}`,
@@ -619,6 +626,9 @@ export async function retrieveMetadataLikeContext(
         warnings.push('El conteo de palabras no está disponible para este archivo o aún no fue procesado.');
       }
     }
+    if (asksForCharacterCount(query) && attachment.characterCount === null) {
+      warnings.push('El conteo de letras/caracteres no está disponible para este archivo o aún no fue procesado.');
+    }
 
     const text = [
       `Metadata disponible del archivo: ${attachment.filename}`,
@@ -631,7 +641,7 @@ export async function retrieveMetadataLikeContext(
       attachment.processedAt ? `- Procesado en sodeOS: ${attachment.processedAt.toISOString()}` : '- Fecha de procesamiento: no hay fecha de procesamiento registrada',
       attachment.pageCount !== null ? `- Número de páginas: ${attachment.pageCount}` : null,
       attachment.wordCount !== null ? `- Cantidad de palabras: ${attachment.wordCount}` : null,
-      attachment.characterCount !== null ? `- Cantidad de caracteres: ${attachment.characterCount}` : null,
+      attachment.characterCount !== null ? `- Cantidad de caracteres/letras extraídas: ${attachment.characterCount}` : null,
       `- Nodo origen: ${attachment.node.title}`,
     ].filter(Boolean).join('\n');
 

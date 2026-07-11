@@ -40,7 +40,7 @@ export function classifyQueryIntent(query: string): QueryIntent {
   }
 
   // 3. document_metadata
-  const metadataRegex = /(cuántas páginas|cuantas paginas|número de páginas|numero de paginas|page count|autor|idioma|lenguaje|fecha de creación|fecha de creacion|metadata|metadatos|tamaño|tamano|peso del archivo|palabras|word count)/;
+  const metadataRegex = /(cuántas páginas|cuantas paginas|número de páginas|numero de paginas|page count|páginas|paginas|página|pagina|págs|pág|letras|letra|caracteres|carácter|caracter|character count|autor|idioma|lenguaje|fecha de creación|fecha de creacion|metadata|metadatos|tamaño|tamano|peso del archivo|palabras|word count)/;
   if (metadataRegex.test(q)) {
     return 'document_metadata';
   }
@@ -60,7 +60,7 @@ export function classifyQueryIntent(query: string): QueryIntent {
   // 6. document_content
   // Si no coincide con ninguna intención estructural, pero el usuario menciona explícitamente palabras clave
   // relacionadas con un documento/archivo específico.
-  const documentFocusRegex = /(documento|docuemnto|doc|archivo|pdf|manual|nota|nodo)/;
+  const documentFocusRegex = /(documento|docuemnto|doc|archivo|pdf|manual|nota|nodo|reporte)/;
   if (documentFocusRegex.test(q)) {
     return 'document_content';
   }
