@@ -498,7 +498,7 @@ export async function retrieveNormalRagContext(
         source: {
           type: 'attachment_text',
           id: chunk.id,
-          title: chunk.node.title,
+          title: chunk.attachment.filename,
           nodeId: chunk.nodeId,
           attachmentId: chunk.attachmentId,
           filename: chunk.attachment.filename,
@@ -649,7 +649,7 @@ export async function retrieveMetadataLikeContext(
       source: {
         type: 'attachment_text',
         id: attachment.id,
-        title: attachment.node.title,
+        title: attachment.filename,
         nodeId: attachment.nodeId,
         attachmentId: attachment.id,
         filename: attachment.filename,
@@ -813,7 +813,7 @@ export async function retrieveSourceSectionContext(
         source: {
           type: 'attachment_text',
           id: chunk.id,
-          title: chunk.node.title,
+          title: chunk.attachment.filename,
           nodeId: chunk.nodeId,
           attachmentId: chunk.attachmentId,
           filename: chunk.attachment.filename,
@@ -885,7 +885,7 @@ export async function retrieveSectionContext(
       source: {
         type: 'attachment_text',
         id: chunk.id,
-        title: chunk.node.title,
+        title: chunk.attachment.filename,
         nodeId: chunk.nodeId,
         attachmentId: chunk.attachmentId,
         filename: chunk.attachment.filename,

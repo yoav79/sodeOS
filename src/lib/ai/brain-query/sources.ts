@@ -44,7 +44,7 @@ export function buildSourceFromAttachment(att: { id: string; filename: string; n
   return {
     type: 'attachment_text',
     id: att.id,
-    title: att.node.title,
+    title: att.filename,
     nodeId: att.nodeId,
     attachmentId: att.id,
     filename: att.filename

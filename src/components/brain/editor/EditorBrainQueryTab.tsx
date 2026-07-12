@@ -202,7 +202,9 @@ export default function EditorBrainQueryTab({ brainId }: EditorBrainQueryTabProp
                           <div className="flex flex-wrap gap-1">
                             {msg.sources.map((s, idx) => {
                               const typeLabel = s.type === 'document' ? '📄' : '📎';
-                              const nameLabel = s.title || s.filename || 'Archivo';
+                              const nameLabel = s.type === 'attachment_text'
+                                ? (s.filename || s.title || 'Archivo')
+                                : (s.title || s.filename || 'Documento');
                               const label = `${typeLabel} ${nameLabel}${s.chunkIndex !== undefined ? ` (Parte ${s.chunkIndex})` : ''}`;
                               return (
                                 <span
