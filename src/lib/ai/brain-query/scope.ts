@@ -1,5 +1,10 @@
 import 'server-only';
 import db from '@/lib/db';
+import {
+  ambiguousDocumentWarning,
+  documentNotFoundWarning,
+  sectionWithoutDocumentWarning,
+} from './warnings';
 
 /**
  * Tipos de ámbitos de consulta soportados en sodeOS.
@@ -274,10 +279,10 @@ export async function resolveQueryScope(params: {
       document = selectedMatches[0];
     } else if (selectedMatches.length > 1) {
       ambiguous = true;
-      const names = selectedMatches.map(m => m.filename || m.title).join(', ');
-      warnings.push(`Múltiples documentos coinciden con la búsqueda (${matchedTierName}): ${names}.`);
+      const candidates = selectedMatches.map(m => (m.filename || m.title) || '') as string[];
+      warnings.push(ambiguousDocumentWarning(candidates, matchedTierName));
     } else {
-      warnings.push(`Se mencionó el documento "${docCandidate}" pero no se encontró en este cerebro.`);
+      warnings.push(documentNotFoundWarning(docCandidate));
     }
   }
 
@@ -289,7 +294,7 @@ export async function resolveQueryScope(params: {
     type = 'section';
     if (!document) {
       ambiguous = true;
-      warnings.push(`Se solicitó la sección "${secCandidate}" pero no se detectó el documento específico.`);
+      warnings.push(sectionWithoutDocumentWarning(secCandidate));
     }
   }
 
