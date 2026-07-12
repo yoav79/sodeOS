@@ -71,3 +71,26 @@ export interface BrainQueryContextResult {
   sources: BrainQuerySource[];
   warnings: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Tipos internos para orquestación de Fase 3.
+// No forman parte del contrato público de la API /api/ai/brain/query.
+// ---------------------------------------------------------------------------
+
+export type BrainQueryAnswerType =
+  | "metadata"
+  | "outline"
+  | "summary"
+  | "source_list"
+  | "section"
+  | "document_content"
+  | "rag";
+
+export interface InternalBrainQueryResult {
+  answerType: BrainQueryAnswerType;
+  contextText: string;
+  deterministicAnswer?: string;
+  sources: BrainQuerySource[];
+  warnings: string[];
+  shouldCallLlm: boolean;
+}
