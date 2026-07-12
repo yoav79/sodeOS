@@ -70,6 +70,9 @@ export interface BrainQueryContextResult {
   contextText: string;
   sources: BrainQuerySource[];
   warnings: string[];
+  // Campos internos opcionales para control determinista (bypassear el LLM)
+  deterministicAnswer?: string;
+  shouldCallLlm?: boolean;
 }
 
 // ---------------------------------------------------------------------------

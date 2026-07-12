@@ -17,6 +17,7 @@ import {
   CHUNK_SNIPPET_CHARS
 } from './context_helpers';
 import { dedupeSources } from './sources';
+import { buildMetadataAnswer } from './answerers';
 import type { ResolvedDocumentTarget, ResolvedQueryScope } from './scope';
 
 const MAX_DOCUMENT_RESULTS = 4;
@@ -596,7 +597,22 @@ export async function retrieveMetadataLikeContext(
       score: 1,
     };
 
-    return { items: [item], contextText: text, sources: [item.source], warnings };
+    const deterministicAnswer = buildMetadataAnswer({
+      kind: 'node',
+      title: node.title,
+      createdAt: node.createdAt,
+      extractionStatus: node.status,
+      warnings,
+    });
+
+    return {
+      items: [item],
+      contextText: text,
+      sources: [item.source],
+      warnings,
+      deterministicAnswer,
+      shouldCallLlm: false,
+    };
   }
 
   if (scope.document.kind === 'attachment' && scope.document.attachmentId) {
@@ -658,7 +674,29 @@ export async function retrieveMetadataLikeContext(
       score: 1,
     };
 
-    return { items: [item], contextText: text, sources: [item.source], warnings };
+    const deterministicAnswer = buildMetadataAnswer({
+      kind: 'attachment',
+      filename: attachment.filename,
+      contentType: attachment.contentType,
+      size: attachment.size,
+      createdAt: attachment.createdAt,
+      processedAt: attachment.processedAt,
+      extractionStatus: attachment.extractionStatus,
+      wordCount: attachment.wordCount,
+      characterCount: attachment.characterCount,
+      pageCount: attachment.pageCount,
+      nodeTitle: attachment.node.title,
+      warnings,
+    });
+
+    return {
+      items: [item],
+      contextText: text,
+      sources: [item.source],
+      warnings,
+      deterministicAnswer,
+      shouldCallLlm: false,
+    };
   }
 
   return emptyContext(['No se pudo resolver la metadata disponible para el documento solicitado.']);

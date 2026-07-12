@@ -67,6 +67,16 @@ export async function runBrainQuery(request: BrainQueryRequest): Promise<BrainQu
     };
   }
 
+  // Bypass the LLM call for deterministic responses (such as document_metadata)
+  if (contextResult.shouldCallLlm === false && contextResult.deterministicAnswer) {
+    return {
+      success: true,
+      answer: contextResult.deterministicAnswer,
+      sources: contextResult.sources,
+      warnings: contextResult.warnings.length > 0 ? contextResult.warnings : undefined,
+    };
+  }
+
   const hasContextText = contextResult.contextText.trim().length > 0;
   const hasItems = contextResult.items && contextResult.items.length > 0;
 
