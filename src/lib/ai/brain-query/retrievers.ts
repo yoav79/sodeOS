@@ -18,6 +18,18 @@ import {
 } from './context_helpers';
 import { dedupeSources } from './sources';
 import { buildMetadataAnswer } from './answerers';
+import {
+  authorNotPersistedForNode,
+  languageNotPersistedForNode,
+  pageCountUnavailableForNode,
+  wordCountUnavailableForNode,
+  characterCountUnavailableForNode,
+  authorNotPersisted,
+  languageNotPersisted,
+  pageCountUnavailableForAttachment,
+  wordCountUnavailableForAttachment,
+  characterCountUnavailableForAttachment,
+} from './warnings';
 import type { ResolvedDocumentTarget, ResolvedQueryScope } from './scope';
 
 const MAX_DOCUMENT_RESULTS = 4;
@@ -567,19 +579,19 @@ export async function retrieveMetadataLikeContext(
 
     const q = query.toLowerCase();
     if (/(autor|author|creador|creator)/.test(q)) {
-      warnings.push('El autor de los documentos no se persiste en esta fase del sistema; no se inventarán valores.');
+      warnings.push(authorNotPersistedForNode);
     }
     if (/(idioma|lenguaje|language)/.test(q)) {
-      warnings.push('El idioma de los documentos no se persiste en esta fase del sistema; no se inventarán valores.');
+      warnings.push(languageNotPersistedForNode);
     }
     if (/(pág|pag|page)/.test(q)) {
-      warnings.push('El número de páginas no está disponible para documentos internos.');
+      warnings.push(pageCountUnavailableForNode);
     }
     if (/(palabra|word)/.test(q)) {
-      warnings.push('El conteo de palabras no está disponible para documentos internos.');
+      warnings.push(wordCountUnavailableForNode);
     }
     if (asksForCharacterCount(query)) {
-      warnings.push('El conteo de letras/caracteres no está disponible para documentos internos.');
+      warnings.push(characterCountUnavailableForNode);
     }
 
     const text = [
@@ -627,23 +639,23 @@ export async function retrieveMetadataLikeContext(
 
     const q = query.toLowerCase();
     if (/(autor|author|creador|creator)/.test(q)) {
-      warnings.push('El autor del archivo no se persiste en esta fase del sistema; no se inventarán valores.');
+      warnings.push(authorNotPersisted);
     }
     if (/(idioma|lenguaje|language)/.test(q)) {
-      warnings.push('El idioma del archivo no se persiste en esta fase del sistema; no se inventarán valores.');
+      warnings.push(languageNotPersisted);
     }
     if (/(pág|pag|page)/.test(q)) {
       if (attachment.pageCount === null) {
-        warnings.push('El número de páginas no está disponible para este archivo o aún no fue procesado con metadata de páginas.');
+        warnings.push(pageCountUnavailableForAttachment);
       }
     }
     if (/(palabra|word)/.test(q)) {
       if (attachment.wordCount === null) {
-        warnings.push('El conteo de palabras no está disponible para este archivo o aún no fue procesado.');
+        warnings.push(wordCountUnavailableForAttachment);
       }
     }
     if (asksForCharacterCount(query) && attachment.characterCount === null) {
-      warnings.push('El conteo de letras/caracteres no está disponible para este archivo o aún no fue procesado.');
+      warnings.push(characterCountUnavailableForAttachment);
     }
 
     const text = [
