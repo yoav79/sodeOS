@@ -2,12 +2,26 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import LoginForm from './LoginForm';
 
-export default async function LoginPage() {
+function normalizeRedirectPath(value?: string | null): string {
+  if (!value) return '/dashboard';
+  if (!value.startsWith('/')) return '/dashboard';
+  if (value.startsWith('//')) return '/dashboard';
+  return value;
+}
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string }>;
+}) {
+  const { redirect: redirectParam } = await searchParams;
   const currentUser = await getCurrentUser();
+  const safeRedirect = normalizeRedirectPath(redirectParam);
 
   if (currentUser) {
-    redirect('/dashboard');
+    redirect(safeRedirect);
   }
+
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
@@ -92,7 +106,7 @@ export default async function LoginPage() {
         {/* Soft background glow decoration */}
         <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] bg-blue-600/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <LoginForm />
+        <LoginForm redirect={safeRedirect} />
       </div>
     </div>
   );
