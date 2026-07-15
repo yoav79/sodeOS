@@ -63,6 +63,70 @@ export function renderBaseEmailLayout({ title, previewText, bodyHtml }: BaseEmai
 </html>`;
 }
 
+export interface RenderBrainInvitationEmailInput {
+  inviterName: string;
+  brainName: string;
+  roleLabel: string;
+  acceptUrl: string;
+  expiresIn: string;
+}
+
+export interface RenderedEmailTemplate {
+  subject: string;
+  html: string;
+  text: string;
+}
+
+/**
+ * Renders a brain invitation email with HTML and plain text fallback.
+ */
+export function renderBrainInvitationEmail(
+  input: RenderBrainInvitationEmailInput
+): RenderedEmailTemplate {
+  const subject = `${input.inviterName} te invitó a "${input.brainName}" en sodeOS`;
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px 0; font-size:15px; line-height:24px; color:#334155;">
+      <strong>${input.inviterName}</strong> te invitó a participar en el cerebro
+      <strong>"${input.brainName}"</strong> en sodeOS con el rol de
+      <strong>${input.roleLabel}</strong>.
+    </p>
+    <p style="margin:0 0 24px 0; font-size:15px; line-height:24px; color:#334155;">
+      Para aceptar la invitación, haz clic en el siguiente enlace:
+    </p>
+    <p style="margin:0 0 24px 0;">
+      <a href="${input.acceptUrl}" style="display:inline-block; background-color:#2563eb; color:#ffffff; font-weight:700; font-size:14px; text-decoration:none; padding:12px 24px; border-radius:8px;">
+        Aceptar invitación
+      </a>
+    </p>
+    <p style="margin:0 0 8px 0; font-size:13px; line-height:20px; color:#64748b;">
+      Este enlace expira en ${input.expiresIn}.
+    </p>
+    <p style="margin:0; font-size:13px; line-height:20px; color:#64748b;">
+      Si no esperabas esta invitación, puedes ignorar este mensaje.
+    </p>
+  `;
+
+  const html = renderBaseEmailLayout({
+    title: subject,
+    previewText: `${input.inviterName} te invitó a "${input.brainName}"`,
+    bodyHtml,
+  });
+
+  const text = [
+    `${input.inviterName} te invitó a participar en el cerebro "${input.brainName}" en sodeOS con el rol de ${input.roleLabel}.`,
+    '',
+    `Para aceptar la invitación, visita el siguiente enlace:`,
+    input.acceptUrl,
+    '',
+    `Este enlace expira en ${input.expiresIn}.`,
+    '',
+    'Si no esperabas esta invitación, puedes ignorar este mensaje.',
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
 /**
  * Super simple utility to strip HTML tags for generating plain text fallbacks.
  */

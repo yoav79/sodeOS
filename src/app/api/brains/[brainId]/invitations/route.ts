@@ -6,7 +6,11 @@ import {
   getInvitationExpiresAt,
   getInvitationStatus,
   normalizeInvitationEmail,
+  buildInvitationAcceptUrl,
+  getBrainRoleLabel,
 } from '@/lib/invitations';
+import { sendEmail } from '@/lib/email';
+import { renderBrainInvitationEmail } from '@/lib/email/templates';
 import { Prisma, BrainRole } from '@prisma/client';
 
 interface UserSelect {
@@ -254,7 +258,7 @@ export async function POST(
     }
 
     // 6. Generate token pair and expiration date
-    const { tokenHash } = createInvitationTokenPair();
+    const { token, tokenHash } = createInvitationTokenPair();
     const expiresAt = getInvitationExpiresAt();
 
     // 7. Create BrainInvitation in DB
@@ -296,7 +300,48 @@ export async function POST(
       throw err;
     }
 
-    // 8. Return response safely
+    // 8. Resolve brain name for email
+    const brain = await db.brain.findUnique({
+      where: { id: brainId },
+      select: { name: true },
+    });
+    const brainName = brain?.name || 'este cerebro';
+
+    // 9. Build accept URL and render email
+    const acceptUrl = buildInvitationAcceptUrl({ token });
+    const roleLabel = getBrainRoleLabel(role as BrainRole);
+    const inviterName = currentUser.name || currentUser.email || 'Un usuario';
+
+    const emailTemplate = renderBrainInvitationEmail({
+      inviterName,
+      brainName,
+      roleLabel,
+      acceptUrl,
+      expiresIn: '48 horas',
+    });
+
+    // 10. Send invitation email
+    const emailResult = await sendEmail({
+      to: cleanEmail,
+      subject: emailTemplate.subject,
+      html: emailTemplate.html,
+      text: emailTemplate.text,
+    });
+
+    if (!emailResult.success) {
+      // Revoke the invitation if email sending fails
+      await db.brainInvitation.update({
+        where: { id: newInvitation.id },
+        data: { revokedAt: new Date() },
+      }).catch(() => {});
+
+      return NextResponse.json(
+        { error: 'No se pudo enviar el email de invitación.' },
+        { status: 502 }
+      );
+    }
+
+    // 11. Return response safely (never includes token, tokenHash, or acceptUrl)
     return NextResponse.json(
       { invitation: serializeInvitation(newInvitation) },
       { status: 201 }
