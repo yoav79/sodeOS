@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export interface MemberWithUser {
@@ -28,6 +28,29 @@ interface ManageMembersModalProps {
   isOwner: boolean;
 }
 
+type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+
+interface InvitationItem {
+  id: string;
+  email: string;
+  role: 'owner' | 'editor' | 'reader';
+  status: InvitationStatus;
+  expiresAt: string;
+  invitedAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  invitedBy: {
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
+  acceptedBy?: {
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
+}
+
 export default function ManageMembersModal({
   isOpen,
   onClose,
@@ -39,17 +62,182 @@ export default function ManageMembersModal({
   isOwner,
 }: ManageMembersModalProps) {
   const router = useRouter();
-  const [emailInput, setEmailInput] = useState('');
-  const [roleInput, setRoleInput] = useState<'owner' | 'editor' | 'reader'>('reader');
   const [isAdding, setIsAdding] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
-  const [addSuccess, setAddSuccess] = useState<string | null>(null);
 
-  // States for creating non-existent users
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newUserName, setNewUserName] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
-  const [newUserRole, setNewUserRole] = useState<'editor' | 'reader'>('reader');
+  // Invitations States
+  const [invitations, setInvitations] = useState<InvitationItem[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+  const [invitationsError, setInvitationsError] = useState<string | null>(null);
+  const [invitationsTrigger, setInvitationsTrigger] = useState(0);
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'editor' | 'reader'>('reader');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+
+  const [cancelingInvitationId, setCancelingInvitationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !isOwner || !brainId) return;
+
+    let active = true;
+    const loadInvitations = async () => {
+      try {
+        setInvitationsLoading(true);
+        setInvitationsError(null);
+        const res = await fetch(`/api/brains/${brainId}/invitations`);
+        if (res.status === 401) {
+          router.push('/login');
+          return;
+        }
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Error al cargar invitaciones.');
+        }
+        if (active) {
+          setInvitations(data.invitations || []);
+        }
+      } catch (err: unknown) {
+        if (active) {
+          const msg = err instanceof Error ? err.message : 'Error al cargar las invitaciones.';
+          setInvitationsError(msg);
+        }
+      } finally {
+        if (active) {
+          setInvitationsLoading(false);
+        }
+      }
+    };
+
+    loadInvitations();
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, isOwner, brainId, invitationsTrigger, router]);
+
+  const fetchInvitations = () => {
+    setInvitationsTrigger((prev) => prev + 1);
+  };
+
+  const handleSendInvitation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (invitationsLoading || cancelingInvitationId || isAdding) return;
+
+    setInviteError(null);
+    setInviteSuccess(null);
+
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) {
+      setInviteError('El correo electrónico es requerido.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || !email.includes('@') || !email.includes('.')) {
+      setInviteError('Por favor introduce un correo electrónico válido.');
+      return;
+    }
+
+    try {
+      setIsAdding(true);
+      const res = await fetch(`/api/brains/${brainId}/invitations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, role: inviteRole }),
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al enviar la invitación.');
+      }
+
+      setInviteSuccess(`Invitación enviada exitosamente a ${email}.`);
+      setInviteEmail('');
+      setInviteRole('reader');
+      fetchInvitations();
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'No se pudo enviar la invitación.';
+      setInviteError(msg);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string, email: string) => {
+    if (invitationsLoading || cancelingInvitationId || isAdding) return;
+
+    const confirmCancel = window.confirm(
+      `¿Estás seguro de que deseas cancelar la invitación para ${email}?`
+    );
+    if (!confirmCancel) return;
+
+    try {
+      setCancelingInvitationId(invitationId);
+      const res = await fetch(`/api/brains/${brainId}/invitations/${invitationId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Error al cancelar la invitación.');
+      }
+
+      fetchInvitations();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al cancelar la invitación.';
+      alert(msg);
+    } finally {
+      setCancelingInvitationId(null);
+    }
+  };
+
+  const getInvitationStatusBadgeClass = (status: InvitationStatus) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-blue-50 text-blue-700 border border-blue-100';
+      case 'accepted':
+        return 'bg-emerald-50 text-emerald-700 border border-emerald-100';
+      case 'expired':
+        return 'bg-slate-100 text-slate-500 border border-slate-200';
+      case 'revoked':
+        return 'bg-red-50 text-red-700 border border-red-100';
+      default:
+        return 'bg-slate-50 text-slate-500 border border-slate-100';
+    }
+  };
+
+  const getInvitationStatusLabel = (status: InvitationStatus) => {
+    switch (status) {
+      case 'pending':
+        return 'Pendiente';
+      case 'accepted':
+        return 'Aceptada';
+      case 'expired':
+        return 'Expirada';
+      case 'revoked':
+        return 'Cancelada';
+      default:
+        return status;
+    }
+  };
+
 
   // Mutation States
   const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
@@ -59,157 +247,7 @@ export default function ManageMembersModal({
 
   if (!isOpen) return null;
 
-  const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isAdding) return;
 
-    setAddError(null);
-    setAddSuccess(null);
-
-    const email = emailInput.trim().toLowerCase();
-    if (!email) {
-      setAddError('El correo electrónico es requerido.');
-      return;
-    }
-
-    // Simple email regex validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setAddError('Por favor introduce un correo electrónico válido.');
-      return;
-    }
-
-    try {
-      setIsAdding(true);
-      const res = await fetch(`/api/brains/${brainId}/members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, role: roleInput }),
-      });
-
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-
-      // Check if user doesn't exist
-      if (res.status === 404) {
-        setShowCreateForm(true);
-        setNewUserRole(roleInput === 'owner' ? 'reader' : roleInput as 'editor' | 'reader');
-        setAddError('El usuario no está registrado en el sistema. Completa los datos a continuación para crearlo.');
-        return;
-      }
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al agregar miembro.');
-      }
-
-      setAddSuccess(`Usuario ${email} agregado exitosamente como ${getRoleLabel(roleInput)}.`);
-      setEmailInput('');
-      setRoleInput('reader');
-      if (onRefresh) {
-        onRefresh();
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error de conexión con el servidor.';
-      setAddError(msg);
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  const handleCreateAndAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isAdding) return;
-
-    setAddError(null);
-    setAddSuccess(null);
-
-    const email = emailInput.trim().toLowerCase();
-    const name = newUserName.trim();
-    const password = newUserPassword;
-    const role = newUserRole;
-
-    if (!email) {
-      setAddError('El correo electrónico es requerido.');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setAddError('Por favor introduce un correo electrónico válido.');
-      return;
-    }
-
-    if (!name) {
-      setAddError('El nombre completo es requerido.');
-      return;
-    }
-    if (name.length < 2 || name.length > 80) {
-      setAddError('El nombre debe tener entre 2 y 80 caracteres.');
-      return;
-    }
-
-    if (!password) {
-      setAddError('La contraseña temporal es requerida.');
-      return;
-    }
-    if (password.length < 8) {
-      setAddError('La contraseña debe tener al menos 8 caracteres.');
-      return;
-    }
-
-    const allowedRoles = ['editor', 'reader'];
-    if (!role || !allowedRoles.includes(role)) {
-      setAddError('El rol especificado es inválido. Solo se permite "editor" o "reader".');
-      return;
-    }
-
-    try {
-      setIsAdding(true);
-      const res = await fetch(`/api/brains/${brainId}/members/create-and-add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, name, password, role }),
-      });
-
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 403) {
-          throw new Error('No autorizado: solo los propietarios pueden crear usuarios.');
-        }
-        if (res.status === 409) {
-          throw new Error(data.error || 'El usuario ya existe o ya es miembro.');
-        }
-        throw new Error(data.error || 'Error al crear y agregar miembro.');
-      }
-
-      setAddSuccess(`Usuario ${email} creado y agregado exitosamente como ${getRoleLabel(role)}.`);
-      setEmailInput('');
-      setNewUserName('');
-      setNewUserPassword('');
-      setShowCreateForm(false);
-      if (onRefresh) {
-        onRefresh();
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error de conexión con el servidor.';
-      setAddError(msg);
-    } finally {
-      setIsAdding(false);
-    }
-  };
 
   const handleChangeMemberRole = async (member: MemberWithUser, newRole: 'owner' | 'editor' | 'reader') => {
     if (newRole === member.role) return;
@@ -374,147 +412,60 @@ export default function ManageMembersModal({
           )}
 
           {isOwner && (
-            <form onSubmit={showCreateForm ? handleCreateAndAddMember : handleAddMember} className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col gap-3">
+            <form onSubmit={handleSendInvitation} className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col gap-3">
               <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                {showCreateForm ? 'Crear y Agregar Nuevo Miembro' : 'Invitar Miembro'}
+                Invitar por email
               </h4>
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1 flex flex-col gap-1">
                   <input
                     type="email"
                     placeholder="correo@ejemplo.com"
-                    value={emailInput}
+                    value={inviteEmail}
                     onChange={(e) => {
-                      setEmailInput(e.target.value);
-                      if (addError) setAddError(null);
-                      if (addSuccess) setAddSuccess(null);
-                      if (showCreateForm) {
-                        setShowCreateForm(false);
-                        setNewUserName('');
-                        setNewUserPassword('');
-                      }
+                      setInviteEmail(e.target.value);
+                      if (inviteError) setInviteError(null);
+                      if (inviteSuccess) setInviteSuccess(null);
                     }}
                     disabled={isAdding}
                     className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors placeholder-slate-400 font-medium"
                   />
                 </div>
-                {!showCreateForm && (
-                  <div className="shrink-0 flex gap-2">
-                    <select
-                      value={roleInput}
-                      onChange={(e) => setRoleInput(e.target.value as 'owner' | 'editor' | 'reader')}
-                      disabled={isAdding}
-                      className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors"
-                    >
-                      <option value="reader">Lector</option>
-                      <option value="editor">Editor</option>
-                      <option value="owner">Propietario</option>
-                    </select>
-                    <button
-                      type="submit"
-                      disabled={isAdding}
-                      className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shrink-0 shadow-sm shadow-blue-500/10"
-                    >
-                      {isAdding ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Agregando...</span>
-                        </>
-                      ) : (
-                        <span>Agregar</span>
-                      )}
-                    </button>
-                  </div>
-                )}
+                <div className="shrink-0 flex gap-2">
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as 'editor' | 'reader')}
+                    disabled={isAdding}
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors"
+                  >
+                    <option value="reader">Lector</option>
+                    <option value="editor">Editor</option>
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={isAdding}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shrink-0 shadow-sm shadow-blue-500/10"
+                  >
+                    {isAdding ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <span>Enviar invitación</span>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {/* Subformulario Inline para crear usuario nuevo */}
-              {showCreateForm && (
-                <div className="border-t border-slate-200 pt-3 flex flex-col gap-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nombre Completo</label>
-                      <input
-                        type="text"
-                        placeholder="Nombre de usuario"
-                        value={newUserName}
-                        onChange={(e) => {
-                          setNewUserName(e.target.value);
-                          if (addError) setAddError(null);
-                        }}
-                        disabled={isAdding}
-                        className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors placeholder-slate-400 font-medium"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contraseña Temporal</label>
-                      <input
-                        type="password"
-                        placeholder="Mínimo 8 caracteres"
-                        value={newUserPassword}
-                        onChange={(e) => {
-                          setNewUserPassword(e.target.value);
-                          if (addError) setAddError(null);
-                        }}
-                        disabled={isAdding}
-                        className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors placeholder-slate-400 font-medium"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rol:</label>
-                      <select
-                        value={newUserRole}
-                        onChange={(e) => setNewUserRole(e.target.value as 'editor' | 'reader')}
-                        disabled={isAdding}
-                        className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 disabled:opacity-60 transition-colors"
-                      >
-                        <option value="reader">Lector</option>
-                        <option value="editor">Editor</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCreateForm(false);
-                          setNewUserName('');
-                          setNewUserPassword('');
-                          setAddError(null);
-                        }}
-                        disabled={isAdding}
-                        className="border border-slate-200 hover:bg-slate-100 disabled:opacity-60 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isAdding}
-                        className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shadow-sm shadow-blue-500/10"
-                      >
-                        {isAdding ? (
-                          <>
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Creando...</span>
-                          </>
-                        ) : (
-                          <span>Crear usuario y añadir</span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {addError && (
+              {inviteError && (
                 <p className="text-[11px] text-red-600 font-semibold mt-1 flex items-center gap-1 animate-fade-in">
-                  ⚠️ {addError}
+                  ⚠️ {inviteError}
                 </p>
               )}
-              {addSuccess && (
+              {inviteSuccess && (
                 <p className="text-[11px] text-green-600 font-semibold mt-1 flex items-center gap-1 animate-fade-in">
-                  ✅ {addSuccess}
+                  ✅ {inviteSuccess}
                 </p>
               )}
             </form>
@@ -633,17 +584,99 @@ export default function ManageMembersModal({
               ))}
             </div>
           )}
+           {/* Invitaciones Section (Solo Propietarios) */}
+          {isOwner && (
+            <div className="mt-4 flex flex-col gap-3">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Invitaciones enviadas
+              </h4>
+
+              {invitationsError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+                  ⚠️ Error al cargar invitaciones: {invitationsError}
+                </div>
+              )}
+
+              {invitationsLoading && (
+                <div className="flex items-center justify-center py-4 gap-2 text-slate-400">
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-medium text-slate-500">Cargando invitaciones...</span>
+                </div>
+              )}
+
+              {!invitationsLoading && !invitationsError && invitations.length === 0 && (
+                <div className="text-center py-6 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/30">
+                  No hay invitaciones enviadas.
+                </div>
+              )}
+
+              {!invitationsLoading && !invitationsError && invitations.length > 0 && (
+                <div className="divide-y divide-slate-100 border border-slate-150 rounded-xl overflow-hidden bg-white">
+                  {invitations.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="p-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800 truncate">
+                            {inv.email}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0 ${getRoleBadgeClass(inv.role)}`}>
+                            {getRoleLabel(inv.role)}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1 font-medium flex items-center gap-1.5">
+                          <span>Invitado el {new Date(inv.invitedAt).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span>Expira {new Date(inv.expiresAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-2">
+                        {/* Status Badge */}
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shrink-0 ${getInvitationStatusBadgeClass(inv.status)}`}>
+                          {getInvitationStatusLabel(inv.status)}
+                        </span>
+
+                        {/* Revoke Action */}
+                        {inv.status === 'pending' && (
+                          <button
+                            onClick={() => handleCancelInvitation(inv.id, inv.email)}
+                            disabled={cancelingInvitationId === inv.id}
+                            title="Cancelar invitación"
+                            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 transition-colors disabled:opacity-50 flex items-center justify-center shrink-0"
+                          >
+                            {cancelingInvitationId === inv.id ? (
+                              <div className="w-3 h-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <button
             type="button"
-            onClick={onRefresh}
-            disabled={isLoading}
+            onClick={() => {
+              if (onRefresh) onRefresh();
+              if (isOwner) fetchInvitations();
+            }}
+            disabled={isLoading || invitationsLoading}
             className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50"
           >
-            <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className={`w-4 h-4 ${isLoading || invitationsLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
             </svg>
             <span>Actualizar</span>
