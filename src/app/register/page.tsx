@@ -2,7 +2,12 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import RegisterForm from './RegisterForm';
 
-export default async function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invitationToken?: string; redirect?: string }>;
+}) {
+  const { invitationToken, redirect: redirectParam } = await searchParams;
   const currentUser = await getCurrentUser();
 
   if (currentUser) {
@@ -82,7 +87,7 @@ export default async function RegisterPage() {
         {/* Soft background glow decoration */}
         <div className="absolute top-1/4 left-1/4 w-[350px] h-[350px] bg-blue-600/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <RegisterForm />
+        <RegisterForm invitationToken={invitationToken} redirect={redirectParam} />
       </div>
     </div>
   );
