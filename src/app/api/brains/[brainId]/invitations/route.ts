@@ -5,6 +5,7 @@ import {
   createInvitationTokenPair,
   getInvitationExpiresAt,
   getInvitationStatus,
+  isInvitationExpired,
   normalizeInvitationEmail,
   buildInvitationAcceptUrl,
   getBrainRoleLabel,
@@ -236,32 +237,142 @@ export async function POST(
       );
     }
 
-    // 5. Check if there is already a pending invitation for this email and brain
-    const now = new Date();
-    const existingPendingInvitation = await db.brainInvitation.findFirst({
+    // 5. Check if there is already an invitation for this email and brain
+    const existingInvitation = await db.brainInvitation.findFirst({
       where: {
         brainId,
         email: cleanEmail,
-        acceptedAt: null,
-        revokedAt: null,
-        expiresAt: {
-          gt: now,
+      },
+      include: {
+        invitedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        acceptedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
         },
       },
     });
 
-    if (existingPendingInvitation) {
+    if (existingInvitation) {
+      // Already accepted → block
+      if (existingInvitation.acceptedAt !== null) {
+        return NextResponse.json(
+          { error: 'La invitación ya fue aceptada.' },
+          { status: 409 }
+        );
+      }
+
+      // Still pending (not revoked, not expired) → block
+      if (
+        existingInvitation.revokedAt === null &&
+        !isInvitationExpired(existingInvitation.expiresAt)
+      ) {
+        return NextResponse.json(
+          { error: 'Ya existe una invitación pendiente para este email en este cerebro.' },
+          { status: 409 }
+        );
+      }
+
+      // Revoked or expired → reuse existing record
+      const { token, tokenHash } = createInvitationTokenPair();
+      const expiresAt = getInvitationExpiresAt();
+
+      // Snapshot for rollback on email failure
+      const prevTokenHash = existingInvitation.tokenHash;
+      const prevExpiresAt = existingInvitation.expiresAt;
+      const prevRevokedAt = existingInvitation.revokedAt;
+      const prevRole = existingInvitation.role;
+      const prevInvitedById = existingInvitation.invitedById;
+
+      const updatedInvitation = await db.brainInvitation.update({
+        where: { id: existingInvitation.id },
+        data: {
+          tokenHash,
+          expiresAt,
+          revokedAt: null,
+          role: role as BrainRole,
+          invitedById: currentUser.id,
+        },
+        include: {
+          invitedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          acceptedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Resolve brain name for email
+      const brain = await db.brain.findUnique({
+        where: { id: brainId },
+        select: { name: true },
+      });
+      const brainName = brain?.name || 'este cerebro';
+
+      const acceptUrl = buildInvitationAcceptUrl({ token });
+      const roleLabel = getBrainRoleLabel(role as BrainRole);
+      const inviterName = currentUser.name || currentUser.email || 'Un usuario';
+
+      const emailTemplate = renderBrainInvitationEmail({
+        inviterName,
+        brainName,
+        roleLabel,
+        acceptUrl,
+        expiresIn: '48 horas',
+      });
+
+      const emailResult = await sendEmail({
+        to: cleanEmail,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+      });
+
+      if (!emailResult.success) {
+        await db.brainInvitation.update({
+          where: { id: existingInvitation.id },
+          data: {
+            tokenHash: prevTokenHash,
+            expiresAt: prevExpiresAt,
+            revokedAt: prevRevokedAt,
+            role: prevRole,
+            invitedById: prevInvitedById,
+          },
+        }).catch(() => {});
+
+        return NextResponse.json(
+          { error: 'No se pudo enviar el email de invitación.' },
+          { status: 502 }
+        );
+      }
+
       return NextResponse.json(
-        { error: 'Ya existe una invitación pendiente para este email en este cerebro.' },
-        { status: 409 }
+        { invitation: serializeInvitation(updatedInvitation) },
+        { status: 200 }
       );
     }
 
-    // 6. Generate token pair and expiration date
+    // 6. No existing invitation → create new
     const { token, tokenHash } = createInvitationTokenPair();
     const expiresAt = getInvitationExpiresAt();
 
-    // 7. Create BrainInvitation in DB
     let newInvitation;
     try {
       newInvitation = await db.brainInvitation.create({
@@ -300,14 +411,13 @@ export async function POST(
       throw err;
     }
 
-    // 8. Resolve brain name for email
+    // 7. Resolve brain name for email
     const brain = await db.brain.findUnique({
       where: { id: brainId },
       select: { name: true },
     });
     const brainName = brain?.name || 'este cerebro';
 
-    // 9. Build accept URL and render email
     const acceptUrl = buildInvitationAcceptUrl({ token });
     const roleLabel = getBrainRoleLabel(role as BrainRole);
     const inviterName = currentUser.name || currentUser.email || 'Un usuario';
@@ -320,7 +430,6 @@ export async function POST(
       expiresIn: '48 horas',
     });
 
-    // 10. Send invitation email
     const emailResult = await sendEmail({
       to: cleanEmail,
       subject: emailTemplate.subject,
@@ -329,7 +438,6 @@ export async function POST(
     });
 
     if (!emailResult.success) {
-      // Revoke the invitation if email sending fails
       await db.brainInvitation.update({
         where: { id: newInvitation.id },
         data: { revokedAt: new Date() },
@@ -341,7 +449,6 @@ export async function POST(
       );
     }
 
-    // 11. Return response safely (never includes token, tokenHash, or acceptUrl)
     return NextResponse.json(
       { invitation: serializeInvitation(newInvitation) },
       { status: 201 }
