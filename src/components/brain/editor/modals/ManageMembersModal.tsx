@@ -76,6 +76,7 @@ export default function ManageMembersModal({
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   const [cancelingInvitationId, setCancelingInvitationId] = useState<string | null>(null);
+  const [resendingInvitationId, setResendingInvitationId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !isOwner || !brainId) return;
@@ -205,6 +206,38 @@ export default function ManageMembersModal({
       alert(msg);
     } finally {
       setCancelingInvitationId(null);
+    }
+  };
+
+  const handleResendInvitation = async (invitationId: string) => {
+    if (invitationsLoading || cancelingInvitationId || resendingInvitationId || isAdding) return;
+
+    setInviteError(null);
+    setInviteSuccess(null);
+
+    try {
+      setResendingInvitationId(invitationId);
+      const res = await fetch(`/api/brains/${brainId}/invitations/${invitationId}/resend`, {
+        method: 'POST',
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'No se pudo reenviar la invitación.');
+      }
+
+      setInviteSuccess('Invitación reenviada.');
+      fetchInvitations();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'No se pudo reenviar la invitación.';
+      setInviteError(msg);
+    } finally {
+      setResendingInvitationId(null);
     }
   };
 
@@ -639,11 +672,35 @@ export default function ManageMembersModal({
                           {getInvitationStatusLabel(inv.status)}
                         </span>
 
-                        {/* Revoke Action */}
+                        {/* Resend Action — pending, expired, revoked */}
+                        {inv.status !== 'accepted' && (
+                          <button
+                            onClick={() => handleResendInvitation(inv.id)}
+                            disabled={
+                              resendingInvitationId === inv.id ||
+                              cancelingInvitationId === inv.id
+                            }
+                            title="Reenviar invitación"
+                            className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shrink-0"
+                          >
+                            {resendingInvitationId === inv.id ? (
+                              <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+
+                        {/* Cancel Action — pending only */}
                         {inv.status === 'pending' && (
                           <button
                             onClick={() => handleCancelInvitation(inv.id, inv.email)}
-                            disabled={cancelingInvitationId === inv.id}
+                            disabled={
+                              cancelingInvitationId === inv.id ||
+                              resendingInvitationId === inv.id
+                            }
                             title="Cancelar invitación"
                             className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 transition-colors disabled:opacity-50 flex items-center justify-center shrink-0"
                           >
