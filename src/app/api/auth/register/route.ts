@@ -1,27 +1,21 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import db from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { createSession, SESSION_COOKIE_NAME, SESSION_DURATION_MS } from '@/lib/auth';
+import { hashInvitationToken, isInvitationExpired, normalizeInvitationEmail } from '@/lib/invitations';
 
 export const runtime = 'nodejs';
 
 /**
  * POST /api/auth/register
  * Handles self-registration of a new User and UserCredential.
- * Requires a registration access code defined in the environment.
+ * Supports standard registration with accessCode or invitation-based registration.
  */
 export async function POST(request: Request) {
   try {
-    // 1. Verify REGISTRATION_ACCESS_CODE exists in environment
-    const expectedAccessCode = process.env.REGISTRATION_ACCESS_CODE;
-    if (!expectedAccessCode) {
-      return NextResponse.json(
-        { error: 'El auto-registro está deshabilitado temporalmente en este servidor.' },
-        { status: 503 }
-      );
-    }
-
-    // 2. Parse request JSON body safely
+    // 1. Parse request JSON body safely
     let body;
     try {
       body = await request.json();
@@ -32,21 +26,75 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, name, password, confirmPassword, accessCode } = body;
+    const { email, name, password, confirmPassword, accessCode, invitationToken } = body;
 
-    // 3. Validation: accessCode
-    if (typeof accessCode !== 'string' || !accessCode) {
-      return NextResponse.json(
-        { error: 'El código de acceso de registro es requerido.' },
-        { status: 400 }
-      );
-    }
+    const isInvitationMode = typeof invitationToken === 'string' && invitationToken.trim().length > 0;
 
-    if (accessCode !== expectedAccessCode) {
-      return NextResponse.json(
-        { error: 'El código de acceso de registro es incorrecto.' },
-        { status: 401 }
-      );
+    // 2. Validation: accessCode (Only required if not in invitation mode)
+    if (!isInvitationMode) {
+      const expectedAccessCode = process.env.REGISTRATION_ACCESS_CODE;
+      if (!expectedAccessCode) {
+        return NextResponse.json(
+          { error: 'El auto-registro está deshabilitado temporalmente en este servidor.' },
+          { status: 503 }
+        );
+      }
+
+      if (typeof accessCode !== 'string' || !accessCode) {
+        return NextResponse.json(
+          { error: 'El código de acceso de registro es requerido.' },
+          { status: 400 }
+        );
+      }
+
+      if (accessCode !== expectedAccessCode) {
+        return NextResponse.json(
+          { error: 'El código de acceso de registro es incorrecto.' },
+          { status: 401 }
+        );
+      }
+    } else {
+      // 3. Validation: invitationToken (Only required if in invitation mode)
+      const tokenHash = hashInvitationToken(invitationToken);
+      const invitation = await db.brainInvitation.findUnique({
+        where: { tokenHash },
+      });
+
+      if (!invitation) {
+        return NextResponse.json(
+          { error: 'La invitación no existe.' },
+          { status: 404 }
+        );
+      }
+
+      if (invitation.acceptedAt !== null) {
+        return NextResponse.json(
+          { error: 'La invitación ya fue aceptada.' },
+          { status: 409 }
+        );
+      }
+
+      if (invitation.revokedAt !== null) {
+        return NextResponse.json(
+          { error: 'La invitación ya fue revocada.' },
+          { status: 409 }
+        );
+      }
+
+      if (isInvitationExpired(invitation.expiresAt)) {
+        return NextResponse.json(
+          { error: 'La invitación ha expirado.' },
+          { status: 410 }
+        );
+      }
+
+      const reqEmail = typeof email === 'string' ? email : '';
+      if (normalizeInvitationEmail(reqEmail) !== normalizeInvitationEmail(invitation.email)) {
+        return NextResponse.json(
+          { error: 'El correo no coincide con el destinatario de la invitación.' },
+          { status: 403 }
+        );
+      }
     }
 
     // 4. Validation: email
@@ -153,7 +201,29 @@ export async function POST(request: Request) {
       return user;
     });
 
-    // 11. Return successful response
+    // 11. If in invitation mode, perform auto-login
+    if (isInvitationMode) {
+      const sessionToken = await createSession(createdUser.id);
+      const cookieStore = await cookies();
+      cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        expires: new Date(Date.now() + SESSION_DURATION_MS),
+      });
+
+      return NextResponse.json(
+        {
+          message: 'Usuario registrado y autenticado exitosamente.',
+          user: createdUser,
+          autoLogin: true
+        },
+        { status: 201 }
+      );
+    }
+
+    // 12. Return successful response for normal mode
     return NextResponse.json(
       {
         message: 'Usuario registrado exitosamente.',
